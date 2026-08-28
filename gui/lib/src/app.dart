@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show AppExitResponse;
 
 import 'controller.dart';
 import 'pages/build_page.dart';
@@ -18,9 +17,8 @@ class OcforgeApp extends StatefulWidget {
   State<OcforgeApp> createState() => _OcforgeAppState();
 }
 
-class _OcforgeAppState extends State<OcforgeApp> {
+class _OcforgeAppState extends State<OcforgeApp> with WidgetsBindingObserver {
   final OcforgeController _controller = OcforgeController();
-  late final AppLifecycleListener _lifecycle;
 
   // The CLI probe runs inside SetupGate (see below); no need to also kick it
   // off here.
@@ -28,17 +26,19 @@ class _OcforgeAppState extends State<OcforgeApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
     // On desktop the root State's dispose() isn't guaranteed on window close;
-    // this fires reliably, so the Detect temp spec gets cleaned up.
-    _lifecycle = AppLifecycleListener(onExitRequested: () async {
-      _controller.cleanupTempSpec();
-      return AppExitResponse.exit;
-    });
+    // 'detached' fires as the app tears down, so clean up the Detect temp spec.
+    if (state == AppLifecycleState.detached) _controller.cleanupTempSpec();
   }
 
   @override
   void dispose() {
-    _lifecycle.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }

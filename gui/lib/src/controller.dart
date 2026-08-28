@@ -64,7 +64,7 @@ class OcforgeController extends ChangeNotifier {
   /// deleted when replaced by another spec and when the app shuts down. A spec
   /// the user opened from disk is never touched.
   void setSpec(String path, String label, Map<String, dynamic>? m, {bool temp = false}) {
-    _deleteTempSpec(); // clean up the previous Detect spec, if any
+    cleanupTempSpec(); // clean up the previous Detect spec, if any
     specPath = path;
     specLabel = label;
     machine = m;
@@ -84,8 +84,6 @@ class OcforgeController extends ChangeNotifier {
     }
     _specIsTemp = false;
   }
-
-  void _deleteTempSpec() => cleanupTempSpec();
 
   @override
   void dispose() {
