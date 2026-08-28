@@ -63,8 +63,12 @@ MANIFEST: tuple[Kext, ...] = (
     Kext("LucyRTL8125Ethernet", "Mieze/LucyRTL8125Ethernet", r"LucyRTL8125Ethernet.*\.zip", order=43),
     Kext("AtherosE2200Ethernet", "Mieze/AtherosE2200Ethernet", r"AtherosE2200Ethernet.*\.zip", order=44),
 
-    # wifi (Intel; Broadcom uses native drivers, nothing to inject)
+    # wifi + bluetooth
     Kext("AirportItlwm", "OpenIntelWireless/itlwm", r"AirportItlwm.*\.zip", order=45),
+    _ac("AirportBrcmFixup", order=46),  # Broadcom Wi-Fi (non-Apple BCM cards)
+    Kext("BlueToolFixup", "acidanthera/BrcmPatchRAM",
+         r"^BrcmPatchRAM-[\d.]+-RELEASE\.zip$", bundle="BlueToolFixup.kext",
+         min_darwin=21, order=48),  # non-Apple Bluetooth on macOS 12+
 
     # USB mapping
     Kext("USBToolBox", "USBToolBox/kext", r"USBToolBox-.*\.zip", order=60),
@@ -126,9 +130,13 @@ def _need_ethernet(m: Machine) -> str | None:
 
 def _need_wifi(m: Machine) -> str | None:
     w = m.wifi
-    if w and w.vendor is Vendor.INTEL:
+    if not w:
+        return None
+    if w.vendor is Vendor.INTEL:
         return "AirportItlwm"
-    return None  # Broadcom = native, unknown = user problem
+    if w.vendor is Vendor.BROADCOM:
+        return "AirportBrcmFixup"
+    return None  # Atheros / MediaTek / unknown — user problem
 
 
 def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
@@ -162,7 +170,11 @@ def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
     if eth := _need_ethernet(m):
         picks[eth] = f"for {eth}"
     if wifi := _need_wifi(m):
-        picks[wifi] = "Intel Wi-Fi"
+        picks[wifi] = "Intel Wi-Fi (itlwm)" if wifi == "AirportItlwm" else "Broadcom Wi-Fi"
+
+    # non-Apple Bluetooth needs BlueToolFixup on macOS 12+ (laptops always have BT)
+    if m.is_laptop and target.darwin >= 21:
+        picks["BlueToolFixup"] = "Bluetooth on macOS 12+"
 
     if m.storage.has_nvme:
         picks.setdefault("NVMeFix", "")

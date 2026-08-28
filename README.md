@@ -52,11 +52,17 @@ Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
 hotpatch set. With them, ocforge fetches [SSDTTime](https://github.com/corpnewt/SSDTTime),
 runs the non-interactive ops your machine needs (FakeEC, USBX, PluginType,
 PMC, RTCAWAC, PNLF), and merges the compiled `.aml` + any ACPI renames into
-the config. `--dump-dsdt` reads `/sys/firmware/acpi/tables` (Linux only, no
-root); on Windows/macOS pass `--dsdt` with a folder of tables you dumped.
+the config. `--dump-dsdt` reads `/sys/firmware/acpi/tables` (Linux only,
+usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
+dumped.
+
+Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
+(`AirportItlwm`) and Broadcom Wi-Fi (`AirportBrcmFixup`); laptops on macOS 12+
+also get `BlueToolFixup` for Bluetooth.
 
 Not yet: SSDT-GPIO for I2C-HID trackpads (board-specific, still a manual
-SSDTTime step), Wi-Fi beyond Intel/Broadcom, and pre-Sandy-Bridge hosts.
+SSDTTime step), Wi-Fi other than Intel/Broadcom (Atheros, MediaTek), Broadcom
+Bluetooth firmware upload (`BrcmPatchRAM`), and pre-Sandy-Bridge hosts.
 
 ## Desktop GUI
 

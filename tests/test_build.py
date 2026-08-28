@@ -51,8 +51,17 @@ def test_kext_resolve_intel_laptop():
     assert {"VoodooPS2Controller", "VoodooI2C", "VoodooI2CHID", "VoodooInput", "SMCBatteryManager"} <= names
     assert "IntelMausi" in names          # I219-V
     assert "AirportItlwm" in names        # Intel wifi
+    assert "BlueToolFixup" in names       # laptop + macOS 12+
     assert "AMDRyzenCPUPowerManagement" not in names
     assert "SMCSuperIO" not in names
+
+
+def test_kext_resolve_broadcom_wifi():
+    m = intel_laptop()
+    m.net = [NetIf(name="BCM943602CS", vendor=Vendor.BROADCOM, wireless=True)]
+    names = {s.kext.name for s in make(m).kexts}
+    assert "AirportBrcmFixup" in names
+    assert "AirportItlwm" not in names
 
 
 # --- ACPI selection -----------------------------------------------------------
