@@ -305,6 +305,101 @@ const String demoExplainJson = '''
 ]
 ''';
 
+const String demoConfigJson = '''
+{
+  "ACPI": {
+    "Add": [
+      {
+        "Comment": "SSDT-EC-USBX",
+        "Enabled": true,
+        "Path": "SSDT-EC-USBX.aml"
+      },
+      {
+        "Comment": "SSDT-PLUG",
+        "Enabled": true,
+        "Path": "SSDT-PLUG.aml"
+      }
+    ],
+    "Quirks": {
+      "FadtEnableReset": false,
+      "NormalizeHeaders": false,
+      "RebaseRegions": false,
+      "ResetHwSig": false,
+      "ResetLogoStatus": true,
+      "SyncTableIds": false
+    }
+  },
+  "Booter": {
+    "Quirks": {
+      "AllowRelocationBlock": false,
+      "AvoidRuntimeDefrag": true,
+      "ClearTaskSwitchBit": false,
+      "DevirtualiseMmio": false,
+      "DisableSingleUser": false,
+      "DisableVariableWrite": false
+    }
+  },
+  "Kernel": {
+    "Quirks": {
+      "AppleXcpmCfgLock": true,
+      "DisableIoMapper": true,
+      "PanicNoKextDump": true
+    },
+    "Emulate": {
+      "Cpuid1Data": {
+        "__data__": ""
+      },
+      "Cpuid1Mask": {
+        "__data__": ""
+      },
+      "DummyPowerManagement": false,
+      "MaxKernel": "",
+      "MinKernel": ""
+    }
+  },
+  "NVRAM": {
+    "Add": {
+      "7C436110-AB2A-4BBB-A880-FE41995C9F82": {
+        "boot-args": "-v debug=0x100 keepsyms=1 igfxonln=1 -lilubetaall",
+        "csr-active-config": {
+          "__data__": "00000000"
+        },
+        "prev-lang:kbd": {
+          "__data__": "656e2d55533a30"
+        },
+        "run-efi-updater": "No"
+      }
+    }
+  },
+  "PlatformInfo": {
+    "Generic": {
+      "SystemProductName": "MacBookPro16,1",
+      "SystemSerialNumber": "C02Y20U8MD6N",
+      "MLB": "C02901404GUN9PRAD",
+      "ROM": {
+        "__data__": "8863dfac69ba"
+      },
+      "SystemUUID": "392EAAA9-26A0-4D8B-BD6C-51281C89D9F2"
+    }
+  },
+  "UEFI": {
+    "Quirks": {
+      "ActivateHpetSupport": false,
+      "DisableSecurityPolicy": false,
+      "EnableVectorAcceleration": true,
+      "EnableVmx": false,
+      "ExitBootServicesDelay": 0
+    }
+  }
+}
+''';
+
+const List<String> demoValidateOutput = <String>[
+  'NOTE: This version of ocvalidate is only compatible with OpenCore 1.0.x.',
+  '',
+  'Completed validating config.plist in 1 ms. No issues found.',
+];
+
 const List<String> demoBuildLog = <String>[
   'fetching OpenCore 1.0.7 ...',
   'fetching OcBinaryData ...',

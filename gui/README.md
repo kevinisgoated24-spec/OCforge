@@ -11,7 +11,8 @@ Four tabs, matching the CLI:
 | **Detect** | `ocforge probe --save …` | parsed CPU / GPU / NIC / board cards |
 | **Plan**   | `ocforge plan --spec … [--macos N]` | target, SMBIOS, kext & SSDT counts, full plan text |
 | **Config** | `ocforge explain --spec … [--macos N] --json` | every hardware-driven config.plist edit, grouped, each with a reason and a Dortania link; on AMD, the live AMD_Vanilla patch list too |
-| **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" when done |
+| **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
+| **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
 
 ## Look
 

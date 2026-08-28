@@ -45,6 +45,11 @@ ocforge build --out ./EFI --dump-dsdt                             # dump this ho
 # 3b. …or write a bootable USB, macOS recovery included
 ocforge usb                              # list writable USB disks first
 ocforge build --spec my-pc.json --usb /dev/sdX --recovery
+
+# 4. check / tweak an existing EFI
+ocforge validate --efi ./EFI                       # OpenCore's ocvalidate on the config
+ocforge plist show ./EFI/OC/config.plist           # config.plist -> JSON (hex data sentinels)
+ocforge plist save ./EFI/OC/config.plist < edited.json
 ```
 
 The assembled `config.plist` validates clean against `ocvalidate` for the

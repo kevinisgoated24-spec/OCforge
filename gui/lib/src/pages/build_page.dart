@@ -265,11 +265,59 @@ class _BuildPageState extends State<BuildPage> {
         ),
         if (_lastExit == 0) ...<Widget>[
           const SizedBox(height: 14),
-          Text('run ocvalidate against the config before booting.',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          Row(
+            children: <Widget>[
+              FilledButton.tonalIcon(
+                onPressed: _running ? null : () => _validate(_outCtl.text.trim()),
+                icon: const Icon(Icons.verified_rounded),
+                label: const Text('Validate this EFI'),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text('runs OpenCore’s ocvalidate on the config.plist',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12.5)),
+              ),
+            ],
+          ),
         ],
       ],
     );
+  }
+
+  Future<void> _validate(String out) async {
+    final OcforgeController c = ControllerScope.of(context);
+    if (out.isEmpty) return;
+    setState(() => _running = true);
+    _append('\n\$ ocforge validate --efi $out');
+    int code = -1;
+    if (c.demo) {
+      for (final String l in demoValidateOutput) {
+        if (!mounted) return;
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        _append(l);
+      }
+      code = 0;
+    } else {
+      try {
+        final proc = await c.cli.start(<String>['validate', '--efi', out]);
+        const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
+        final StreamSubscription<String> s1 =
+            proc.stdout.transform(dec).transform(const LineSplitter()).listen(_append);
+        final StreamSubscription<String> s2 =
+            proc.stderr.transform(dec).transform(const LineSplitter()).listen(_append);
+        code = await proc.exitCode;
+        await s1.cancel();
+        await s2.cancel();
+      } catch (e) {
+        _append('\n$e');
+      }
+    }
+    _append(code == 0 ? '\n✓ ocvalidate: no issues' : '\n✗ ocvalidate exit $code');
+    if (mounted) {
+      setState(() => _running = false);
+      _snack(code == 0 ? 'ocvalidate: no issues' : 'ocvalidate found problems — see the log');
+    }
   }
 }

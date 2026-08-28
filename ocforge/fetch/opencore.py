@@ -30,14 +30,29 @@ def fetch(dest_dir: Path, *, debug: bool = False, on_progress: Progress | None =
     return out
 
 
-def macserial_binary(opencore_dir: Path) -> str | None:
+def _utility(opencore_dir: Path, subdir: str, names: tuple[str, ...]) -> str | None:
     import os
     import sys
 
-    name = {"win32": "macserial.exe", "darwin": "macserial"}.get(sys.platform, "macserial.linux")
-    p = opencore_dir / "Utilities" / "macserial" / name
-    if p.exists():
-        if sys.platform != "win32":
-            os.chmod(p, 0o755)
-        return str(p)
+    base = opencore_dir / "Utilities" / subdir
+    for name in names:
+        p = base / name
+        if p.exists():
+            if sys.platform != "win32":
+                os.chmod(p, 0o755)
+            return str(p)
     return None
+
+
+def macserial_binary(opencore_dir: Path) -> str | None:
+    import sys
+
+    name = {"win32": "macserial.exe", "darwin": "macserial"}.get(sys.platform, "macserial.linux")
+    return _utility(opencore_dir, "macserial", (name, "macserial", "macserial.linux"))
+
+
+def ocvalidate_binary(opencore_dir: Path) -> str | None:
+    import sys
+
+    name = {"win32": "ocvalidate.exe", "darwin": "ocvalidate"}.get(sys.platform, "ocvalidate.linux")
+    return _utility(opencore_dir, "ocvalidate", (name, "ocvalidate", "ocvalidate.linux"))

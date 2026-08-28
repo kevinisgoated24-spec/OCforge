@@ -3,6 +3,17 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.3
+
+- **`ocforge validate`** — runs OpenCore's `ocvalidate` (from the cached
+  OpenCore package) against a `config.plist`; `--efi DIR` auto-finds
+  `EFI/OC/config.plist`. Wired into the GUI: a "Validate this EFI" button on
+  Forge after a build, and a "Validate" button in the editor.
+- **`ocforge plist show|save`** — `config.plist` ⇄ JSON with hex `__data__` /
+  ISO `__date__` sentinels, key order preserved.
+- **GUI "Editor" tab** — an OCAT-style tree editor: open a `config.plist`,
+  edit bools (switch), numbers, strings and data (hex), save it back.
+
 ## gui-v0.4.2
 
 **ACPI — the full Dortania prebuilt-SSDT matrix.** `ocforge` now selects tables

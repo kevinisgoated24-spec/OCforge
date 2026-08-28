@@ -3,6 +3,8 @@
     ocforge probe   [--save FILE]                  detect this machine
     ocforge plan    [--spec FILE] [--macos N]      compatibility + full build plan
     ocforge explain [--spec FILE] [--macos N]      config.plist decisions, with reasons
+    ocforge validate [--efi DIR | --config FILE]   run ocvalidate on a config.plist
+    ocforge plist  show|save FILE                  config.plist <-> JSON (GUI editor)
     ocforge usb                                    list writable USB disks
     ocforge build   [--spec FILE] [--macos N] \\
                     [--out DIR | --usb DEV] [--recovery] \\
@@ -172,6 +174,57 @@ def cmd_usb(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _find_config(args: argparse.Namespace) -> Path | None:
+    if args.config:
+        return Path(args.config)
+    if args.efi:
+        root = Path(args.efi)
+        for rel in ("EFI/OC/config.plist", "OC/config.plist", "config.plist"):
+            if (root / rel).is_file():
+                return root / rel
+    return None
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    import subprocess
+
+    from ocforge.fetch import opencore
+
+    cfg = _find_config(args)
+    if cfg is None or not cfg.is_file():
+        print("give --config config.plist or --efi <folder containing EFI/OC/config.plist>",
+              file=sys.stderr)
+        return 2
+
+    work = Path(args.work or "ocforge-work").resolve()
+    print("fetching OpenCore (for ocvalidate)…", file=sys.stderr)
+    oc = opencore.fetch(work, debug=args.debug)
+    ov = opencore.ocvalidate_binary(oc)
+    if ov is None:
+        print("ocvalidate not found in the OpenCore package", file=sys.stderr)
+        return 1
+
+    print(f"$ ocvalidate {cfg}\n")
+    proc = subprocess.run([ov, str(cfg)], check=False)
+    return proc.returncode
+
+
+def cmd_plist(args: argparse.Namespace) -> int:
+    from ocforge import plist as plistio
+
+    path = Path(args.file)
+    if args.action == "show":
+        if not path.is_file():
+            print(f"no such file: {path}", file=sys.stderr)
+            return 1
+        print(plistio.to_json(path))
+        return 0
+    # save: JSON on stdin -> plist at PATH
+    plistio.from_json(sys.stdin.read(), path)
+    print(f"wrote {path}", file=sys.stderr)
+    return 0
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     from ocforge.build.pipeline import build_efi, build_usb
     from ocforge.build.plan import make
@@ -269,6 +322,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     pu = sub.add_parser("usb", help="list writable USB disks")
     pu.set_defaults(func=cmd_usb)
+
+    pval = sub.add_parser("validate", help="run OpenCore's ocvalidate against a config.plist")
+    pval.add_argument("--efi", metavar="DIR", help="folder containing EFI/OC/config.plist")
+    pval.add_argument("--config", metavar="FILE", help="a config.plist directly")
+    pval.add_argument("--work", metavar="DIR", help="download/scratch dir (default: ./ocforge-work)")
+    pval.add_argument("--debug", action="store_true", help="use the OpenCore DEBUG build")
+    pval.set_defaults(func=cmd_validate)
+
+    pp2 = sub.add_parser("plist", help="config.plist <-> JSON (for the GUI editor)")
+    pp2.add_argument("action", choices=("show", "save"))
+    pp2.add_argument("file", metavar="FILE")
+    pp2.set_defaults(func=cmd_plist)
 
     pb = sub.add_parser("build", help="assemble an EFI folder or write a bootable USB")
     pb.add_argument("--spec", metavar="FILE")

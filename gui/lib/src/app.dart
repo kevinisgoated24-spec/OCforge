@@ -4,6 +4,7 @@ import 'controller.dart';
 import 'pages/build_page.dart';
 import 'pages/config_page.dart';
 import 'pages/detect_page.dart';
+import 'pages/editor_page.dart';
 import 'pages/plan_page.dart';
 import 'setup.dart';
 import 'theme.dart';
@@ -62,6 +63,7 @@ class _ShellState extends State<_Shell> {
     PlanPage(),
     ConfigPage(),
     BuildPage(),
+    EditorPage(),
   ];
 
   @override
@@ -145,6 +147,10 @@ class _ShellState extends State<_Shell> {
               NavigationRailDestination(
                 icon: Icon(Icons.hardware_rounded),
                 label: Text('Forge'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.edit_note_rounded),
+                label: Text('Editor'),
               ),
             ],
           ),
