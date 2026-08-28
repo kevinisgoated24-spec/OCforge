@@ -41,6 +41,7 @@ class BuildPlan:
     smbios_model: str
     kexts: list[kexts.Selected]
     ssdts: list[acpi.Ssdt]
+    acpi_patches: list[dict] = field(default_factory=list)
     manual_acpi: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -114,6 +115,7 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         smbios_model=pick_smbios(m, target),
         kexts=kexts.resolve(m, target),
         ssdts=acpi.select(m),
+        acpi_patches=acpi.patches(m),
         manual_acpi=acpi.needs_generation(m),
         warnings=warnings,
     )

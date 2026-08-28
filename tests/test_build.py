@@ -78,16 +78,67 @@ def test_kext_resolve_broadcom_wifi():
 # --- ACPI selection -----------------------------------------------------------
 
 
+def _intel(gen, *, laptop=False, board="", brand="", board_vendor=""):
+    return Machine(
+        chassis=Chassis.LAPTOP if laptop else Chassis.DESKTOP,
+        cpu=Cpu(brand=brand or f"Intel Core i7 gen{gen}", vendor=Vendor.INTEL,
+                intel_gen=gen, cores=6, threads=12, flags=frozenset({"avx2"})),
+        igpu=Gpu(name="UHD", vendor=Vendor.INTEL, pci=PciId("8086", "3e98")),
+        firmware=Firmware(board_vendor=board_vendor, board_name=board),
+    )
+
+
+def _names(m):
+    return {s.name for s in acpi.select(m)}
+
+
 def test_acpi_select():
     desk = acpi.select(ryzen_desktop())
     assert [s.name for s in desk] == ["SSDT-EC-USBX"]
     assert desk[0].remote == "SSDT-EC-USBX-DESKTOP"
 
-    lap = acpi.select(intel_laptop())
-    assert {s.name for s in lap} == {"SSDT-EC-USBX", "SSDT-PLUG", "SSDT-PNLF"}
-    assert next(s for s in lap if s.name == "SSDT-EC-USBX").remote == "SSDT-EC-USBX-LAPTOP"
-    assert next(s for s in lap if s.name == "SSDT-PLUG").remote == "SSDT-PLUG-DRTNIA"
+    lap = acpi.select(intel_laptop())                    # gen 8 Coffee Lake laptop
+    assert {s.name for s in lap} == {
+        "SSDT-EC-USBX", "SSDT-PLUG", "SSDT-AWAC", "SSDT-PNLF", "SSDT-XOSI"}
+    r = {s.name: s.remote for s in lap}
+    assert r["SSDT-EC-USBX"] == "SSDT-EC-USBX-LAPTOP"
+    assert r["SSDT-PLUG"] == "SSDT-PLUG-DRTNIA"
     assert acpi.needs_generation(intel_laptop())  # I2C trackpad -> SSDT-GPIO todo
+
+
+def test_acpi_prebuilt_matrix_intel():
+    # Skylake/Kaby desktop: PLUG + EC-USBX only
+    assert _names(_intel(6)) == {"SSDT-EC-USBX", "SSDT-PLUG"}
+    # Haswell desktop: PLUG + plain SSDT-EC (no USBX before Skylake)
+    hsw = acpi.select(_intel(4))
+    assert {s.name for s in hsw} == {"SSDT-EC", "SSDT-PLUG"}
+    assert next(s for s in hsw if s.name == "SSDT-EC").remote == "SSDT-EC-DESKTOP"
+    # Coffee Lake desktop: + AWAC + PMC
+    assert _names(_intel(9, board="Z390 AORUS")) == {
+        "SSDT-EC-USBX", "SSDT-PLUG", "SSDT-AWAC", "SSDT-PMC"}
+    # ...but a Z370 board drops PMC
+    assert "SSDT-PMC" not in _names(_intel(9, board="Z370 AORUS"))
+    # Sandy Bridge + 7-series -> IMEI; Ivy + 6-series -> IMEI
+    assert "SSDT-IMEI" in _names(_intel(2, board="P8Z77-V"))
+    assert "SSDT-IMEI" in _names(_intel(3, board="P8Z68-V"))
+    assert "SSDT-IMEI" not in _names(_intel(2, board="X79 DELUXE"))
+
+
+def test_acpi_rhub_and_xosi_and_hedt():
+    # Asus 400-series desktop -> RHUB; Gigabyte 400-series -> not
+    assert "SSDT-RHUB" in _names(_intel(10, board="ROG STRIX Z490-E", board_vendor="ASUSTeK"))
+    assert "SSDT-RHUB" not in _names(_intel(10, board="Z490 AORUS", board_vendor="Gigabyte"))
+    # Ice Lake laptop -> RHUB
+    assert "SSDT-RHUB" in _names(_intel(10, laptop=True, brand="Intel Core i7-1065G7"))
+
+    # every Intel laptop -> XOSI + its _OSI rename
+    pats = acpi.patches(_intel(8, laptop=True))
+    assert len(pats) == 1 and pats[0]["Find"] == b"_OSI" and pats[0]["Replace"] == b"XOSI"
+
+    # HEDT: Haswell-E -> UNC + RTC0-RANGE; Skylake-X -> RTC0-RANGE, no UNC
+    assert {"SSDT-UNC", "SSDT-RTC0-RANGE-HEDT"} <= _names(_intel(5, board="X99-DELUXE"))
+    sklx = _names(_intel(7, board="X299 PRIME"))
+    assert "SSDT-RTC0-RANGE-HEDT" in sklx and "SSDT-UNC" not in sklx
 
 
 def _amd_on(board: str, brand: str = "AMD Ryzen 5 5600X") -> Machine:

@@ -97,6 +97,21 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
         elif finding:
             res.extra_todo.append(finding.todo() + " — build SSDT-GPIO by hand")
             log(f"  {finding.todo()} (not auto-generated)")
+
+    # Prebuilt SSDTs SSDTTime can't make headless (XOSI, IMEI, CPUR, RHUB, UNC,
+    # RTC0-RANGE-HEDT) still come from Dortania, plus any ACPI rename they need.
+    from ocforge.catalog import acpi as acpi_cat
+
+    _covered = {"SSDT-EC-USBX", "SSDT-EC", "SSDT-PLUG", "SSDT-AWAC", "SSDT-PMC", "SSDT-PNLF"}
+    extra = [s for s in acpi_cat.select(plan.machine) if s.name not in _covered]
+    if extra:
+        log(f"  fetching {len(extra)} prebuilt SSDT(s) SSDTTime can't generate: "
+            f"{', '.join(s.name for s in extra)}")
+        for r in fetch_acpi.fetch_all(extra, work / "acpi-extra"):
+            if r.path is not None:
+                res.aml.append(r.path)
+                res.acpi_add.append({"Comment": r.name, "Enabled": True, "Path": r.path.name})
+    res.acpi_patch.extend(acpi_cat.patches(plan.machine))
     return res
 
 
@@ -152,7 +167,7 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
     cfg = config_.assemble(
         plan, sm, amd_patches=amd_patches,
         acpi_add=gen.acpi_add if gen else None,
-        acpi_patch=gen.acpi_patch if gen else None,
+        acpi_patch=(gen.acpi_patch if gen else plan.acpi_patches) or None,
         acpi_delete=gen.acpi_delete if gen else None,
     )
 

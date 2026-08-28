@@ -53,12 +53,16 @@ USB ports after first boot, and fill in a real SMBIOS serial if `macserial`
 wasn't available at build time (the tool tells you).
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
-hotpatch set — `SSDT-EC-USBX`, plus `SSDT-PLUG`/`SSDT-AWAC`/`SSDT-PMC`/`SSDT-PNLF`
-by CPU/chassis, and `SSDT-CPUR` when the board is B550/A520 or AM5 (X570 and
-older AM4, and Threadripper, don't need it). With them, ocforge fetches
-[SSDTTime](https://github.com/corpnewt/SSDTTime), runs the non-interactive ops
-your machine needs (FakeEC, USBX, PluginType, PMC, RTCAWAC, PNLF), and merges
-the compiled `.aml` + any ACPI renames into the config. `--dump-dsdt` reads
+hotpatch set, following the [prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
+row for your CPU family and chassis: `SSDT-EC` vs `SSDT-EC-USBX` by generation,
+`SSDT-PLUG` (Haswell–Comet Lake), `SSDT-AWAC`/`SSDT-PMC` (Coffee Lake+ / true
+300-series), `SSDT-PNLF` + `SSDT-XOSI` (Intel laptops, with the `_OSI→XOSI`
+rename), `SSDT-IMEI` (Sandy+7-series / Ivy+6-series), `SSDT-RHUB` (Asus
+400-series / Ice Lake laptops), `SSDT-CPUR` (AMD B550/A520/AM5), and
+`SSDT-UNC` / `SSDT-RTC0-RANGE-HEDT` for X79/X99/X299 HEDT. With them, ocforge
+fetches [SSDTTime](https://github.com/corpnewt/SSDTTime), runs the
+non-interactive ops your machine needs (FakeEC, USBX, PluginType, PMC, RTCAWAC,
+PNLF), and fills the rest (XOSI/IMEI/CPUR/…) from the prebuilt set. `--dump-dsdt` reads
 `/sys/firmware/acpi/tables` (Linux only,
 usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
 dumped. For an I2C-HID trackpad, ocforge also decompiles the DSDT and
@@ -72,8 +76,10 @@ Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
 `BlueToolFixup`.
 
 Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek — ocforge
-warns and carries on), and pre-Sandy-Bridge Intel (rejected up front with a
-clear message).
+warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
+message), and HEDT (X79/X99/X299) — the SSDTs are selected but the MacPro
+SMBIOS and HEDT-specific quirks aren't fully modelled, so cross-check the
+Dortania HEDT guide.
 
 ## Desktop GUI
 
