@@ -89,9 +89,10 @@ def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
     }
 
 
-def _booter(plan: BuildPlan) -> dict[str, Any]:
+def _booter(plan: BuildPlan, *, legacy_mmap: bool = False) -> dict[str, Any]:
     m = plan.machine
-    modern_mmap = plan.is_amd or (m.cpu.vendor is Vendor.INTEL and m.cpu.intel_gen >= 8)
+    gen = m.cpu.intel_gen
+    intel = m.cpu.vendor is Vendor.INTEL
     board = m.firmware.board_name.lower()
     z390 = any(x in board for x in ("z390", "z490"))
     # Threadripper (TRX40/TRX50/WRX80/WRX90) needs DevirtualiseMmio per the AMD guide
@@ -99,6 +100,10 @@ def _booter(plan: BuildPlan) -> dict[str, Any]:
         "threadripper" in (m.cpu.brand or "").lower()
         or any(x in board for x in ("trx40", "trx50", "wrx80", "wrx90"))
     )
+    # modern (MAT-based) map vs the legacy WriteUnprotector path. OEM firmware
+    # (Dell/HP/Lenovo) is often too old for the MAT table -> --legacy-mmap.
+    modern_mmap = not legacy_mmap and (
+        plan.is_amd or (intel and gen >= 8))
     return {
         "MmioWhitelist": [],
         "Patch": [],
@@ -106,7 +111,10 @@ def _booter(plan: BuildPlan) -> dict[str, Any]:
             "AllowRelocationBlock": False,
             "AvoidRuntimeDefrag": True,
             "ClearTaskSwitchBit": False,
-            "DevirtualiseMmio": z390 or threadripper or (not plan.is_amd and m.cpu.intel_gen >= 11),
+            # Dortania: YES for all Coffee/Comet Lake desktop (helps slide/MMIO
+            # allocation), plus Z390, 11th-gen+ and Threadripper.
+            "DevirtualiseMmio": z390 or threadripper
+            or (intel and not m.is_laptop and gen >= 8),
             "DisableSingleUser": False,
             "DisableVariableWrite": False,
             "DiscardHibernateMap": False,
@@ -117,12 +125,12 @@ def _booter(plan: BuildPlan) -> dict[str, Any]:
             "ForceExitBootServices": False,
             "ProtectMemoryRegions": False,
             "ProtectSecureBoot": False,
-            "ProtectUefiServices": z390 or m.cpu.intel_gen >= 11,
+            "ProtectUefiServices": z390 or gen >= 11,
             "ProvideCustomSlide": True,
             "ProvideMaxSlide": 0,
             "RebuildAppleMemoryMap": modern_mmap,
             "ResizeAppleGpuBars": -1,
-            "SetupVirtualMap": not (plan.is_amd or m.cpu.intel_gen >= 11 or z390),
+            "SetupVirtualMap": not (plan.is_amd or gen >= 11 or z390),
             "SignalAppleOS": False,
             "SyncRuntimePermissions": modern_mmap,
         },
@@ -449,10 +457,11 @@ def assemble(plan: BuildPlan, sm: SmbiosData, *,
              amd_patches: list[dict[str, Any]] | None = None,
              acpi_add: list[dict[str, Any]] | None = None,
              acpi_patch: list[dict[str, Any]] | None = None,
-             acpi_delete: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+             acpi_delete: list[dict[str, Any]] | None = None,
+             legacy_mmap: bool = False) -> dict[str, Any]:
     return {
         "ACPI": _acpi(plan, acpi_add, acpi_patch, acpi_delete),
-        "Booter": _booter(plan),
+        "Booter": _booter(plan, legacy_mmap=legacy_mmap),
         "DeviceProperties": _device_properties(plan),
         "Kernel": _kernel(plan, amd_patches),
         "Misc": _misc(plan),

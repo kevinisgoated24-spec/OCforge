@@ -118,7 +118,8 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
 
 def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: None,
               debug: bool = False, dsdt: Path | None = None,
-              dump_dsdt: bool = False, recovery_major: int | None = None) -> BuildReport:
+              dump_dsdt: bool = False, recovery_major: int | None = None,
+              legacy_mmap: bool = False) -> BuildReport:
     work.mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
     fetch_github.set_cache_dir(work / ".gh-cache")  # dedupe/persist release lookups
@@ -171,6 +172,7 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
         acpi_add=gen.acpi_add if gen else None,
         acpi_patch=(gen.acpi_patch if gen else plan.acpi_patches) or None,
         acpi_delete=gen.acpi_delete if gen else None,
+        legacy_mmap=legacy_mmap,
     )
 
     # reconcile config against what actually made it onto disk
@@ -214,11 +216,12 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
 
 def build_usb(plan: BuildPlan, work: Path, device: str, *, recovery_major: int | None = None,
               log: Log = lambda _: None, dsdt: Path | None = None,
-              dump_dsdt: bool = False) -> BuildReport:
+              dump_dsdt: bool = False, legacy_mmap: bool = False) -> BuildReport:
     from ocforge.fetch import recovery as fetch_recovery
     from ocforge.media import write as media
 
-    report = build_efi(plan, work, work / "staging", log=log, dsdt=dsdt, dump_dsdt=dump_dsdt)
+    report = build_efi(plan, work, work / "staging", log=log, dsdt=dsdt,
+                       dump_dsdt=dump_dsdt, legacy_mmap=legacy_mmap)
 
     recovery_boot = None
     if recovery_major:

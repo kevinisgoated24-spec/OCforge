@@ -275,10 +275,11 @@ def cmd_build(args: argparse.Namespace) -> int:
         if input(f"\nERASE {args.usb} and write a bootable USB? [y/N] ").strip().lower() != "y":
             return 130
         report = build_usb(plan, work, args.usb, recovery_major=rec, log=print,
-                           dsdt=dsdt, dump_dsdt=args.dump_dsdt)
+                           dsdt=dsdt, dump_dsdt=args.dump_dsdt, legacy_mmap=args.legacy_mmap)
     else:
         report = build_efi(plan, work, Path(args.out).resolve(), log=print, debug=args.debug,
-                           dsdt=dsdt, dump_dsdt=args.dump_dsdt, recovery_major=rec)
+                           dsdt=dsdt, dump_dsdt=args.dump_dsdt, recovery_major=rec,
+                           legacy_mmap=args.legacy_mmap)
         print(f"\nEFI folder: {report.efi_dir}")
 
     _print_build_report(report)
@@ -373,6 +374,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="dump this host's ACPI tables and build SSDTs from them (Linux only)")
     pb.add_argument("--work", metavar="DIR", help="download/scratch dir (default: ./ocforge-work)")
     pb.add_argument("--debug", action="store_true", help="use the OpenCore DEBUG build")
+    pb.add_argument("--legacy-mmap", action="store_true",
+                    help="use EnableWriteUnprotector instead of RebuildAppleMemoryMap "
+                         "(OEM firmware — Dell/HP/Lenovo — that lacks the MAT table)")
     pb.set_defaults(func=cmd_build)
     return p
 

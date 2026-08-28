@@ -351,3 +351,25 @@ def test_coffee_lake_desktop_igpu_gets_framebuffer_props():
     # AMD build has no iGPU props at all
     amd = cfgmod.assemble(make(ryzen_desktop()), generate("MacPro7,1", None))
     assert "PciRoot(0x0)/Pci(0x2,0x0)" not in amd["DeviceProperties"]["Add"]
+
+
+def test_coffee_lake_desktop_gets_devirtualise_mmio_and_legacy_mmap_toggle():
+    m = _pentium()  # CFL desktop, Dell board
+    modern = cfgmod.assemble(make(m), generate("Macmini8,1", None))["Booter"]["Quirks"]
+    assert modern["DevirtualiseMmio"] is True            # Dortania CFL table
+    assert modern["RebuildAppleMemoryMap"] is True and modern["EnableWriteUnprotector"] is False
+
+    legacy = cfgmod.assemble(make(m), generate("Macmini8,1", None),
+                             legacy_mmap=True)["Booter"]["Quirks"]
+    assert legacy["RebuildAppleMemoryMap"] is False and legacy["EnableWriteUnprotector"] is True
+    assert legacy["SyncRuntimePermissions"] is False
+    assert legacy["DevirtualiseMmio"] is True            # unaffected by the toggle
+
+    # a Dell build warns about the legacy-mmap fallback
+    dell = _pentium()
+    dell.firmware = Firmware(board_vendor="Dell Inc.", board_name="03KWTV")
+    assert any("legacy-mmap" in w for w in make(dell).warnings)
+    assert not any("legacy-mmap" in w for w in make(m).warnings)   # ASUS: no warning
+    # a CFL laptop does NOT get DevirtualiseMmio
+    assert cfgmod.assemble(make(intel_laptop()), generate("MacBookPro16,1", None)) \
+        ["Booter"]["Quirks"]["DevirtualiseMmio"] is False

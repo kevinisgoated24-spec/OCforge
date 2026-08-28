@@ -24,6 +24,7 @@ class _BuildPageState extends State<BuildPage> {
   bool _recovery = true;
   bool _dumpDsdt = false;
   bool _debug = false;
+  bool _legacyMmap = false;
   int? _lastExit;
   Process? _proc;
 
@@ -71,6 +72,7 @@ class _BuildPageState extends State<BuildPage> {
       if (_recovery) '--recovery',
       if (_dumpDsdt) '--dump-dsdt',
       if (_debug) '--debug',
+      if (_legacyMmap) '--legacy-mmap',
     ];
     _append('\$ ocforge ${args.join(' ')}\n');
     try {
@@ -227,6 +229,15 @@ class _BuildPageState extends State<BuildPage> {
                   subtitle: const Text('Verbose logging to the EFI \u2014 --debug'),
                   value: _debug,
                   onChanged: _running ? null : (bool v) => setState(() => _debug = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Legacy memory map'),
+                  subtitle: const Text(
+                      'EnableWriteUnprotector instead of RebuildAppleMemoryMap \u2014 for '
+                      'OEM firmware (Dell/HP/Lenovo) that panics early \u2014 --legacy-mmap'),
+                  value: _legacyMmap,
+                  onChanged: _running ? null : (bool v) => setState(() => _legacyMmap = v),
                 ),
               ],
             ),

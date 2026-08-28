@@ -3,6 +3,16 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.14
+
+- **`DevirtualiseMmio` is now ON for every Coffee/Comet Lake desktop**, not
+  just Z390 — matches the Dortania Coffee Lake Booter table and fixes early
+  MMIO / slide-allocation panics.
+- **New `--legacy-mmap`** (CLI flag + Forge toggle): swaps
+  `RebuildAppleMemoryMap` for `EnableWriteUnprotector` (+ `SyncRuntimePermissions`
+  off), the fallback for OEM firmware (Dell / HP / Lenovo) that lacks the MAT
+  table and panics early otherwise. `ocforge plan` warns OEM boxes to try it.
+
 ## gui-v0.4.13
 
 - **Coffee/Comet Lake desktop iGPU: added `framebuffer-patch-enable` +

@@ -131,6 +131,10 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         warnings.append("AMD build: kernel patches are spliced from AMD_Vanilla; verify the core count")
         if not m.firmware.board_name:
             warnings.append("AMD board model unknown — if it's B550/A520 or AM5, add SSDT-CPUR by hand")
+    _bv = (m.firmware.board_vendor or "").lower()
+    if any(v in _bv for v in ("dell", "hewlett", "hp ", "lenovo")):
+        warnings.append("OEM firmware (Dell/HP/Lenovo) can lack the MAT table -- if the "
+                        "build panics or hangs early, rebuild with --legacy-mmap")
 
     return BuildPlan(
         machine=m,
