@@ -1,4 +1,4 @@
-# OCForge
+# OCforge
 
 Build a bootable OpenCore EFI for a machine you can describe.
 
