@@ -1,6 +1,6 @@
 """Which SSDTs the config needs.
 
-Every SSDT selected here is a *hotpatch* — it uses ``External`` refs and
+Every SSDT selected here is a *hotpatch* - it uses ``External`` refs and
 ``_STA`` conditionals, so it works without recompiling against the machine's
 own DSDT. They come straight from Dortania's precompiled set
 (``Getting-Started-With-ACPI/extra-files/compiled`` on ``master``).
@@ -55,6 +55,6 @@ def select(m: Machine) -> list[Ssdt]:
 def needs_generation(m: Machine) -> list[str]:
     todo = []
     if m.is_laptop and m.inputs.touchpad_bus == "i2c-hid":
-        todo.append("SSDT-GPIO (I2C-HID trackpad pinning) — board-specific, not covered by the "
+        todo.append("SSDT-GPIO (I2C-HID trackpad pinning) - board-specific, not covered by the "
                     "automated SSDTTime run; do it by hand in SSDTTime's 'SSDT-GPIO' walkthrough")
     return todo

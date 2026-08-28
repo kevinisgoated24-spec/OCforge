@@ -2,6 +2,7 @@
 
     ocforge probe   [--save FILE]                  detect this machine
     ocforge plan    [--spec FILE] [--macos N]      compatibility + full build plan
+    ocforge explain [--spec FILE] [--macos N]      config.plist decisions, with reasons
     ocforge usb                                    list writable USB disks
     ocforge build   [--spec FILE] [--macos N] \\
                     [--out DIR | --usb DEV] [--recovery] \\
@@ -117,6 +118,36 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_explain(args: argparse.Namespace) -> int:
+    import json
+    from dataclasses import asdict
+
+    from ocforge.build.plan import make
+    from ocforge.build.rationale import explain
+
+    m = _load_machine(args.spec)
+    try:
+        plan = make(m, target_major=args.macos)
+    except ValueError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 1
+    decisions = explain(plan)
+
+    if args.json:
+        print(json.dumps([asdict(d) for d in decisions], indent=2))
+        return 0
+
+    _print_machine(m)
+    section = None
+    for d in decisions:
+        if d.section != section:
+            section = d.section
+            print(f"\n{section}")
+        print(f"  {d.setting}  =  {d.value}")
+        print(f"      {d.reason}")
+    return 0
+
+
 def cmd_usb(_args: argparse.Namespace) -> int:
     from ocforge.media.devices import list_usb
 
@@ -213,6 +244,12 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--spec", metavar="FILE")
     pl.add_argument("--macos", type=int, metavar="N", help="force a macOS major (e.g. 14)")
     pl.set_defaults(func=cmd_plan)
+
+    pe = sub.add_parser("explain", help="the config.plist decisions for this hardware, with reasons")
+    pe.add_argument("--spec", metavar="FILE")
+    pe.add_argument("--macos", type=int, metavar="N")
+    pe.add_argument("--json", action="store_true", help="machine-readable output")
+    pe.set_defaults(func=cmd_explain)
 
     pu = sub.add_parser("usb", help="list writable USB disks")
     pu.set_defaults(func=cmd_usb)

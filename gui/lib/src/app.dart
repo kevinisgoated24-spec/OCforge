@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'controller.dart';
 import 'pages/build_page.dart';
+import 'pages/config_page.dart';
 import 'pages/detect_page.dart';
 import 'pages/plan_page.dart';
 import 'setup.dart';
@@ -59,6 +60,7 @@ class _ShellState extends State<_Shell> {
   static const List<Widget> _pages = <Widget>[
     DetectPage(),
     PlanPage(),
+    ConfigPage(),
     BuildPage(),
   ];
 
@@ -102,6 +104,10 @@ class _ShellState extends State<_Shell> {
               NavigationRailDestination(
                 icon: Icon(Icons.tune_rounded),
                 label: Text('Plan'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.rule_rounded),
+                label: Text('Config'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.hardware_rounded),

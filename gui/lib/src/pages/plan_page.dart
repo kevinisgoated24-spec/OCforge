@@ -6,9 +6,9 @@ import '../controller.dart';
 import '../demo.dart';
 import '../widgets.dart';
 
-const List<int?> _macosChoices = <int?>[null, 26, 15, 14, 13, 12, 11];
+const List<int?> macosChoices = <int?>[null, 26, 15, 14, 13, 12, 11];
 
-String _macosLabel(int? v) => switch (v) {
+String macosLabel(int? v) => switch (v) {
       null => 'Auto',
       26 => 'Tahoe 26',
       15 => 'Sequoia 15',
@@ -111,9 +111,9 @@ class _PlanPageState extends State<PlanPage> {
                   spacing: 10,
                   runSpacing: 10,
                   children: <Widget>[
-                    for (final int? choice in _macosChoices)
+                    for (final int? choice in macosChoices)
                       ChoiceChip(
-                        label: Text(_macosLabel(choice)),
+                        label: Text(macosLabel(choice)),
                         selected: c.macosOverride == choice,
                         onSelected: (_) => c.setMacos(choice),
                       ),

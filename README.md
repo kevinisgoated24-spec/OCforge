@@ -27,6 +27,9 @@ ocforge probe --save my-pc.json
 # 2. see the plan: macOS target, kexts, SSDTs, SMBIOS, boot-args, caveats
 ocforge plan --spec my-pc.json
 
+# 2b. or the config.plist decisions themselves, each with a reason
+ocforge explain --spec my-pc.json          # add --json for machine-readable
+
 # 3a. assemble an EFI/ folder (downloads OpenCore, kexts, SSDTs; no USB touched)
 ocforge build --spec my-pc.json --out ./EFI
 
@@ -63,5 +66,5 @@ SSDTTime step), Wi-Fi beyond Intel/Broadcom, and pre-Sandy-Bridge hosts.
 | `ocforge.spec`     | `Machine` ⇄ JSON, for off-target planning |
 | `ocforge.catalog`  | macOS compatibility, kext selection, SSDT selection |
 | `ocforge.fetch`    | OpenCore / OcBinaryData / kexts / SSDTs / SSDTTime / recovery downloads |
-| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, EFI layout, pipeline |
+| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, `rationale` (the "why"), EFI layout, pipeline |
 | `ocforge.media`    | USB enumerate / GPT+FAT32 format / write |

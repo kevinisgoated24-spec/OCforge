@@ -10,6 +10,7 @@ Three steps, matching the CLI:
 |-----|------|-------|
 | **Detect** | `ocforge probe --save …` | parsed CPU / GPU / NIC / board cards |
 | **Plan**   | `ocforge plan --spec … [--macos N]` | target, SMBIOS, kext & SSDT counts, full plan text |
+| **Config** | `ocforge explain --spec … [--macos N] --json` | every hardware-driven config.plist edit, grouped, each with a reason |
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" when done |
 
 On first launch a **setup gate** checks for Python 3.11+ and the `ocforge` CLI;
