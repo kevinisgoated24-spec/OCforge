@@ -1,0 +1,19 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+pubspec.lock
+
+# Generated platform scaffolding (recreated by `flutter create` in CI)
+/android/
+/ios/
+/linux/
+/macos/
+/web/
+/windows/
+.metadata
+
+# Stash dir used by the CI scaffold step
+.stash/
