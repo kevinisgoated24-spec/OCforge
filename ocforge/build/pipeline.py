@@ -154,7 +154,7 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
 
         log(f"downloading macOS {recovery_major} recovery (this is the slow part)…")
         try:
-            recovery_dir = fetch_recovery.download(recovery_major, oc_src, out)
+            recovery_dir = fetch_recovery.download(recovery_major, oc_src, out, work=work)
             log(f"  recovery staged at {recovery_dir}")
         except fetch_recovery.RecoveryError as exc:
             recovery_error = str(exc)
@@ -186,7 +186,7 @@ def build_usb(plan: BuildPlan, work: Path, device: str, *, recovery_major: int |
     if recovery_major:
         log("downloading macOS recovery (this is the slow part)…")
         recovery_boot = fetch_recovery.download(
-            recovery_major, work / "opencore", work / "recovery"
+            recovery_major, work / "opencore", work / "recovery", work=work
         )
 
     log(f"formatting {device} and writing payload…")
