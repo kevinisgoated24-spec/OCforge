@@ -153,15 +153,16 @@ def cmd_build(args: argparse.Namespace) -> int:
         print(f"--dsdt path not found: {dsdt}", file=sys.stderr)
         return 1
 
+    rec = plan.target.major if args.recovery else None
+
     if args.usb:
         if input(f"\nERASE {args.usb} and write a bootable USB? [y/N] ").strip().lower() != "y":
             return 130
-        rec = plan.target.major if args.recovery else None
         report = build_usb(plan, work, args.usb, recovery_major=rec, log=print,
                            dsdt=dsdt, dump_dsdt=args.dump_dsdt)
     else:
         report = build_efi(plan, work, Path(args.out).resolve(), log=print, debug=args.debug,
-                           dsdt=dsdt, dump_dsdt=args.dump_dsdt)
+                           dsdt=dsdt, dump_dsdt=args.dump_dsdt, recovery_major=rec)
         print(f"\nEFI folder: {report.efi_dir}")
 
     _print_build_report(report)
@@ -187,6 +188,10 @@ def _print_build_report(r) -> None:
         print("\nstill to do by hand:")
         for t in r.manual_todo:
             print(f"  ! {t}")
+    if getattr(r, "recovery_error", None):
+        print(f"\n! macOS recovery not staged: {r.recovery_error}")
+    elif getattr(r, "recovery_dir", None):
+        print(f"\nmacOS recovery: {r.recovery_dir}")
     if r.ok:
         print("\nrun ocvalidate against the config before booting.")
 
@@ -217,7 +222,9 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--macos", type=int, metavar="N")
     pb.add_argument("--out", metavar="DIR", help="write EFI/ into this folder")
     pb.add_argument("--usb", metavar="DEVICE", help="ERASE this disk and write a bootable USB")
-    pb.add_argument("--recovery", action="store_true", help="also download + stage macOS recovery (USB only)")
+    pb.add_argument("--recovery", action="store_true",
+                    help="also download + stage a macOS recovery image "
+                         "(com.apple.recovery.boot next to EFI/, or onto the USB)")
     pb.add_argument("--dsdt", metavar="PATH",
                     help="a DSDT.aml (or folder of ACPI tables) — SSDTs are built from it with SSDTTime")
     pb.add_argument("--dump-dsdt", action="store_true",

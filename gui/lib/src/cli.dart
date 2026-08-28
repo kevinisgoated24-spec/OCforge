@@ -10,6 +10,17 @@ class CliResolution {
   final String label;
 }
 
+/// A working Python interpreter on this machine.
+class PythonInfo {
+  const PythonInfo(this.executable, this.baseArgs, this.version);
+
+  final String executable; // 'py' | 'python' | 'python3'
+  final List<String> baseArgs; // ['-3'] for the py launcher
+  final String version; // e.g. "Python 3.12.8"
+
+  List<String> cmd(List<String> rest) => <String>[...baseArgs, ...rest];
+}
+
 /// Locates and runs the `ocforge` CLI. If nothing on the machine answers
 /// `--version`, [available] stays false and the UI drops into demo mode.
 class OcforgeCli {
@@ -78,5 +89,91 @@ class OcforgeCli {
       includeParentEnvironment: true,
       environment: _env,
     );
+  }
+
+  // --- first-run bootstrap ------------------------------------------------
+
+  static const String zipballUrl =
+      'https://github.com/kevinisgoated24-spec/OCforge/archive/refs/heads/master.zip';
+
+  /// The first Python that answers `--version`, or null if none is installed.
+  static Future<PythonInfo?> findPython() async {
+    const List<List<String>> probes = <List<String>>[
+      <String>['py', '-3'],
+      <String>['python3'],
+      <String>['python'],
+    ];
+    for (final List<String> p in probes) {
+      try {
+        final ProcessResult r = await Process.run(
+          p.first,
+          <String>[...p.skip(1), '--version'],
+          runInShell: true,
+          stdoutEncoding: utf8,
+          stderrEncoding: utf8,
+        );
+        final String v = ('${r.stdout}${r.stderr}').trim();
+        // The Microsoft Store stub exits non-zero and prints an install hint.
+        if (r.exitCode == 0 && v.toLowerCase().startsWith('python')) {
+          return PythonInfo(p.first, p.skip(1).toList(), v);
+        }
+      } on ProcessException {
+        // next probe
+      }
+    }
+    return null;
+  }
+
+  /// `pip install --user` the ocforge zipball with the given interpreter.
+  /// Streams output through [log]; returns the process exit code.
+  static Future<int> installOcforge(PythonInfo py, void Function(String) log) async {
+    Future<int> pip() async {
+      final List<String> args = py.cmd(<String>[
+        '-m', 'pip', 'install', '--user', '--upgrade', '--disable-pip-version-check',
+        zipballUrl,
+      ]);
+      log('\$ ${py.executable} ${args.join(' ')}');
+      final Process proc = await Process.start(py.executable, args,
+          runInShell: true, environment: _env, includeParentEnvironment: true);
+      const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
+      proc.stdout.transform(dec).transform(const LineSplitter()).listen(log);
+      proc.stderr.transform(dec).transform(const LineSplitter()).listen(log);
+      return proc.exitCode;
+    }
+
+    int code = await pip();
+    if (code != 0) {
+      // Old/edge Pythons without pip wired up.
+      log('pip unavailable — bootstrapping it with ensurepip …');
+      final ProcessResult ep = await Process.run(
+        py.executable,
+        py.cmd(<String>['-m', 'ensurepip', '--default-pip']),
+        runInShell: true,
+      );
+      log('${ep.stdout}${ep.stderr}'.trim());
+      if (ep.exitCode == 0) code = await pip();
+    }
+    return code;
+  }
+
+  /// Best-effort Python install via winget. Returns exit code, or -1 when
+  /// winget itself isn't available.
+  static Future<int> wingetInstallPython(void Function(String) log) async {
+    const List<String> args = <String>[
+      'install', '-e', '--id', 'Python.Python.3.12', '--source', 'winget',
+      '--accept-package-agreements', '--accept-source-agreements',
+    ];
+    log('\$ winget ${args.join(' ')}');
+    try {
+      final Process proc =
+          await Process.start('winget', args, runInShell: true);
+      const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
+      proc.stdout.transform(dec).transform(const LineSplitter()).listen(log);
+      proc.stderr.transform(dec).transform(const LineSplitter()).listen(log);
+      return proc.exitCode;
+    } on ProcessException {
+      log('winget not found on this system');
+      return -1;
+    }
   }
 }

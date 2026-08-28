@@ -10,7 +10,16 @@ Three steps, matching the CLI:
 |-----|------|-------|
 | **Detect** | `ocforge probe --save …` | parsed CPU / GPU / NIC / board cards |
 | **Plan**   | `ocforge plan --spec … [--macos N]` | target, SMBIOS, kext & SSDT counts, full plan text |
-| **Forge**  | `ocforge build --spec … --out … [--dump-dsdt] [--debug]` | live build log, "open folder" when done |
+| **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" when done |
+
+On first launch a **setup gate** checks for Python 3.11+ and the `ocforge` CLI;
+if either is missing it offers to install them (winget for Python, `pip install
+--user` the repo zipball for ocforge) before continuing. "Skip" drops into demo
+mode.
+
+The Forge tab stages a **macOS recovery image** (`com.apple.recovery.boot`
+beside `EFI/`) by default — toggle it off with the switch if you don't want the
+download.
 
 The GUI shells out to the `ocforge` Python CLI (tries `ocforge` on `PATH`, then
 `py -3 -m ocforge`, `python -m ocforge`, `python3 -m ocforge`). If none answers,

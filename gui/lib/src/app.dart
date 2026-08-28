@@ -4,6 +4,7 @@ import 'controller.dart';
 import 'pages/build_page.dart';
 import 'pages/detect_page.dart';
 import 'pages/plan_page.dart';
+import 'setup.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -17,11 +18,8 @@ class OcforgeApp extends StatefulWidget {
 class _OcforgeAppState extends State<OcforgeApp> {
   final OcforgeController _controller = OcforgeController();
 
-  @override
-  void initState() {
-    super.initState();
-    _controller.init();
-  }
+  // The CLI probe runs inside SetupGate (see below); no need to also kick it
+  // off here.
 
   @override
   void dispose() {
@@ -41,7 +39,7 @@ class _OcforgeAppState extends State<OcforgeApp> {
           theme: expressiveTheme(Brightness.light),
           darkTheme: expressiveTheme(Brightness.dark),
           themeMode: _controller.themeMode,
-          home: const _Shell(),
+          home: const SetupGate(child: _Shell()),
         ),
       ),
     );

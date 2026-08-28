@@ -39,6 +39,8 @@ class BuildReport:
     smbios_model: str = ""
     used_placeholder_smbios: bool = False
     ssdt_source: str = "precompiled"  # or "ssdttime"
+    recovery_dir: Path | None = None
+    recovery_error: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -79,7 +81,7 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
 
 def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: None,
               debug: bool = False, dsdt: Path | None = None,
-              dump_dsdt: bool = False) -> BuildReport:
+              dump_dsdt: bool = False, recovery_major: int | None = None) -> BuildReport:
     work.mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -145,6 +147,19 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
     config_path = layout.write_config(oc, cfg)
     log(f"wrote {config_path}")
 
+    recovery_dir: Path | None = None
+    recovery_error: str | None = None
+    if recovery_major:
+        from ocforge.fetch import recovery as fetch_recovery
+
+        log(f"downloading macOS {recovery_major} recovery (this is the slow part)…")
+        try:
+            recovery_dir = fetch_recovery.download(recovery_major, oc_src, out)
+            log(f"  recovery staged at {recovery_dir}")
+        except fetch_recovery.RecoveryError as exc:
+            recovery_error = str(exc)
+            log(f"  recovery download failed: {exc}")
+
     return BuildReport(
         efi_dir=out / "EFI",
         config_path=config_path,
@@ -154,6 +169,8 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
         smbios_model=sm.model,
         used_placeholder_smbios=macserial is None,
         ssdt_source=ssdt_source,
+        recovery_dir=recovery_dir,
+        recovery_error=recovery_error,
     )
 
 

@@ -21,6 +21,7 @@ class _BuildPageState extends State<BuildPage> {
   final TextEditingController _outCtl = TextEditingController();
   final List<String> _log = <String>[];
   bool _running = false;
+  bool _recovery = true;
   bool _dumpDsdt = false;
   bool _debug = false;
   int? _lastExit;
@@ -67,6 +68,7 @@ class _BuildPageState extends State<BuildPage> {
       '--out',
       out,
       if (c.macosOverride != null) ...<String>['--macos', '${c.macosOverride}'],
+      if (_recovery) '--recovery',
       if (_dumpDsdt) '--dump-dsdt',
       if (_debug) '--debug',
     ];
@@ -94,10 +96,19 @@ class _BuildPageState extends State<BuildPage> {
   }
 
   Future<void> _demoRun(String out) async {
-    _append('\$ ocforge build --spec (demo) --out $out\n');
-    for (final String line in demoBuildLog) {
+    _append('\$ ocforge build --spec (demo) --out $out'
+        '${_recovery ? ' --recovery' : ''}\n');
+    final List<String> lines = <String>[
+      ...demoBuildLog,
+      if (_recovery) ...<String>[
+        '',
+        'downloading macOS 15 recovery (this is the slow part) …',
+        '  recovery staged at $out/com.apple.recovery.boot',
+      ],
+    ];
+    for (final String line in lines) {
       if (!mounted || !_running) return;
-      await Future<void>.delayed(const Duration(milliseconds: 160));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
       _append(line);
     }
     _finish(0, out);
@@ -168,7 +179,8 @@ class _BuildPageState extends State<BuildPage> {
           child: SectionTitle(
             'Forge the EFI',
             subtitle:
-                'Downloads OpenCore, the resolved kexts and SSDTs, assembles config.plist and writes an EFI/ folder.',
+                'Downloads OpenCore, the resolved kexts and SSDTs, assembles config.plist, writes an EFI/ folder, '
+                'and (by default) stages a macOS recovery image beside it.',
           ),
         ),
         const SizedBox(height: 22),
@@ -192,6 +204,15 @@ class _BuildPageState extends State<BuildPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Stage a macOS recovery image'),
+                  subtitle: const Text(
+                      'com.apple.recovery.boot next to EFI/ \u2014 downloads from Apple, slow \u2014 --recovery'),
+                  value: _recovery,
+                  onChanged:
+                      _running ? null : (bool v) => setState(() => _recovery = v),
+                ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Build SSDTs from this PC\u2019s DSDT'),
