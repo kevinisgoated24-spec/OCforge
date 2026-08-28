@@ -3,6 +3,15 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.4
+
+- **Fixed GitHub API rate-limit failures** on repeat builds. Release lookups
+  are now deduped per repo and cached on disk (6 h TTL) in the work dir — a
+  rebuild within the window makes **zero** API calls — and a token from
+  `GITHUB_TOKEN` / `GH_TOKEN` or an authenticated `gh` CLI is picked up
+  automatically (60/hr → 5000/hr). A genuine rate-limit now raises a clear
+  message with the reset time instead of a bare `HTTP 403`.
+
 ## gui-v0.4.3
 
 - **`ocforge validate`** — runs OpenCore's `ocvalidate` (from the cached

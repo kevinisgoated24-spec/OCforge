@@ -22,6 +22,10 @@ class DownloadError(RuntimeError):
     pass
 
 
+class RateLimited(DownloadError):
+    """GitHub API 403 with the rate-limit remaining at zero."""
+
+
 def _contexts() -> list[ssl.SSLContext]:
     ctxs = [ssl.create_default_context()]
     try:
@@ -33,14 +37,40 @@ def _contexts() -> list[ssl.SSLContext]:
     return ctxs
 
 
+def _is_github(url: str) -> bool:
+    return "github.com" in url or "githubusercontent.com" in url
+
+
+def _rate_limit_error(exc: urllib.error.HTTPError, url: str) -> RateLimited | None:
+    if exc.code not in (403, 429):
+        return None
+    hdrs = exc.headers or {}
+    if hdrs.get("X-RateLimit-Remaining") not in ("0", None):
+        return None
+    reset = hdrs.get("X-RateLimit-Reset")
+    when = ""
+    if reset and reset.isdigit():
+        import datetime
+
+        t = datetime.datetime.fromtimestamp(int(reset), tz=datetime.UTC).astimezone()
+        when = f" (resets {t:%H:%M})"
+    hint = ("set GITHUB_TOKEN / GH_TOKEN (a token with no scopes is enough), "
+            "or `gh auth login`, to lift it to 5000/hr"
+            if not github_headers() else "wait for the window to reset")
+    return RateLimited(f"GitHub API rate limit hit{when} — {hint}\n  {url}")
+
+
 def open_url(url: str, *, headers: dict[str, str] | None = None, timeout: int = 30):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
+    hdrs = {"User-Agent": UA, **(headers or {})}
+    if _is_github(url) and "Authorization" not in hdrs:
+        hdrs.update(github_headers())
+    req = urllib.request.Request(url, headers=hdrs)
     last: Exception | None = None
     for ctx in _contexts():
         try:
             return urllib.request.urlopen(req, context=ctx, timeout=timeout)
-        except urllib.error.HTTPError:
-            raise
+        except urllib.error.HTTPError as exc:
+            raise _rate_limit_error(exc, url) or exc from None
         except (urllib.error.URLError, ssl.SSLError) as exc:
             last = exc
     raise DownloadError(f"could not open {url}: {last}")
@@ -112,6 +142,30 @@ def _ok(path: Path, sha256: str | None) -> bool:
     return h.hexdigest().lower() == sha256.lower()
 
 
+_GH_TOKEN_CACHE: list[str | None] = []
+
+
+def _gh_cli_token() -> str | None:
+    """Best-effort: reuse the token from an authenticated `gh` CLI."""
+    if _GH_TOKEN_CACHE:
+        return _GH_TOKEN_CACHE[0]
+    tok: str | None = None
+    try:
+        import shutil
+        import subprocess
+
+        exe = shutil.which("gh")
+        if exe:
+            out = subprocess.run([exe, "auth", "token"], capture_output=True,
+                                 text=True, timeout=5, check=False)
+            if out.returncode == 0 and out.stdout.strip():
+                tok = out.stdout.strip()
+    except (OSError, ValueError):
+        tok = None
+    _GH_TOKEN_CACHE.append(tok)
+    return tok
+
+
 def github_headers() -> dict[str, str]:
-    tok = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    tok = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or _gh_cli_token()
     return {"Authorization": f"Bearer {tok}"} if tok else {}

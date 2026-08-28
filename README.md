@@ -22,6 +22,11 @@ pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"
 
 Python 3.11+. No runtime dependencies.
 
+Downloads come from GitHub releases. Unauthenticated that's 60 API calls/hour;
+ocforge caches release lookups per work-dir (6 h) so rebuilds are nearly free,
+and it will use a token from `GITHUB_TOKEN` / `GH_TOKEN` or an authenticated
+`gh` automatically to lift the ceiling to 5000/hour.
+
 ## Use
 
 ```bash

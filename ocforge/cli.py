@@ -197,6 +197,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return 2
 
     work = Path(args.work or "ocforge-work").resolve()
+    from ocforge.fetch import github as fetch_github
+
+    fetch_github.set_cache_dir(work / ".gh-cache")
     print("fetching OpenCore (for ocvalidate)…", file=sys.stderr)
     oc = opencore.fetch(work, debug=args.debug)
     ov = opencore.ocvalidate_binary(oc)

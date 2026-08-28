@@ -20,6 +20,7 @@ from ocforge.build import ssdtgen
 from ocforge.build.plan import BuildPlan
 from ocforge.build.smbios import generate as gen_smbios
 from ocforge.fetch import acpi as fetch_acpi
+from ocforge.fetch import github as fetch_github
 from ocforge.fetch import kexts as fetch_kexts
 from ocforge.fetch import ocbinary, opencore
 from ocforge.fetch import ssdttime as fetch_ssdttime
@@ -120,6 +121,7 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
               dump_dsdt: bool = False, recovery_major: int | None = None) -> BuildReport:
     work.mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
+    fetch_github.set_cache_dir(work / ".gh-cache")  # dedupe/persist release lookups
 
     log("fetching OpenCore…")
     oc_src = opencore.fetch(work, debug=debug)
