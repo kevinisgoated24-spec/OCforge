@@ -66,9 +66,17 @@ MANIFEST: tuple[Kext, ...] = (
     # wifi + bluetooth
     Kext("AirportItlwm", "OpenIntelWireless/itlwm", r"AirportItlwm.*\.zip", order=45),
     _ac("AirportBrcmFixup", order=46),  # Broadcom Wi-Fi (non-Apple BCM cards)
+    # Broadcom Bluetooth firmware upload — all three ship in the BrcmPatchRAM zip
+    Kext("BrcmFirmwareData", "acidanthera/BrcmPatchRAM",
+         r"^BrcmPatchRAM-[\d.]+-RELEASE\.zip$", bundle="BrcmFirmwareData.kext", order=47),
+    Kext("BrcmPatchRAM3", "acidanthera/BrcmPatchRAM",
+         r"^BrcmPatchRAM-[\d.]+-RELEASE\.zip$", bundle="BrcmPatchRAM3.kext", order=48),
+    Kext("BrcmBluetoothInjector", "acidanthera/BrcmPatchRAM",
+         r"^BrcmPatchRAM-[\d.]+-RELEASE\.zip$", bundle="BrcmBluetoothInjector.kext",
+         max_darwin=20, order=49),  # pre-Monterey only
     Kext("BlueToolFixup", "acidanthera/BrcmPatchRAM",
          r"^BrcmPatchRAM-[\d.]+-RELEASE\.zip$", bundle="BlueToolFixup.kext",
-         min_darwin=21, order=48),  # non-Apple Bluetooth on macOS 12+
+         min_darwin=21, order=50),  # non-Apple Bluetooth on macOS 12+
 
     # USB mapping
     Kext("USBToolBox", "USBToolBox/kext", r"USBToolBox-.*\.zip", order=60),
@@ -169,11 +177,19 @@ def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
 
     if eth := _need_ethernet(m):
         picks[eth] = f"for {eth}"
-    if wifi := _need_wifi(m):
+    wifi = _need_wifi(m)
+    if wifi:
         picks[wifi] = "Intel Wi-Fi (itlwm)" if wifi == "AirportItlwm" else "Broadcom Wi-Fi"
 
-    # non-Apple Bluetooth needs BlueToolFixup on macOS 12+ (laptops always have BT)
-    if m.is_laptop and target.darwin >= 21:
+    # Bluetooth. Broadcom combo cards need the firmware-upload stack; every
+    # laptop has *some* Bluetooth, and macOS 12+ needs BlueToolFixup for any
+    # non-Apple radio.
+    if wifi == "AirportBrcmFixup":
+        picks["BrcmFirmwareData"] = "Broadcom BT firmware"
+        picks["BrcmPatchRAM3"] = "Broadcom BT firmware upload"
+        if target.darwin < 21:
+            picks["BrcmBluetoothInjector"] = "Broadcom BT (pre-Monterey)"
+    if (m.is_laptop or wifi == "AirportBrcmFixup") and target.darwin >= 21:
         picks["BlueToolFixup"] = "Bluetooth on macOS 12+"
 
     if m.storage.has_nvme:

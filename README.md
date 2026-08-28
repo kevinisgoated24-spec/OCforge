@@ -56,15 +56,19 @@ runs the non-interactive ops your machine needs (FakeEC, USBX, PluginType,
 PMC, RTCAWAC, PNLF), and merges the compiled `.aml` + any ACPI renames into
 the config. `--dump-dsdt` reads `/sys/firmware/acpi/tables` (Linux only,
 usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
-dumped.
+dumped. For an I2C-HID trackpad, ocforge also decompiles the DSDT and
+best-effort generates **SSDT-GPIO** — the interrupt pin and GPIO controller
+read straight from the touchpad's `_CRS`. Verify the trackpad after first boot;
+if it's dead, that pin was wrong and needs doing by hand.
 
 Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
-(`AirportItlwm`) and Broadcom Wi-Fi (`AirportBrcmFixup`); laptops on macOS 12+
-also get `BlueToolFixup` for Bluetooth.
+(`AirportItlwm`) and Broadcom Wi-Fi + Bluetooth (`AirportBrcmFixup`,
+`BrcmFirmwareData` + `BrcmPatchRAM3`); laptops on macOS 12+ also get
+`BlueToolFixup`.
 
-Not yet: SSDT-GPIO for I2C-HID trackpads (board-specific, still a manual
-SSDTTime step), Wi-Fi other than Intel/Broadcom (Atheros, MediaTek), Broadcom
-Bluetooth firmware upload (`BrcmPatchRAM`), and pre-Sandy-Bridge hosts.
+Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek — ocforge
+warns and carries on), and pre-Sandy-Bridge Intel (rejected up front with a
+clear message).
 
 ## Desktop GUI
 
@@ -84,5 +88,5 @@ see [`gui/README.md`](gui/README.md).
 | `ocforge.spec`     | `Machine` ⇄ JSON, for off-target planning |
 | `ocforge.catalog`  | macOS compatibility, kext selection, SSDT selection |
 | `ocforge.fetch`    | OpenCore / OcBinaryData / kexts / SSDTs / SSDTTime / recovery downloads |
-| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, `rationale` (the "why"), EFI layout, pipeline |
+| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, SSDT-GPIO from the DSDT, `rationale` (the "why"), EFI layout, pipeline |
 | `ocforge.media`    | USB enumerate / GPT+FAT32 format / write |

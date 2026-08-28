@@ -55,6 +55,6 @@ def select(m: Machine) -> list[Ssdt]:
 def needs_generation(m: Machine) -> list[str]:
     todo = []
     if m.is_laptop and m.inputs.touchpad_bus == "i2c-hid":
-        todo.append("SSDT-GPIO (I2C-HID trackpad pinning) - board-specific, not covered by the "
-                    "automated SSDTTime run; do it by hand in SSDTTime's 'SSDT-GPIO' walkthrough")
+        todo.append("SSDT-GPIO (I2C-HID trackpad): auto-generated from the DSDT when you pass "
+                    "--dsdt / --dump-dsdt (verify the trackpad after); otherwise a manual step")
     return todo

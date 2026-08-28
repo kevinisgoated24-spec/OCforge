@@ -71,10 +71,25 @@ class BuildPlan:
         return args
 
 
+# Wi-Fi vendors with a working modern-macOS driver path.
+_WIFI_OK = (Vendor.INTEL, Vendor.BROADCOM, Vendor.APPLE, Vendor.UNKNOWN)
+
+
 def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
+    # Pre-Sandy-Bridge Intel (Nehalem/Westmere and older) has no supported
+    # graphics path on any macOS ocforge targets — fail loud, not vague.
+    if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 2:
+        raise ValueError(
+            f"{m.cpu.brand or 'this CPU'} is 1st-gen Intel Core (pre-Sandy-Bridge); "
+            "the oldest supported target here is Sandy Bridge on Big Sur. Not buildable."
+        )
+
     target = macos.by_major(target_major) if target_major else macos.recommended(m)
     if target is None:
-        raise ValueError("no supported macOS release for this machine")
+        why = "no supported macOS release for this machine"
+        if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 3:
+            why += " (pre-Ivy-Bridge Intel — try --macos 11/12 at your own risk)"
+        raise ValueError(why)
 
     warnings: list[str] = []
     if m.chassis is Chassis.UNKNOWN:
@@ -83,6 +98,11 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         warnings.append("CPU vendor unknown — kernel quirks may be wrong")
     if not m.wired_nics and m.wifi is None:
         warnings.append("no supported NIC detected — you may have no network in the installer")
+    if m.wifi is not None and m.wifi.vendor not in _WIFI_OK:
+        warnings.append(
+            f"Wi-Fi chip is {m.wifi.vendor.value} — no macOS driver exists "
+            "(Atheros/MediaTek/Killer-WiFi); use a supported card or a USB adapter"
+        )
     if m.cpu.vendor is Vendor.AMD:
         warnings.append("AMD build: kernel patches are spliced from AMD_Vanilla; verify the core count")
 

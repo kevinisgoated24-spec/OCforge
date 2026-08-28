@@ -76,6 +76,27 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
         return None
     log(f"  SSDTTime built {len(res.aml)} SSDT(s): "
         f"{', '.join(p.name for p in res.aml)}")
+
+    # I2C-HID trackpad: try SSDT-GPIO straight from the DSDT
+    if plan.machine.inputs.touchpad_bus == "i2c-hid":
+        from ocforge.build import gpio
+
+        try:
+            finding = gpio.generate(acpi_dir, st_dir, work / "gpio")
+        except Exception as exc:  # noqa: BLE001 - GPIO gen is best-effort
+            log(f"  SSDT-GPIO probe failed: {exc}")
+            finding = None
+        if finding and finding.generated:
+            res.aml.append(finding.generated)
+            res.acpi_add.append({
+                "Comment": "SSDT-GPIO (ocforge, from DSDT)",
+                "Enabled": True, "Path": finding.generated.name,
+            })
+            res.extra_todo.append(finding.todo() + " — VERIFY the trackpad works")
+            log(f"  {finding.todo()}")
+        elif finding:
+            res.extra_todo.append(finding.todo() + " — build SSDT-GPIO by hand")
+            log(f"  {finding.todo()} (not auto-generated)")
     return res
 
 
@@ -165,12 +186,12 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
         config_path=config_path,
         kext_failures=kext_failures,
         ssdt_failures=ssdt_failures,
-        manual_todo=list(plan.manual_acpi),
         smbios_model=sm.model,
         used_placeholder_smbios=macserial is None,
         ssdt_source=ssdt_source,
         recovery_dir=recovery_dir,
         recovery_error=recovery_error,
+        manual_todo=list(plan.manual_acpi) + (gen.extra_todo if gen else []),
     )
 
 

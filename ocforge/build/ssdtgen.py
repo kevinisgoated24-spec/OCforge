@@ -73,6 +73,7 @@ class SsdtResult:
     ran: list[str] = field(default_factory=list)
     log_text: str = ""
     error: str | None = None
+    extra_todo: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
