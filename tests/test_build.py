@@ -5,7 +5,18 @@ from ocforge.build.amdvanilla import splice_core_count
 from ocforge.build.plan import make
 from ocforge.build.smbios import generate
 from ocforge.catalog import acpi, kexts
-from ocforge.model import Chassis, Cpu, Gpu, Input, Machine, NetIf, PciId, Storage, Vendor
+from ocforge.model import (
+    Chassis,
+    Cpu,
+    Firmware,
+    Gpu,
+    Input,
+    Machine,
+    NetIf,
+    PciId,
+    Storage,
+    Vendor,
+)
 
 
 def ryzen_desktop():
@@ -77,6 +88,26 @@ def test_acpi_select():
     assert next(s for s in lap if s.name == "SSDT-EC-USBX").remote == "SSDT-EC-USBX-LAPTOP"
     assert next(s for s in lap if s.name == "SSDT-PLUG").remote == "SSDT-PLUG-DRTNIA"
     assert acpi.needs_generation(intel_laptop())  # I2C trackpad -> SSDT-GPIO todo
+
+
+def _amd_on(board: str, brand: str = "AMD Ryzen 5 5600X") -> Machine:
+    m = ryzen_desktop()
+    m.cpu = Cpu(brand=brand, vendor=Vendor.AMD, cores=6, threads=12)
+    m.firmware = Firmware(board_vendor="ASUS", board_name=board)
+    return m
+
+
+def test_ssdt_cpur_only_for_b550_a520_am5_not_x570_or_threadripper():
+    def has_cpur(board, brand="AMD Ryzen 5 5600X"):
+        return any(s.name == "SSDT-CPUR" for s in acpi.select(_amd_on(board, brand)))
+
+    assert has_cpur("TUF GAMING B550-PLUS")
+    assert has_cpur("PRIME A520M-K")
+    assert has_cpur("ROG STRIX B650E-F")          # AM5 "and newer"
+    assert not has_cpur("X570 AORUS ELITE")       # X570 -> no
+    assert not has_cpur("B450 TOMAHAWK MAX")      # older AM4 -> no
+    assert not has_cpur("TRX40 DESIGNARE", "AMD Ryzen Threadripper 3960X")
+    assert not has_cpur("")                        # unknown board -> no (plan warns instead)
 
 
 # --- BuildPlan --------------------------------------------------------------

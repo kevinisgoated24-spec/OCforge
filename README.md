@@ -53,10 +53,13 @@ USB ports after first boot, and fill in a real SMBIOS serial if `macserial`
 wasn't available at build time (the tool tells you).
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
-hotpatch set. With them, ocforge fetches [SSDTTime](https://github.com/corpnewt/SSDTTime),
-runs the non-interactive ops your machine needs (FakeEC, USBX, PluginType,
-PMC, RTCAWAC, PNLF), and merges the compiled `.aml` + any ACPI renames into
-the config. `--dump-dsdt` reads `/sys/firmware/acpi/tables` (Linux only,
+hotpatch set — `SSDT-EC-USBX`, plus `SSDT-PLUG`/`SSDT-AWAC`/`SSDT-PMC`/`SSDT-PNLF`
+by CPU/chassis, and `SSDT-CPUR` when the board is B550/A520 or AM5 (X570 and
+older AM4, and Threadripper, don't need it). With them, ocforge fetches
+[SSDTTime](https://github.com/corpnewt/SSDTTime), runs the non-interactive ops
+your machine needs (FakeEC, USBX, PluginType, PMC, RTCAWAC, PNLF), and merges
+the compiled `.aml` + any ACPI renames into the config. `--dump-dsdt` reads
+`/sys/firmware/acpi/tables` (Linux only,
 usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
 dumped. For an I2C-HID trackpad, ocforge also decompiles the DSDT and
 best-effort generates **SSDT-GPIO** — the interrupt pin and GPIO controller

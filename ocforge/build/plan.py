@@ -105,6 +105,8 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         )
     if m.cpu.vendor is Vendor.AMD:
         warnings.append("AMD build: kernel patches are spliced from AMD_Vanilla; verify the core count")
+        if not m.firmware.board_name:
+            warnings.append("AMD board model unknown — if it's B550/A520 or AM5, add SSDT-CPUR by hand")
 
     return BuildPlan(
         machine=m,

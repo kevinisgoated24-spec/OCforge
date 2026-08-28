@@ -29,6 +29,23 @@ class Ssdt:
         return _COMPILED.format(name=self.remote)
 
 
+# AM4 B550/A520 (and AM5) declare Processor objects in a way macOS trips over;
+# X570 and older AM4, and all Threadripper, do NOT need SSDT-CPUR.
+_CPUR_CHIPSETS = ("b550", "a520", "a620", "b650", "x670", "b840", "b850", "x870")
+_TR_CHIPSETS = ("trx40", "trx50", "wrx80", "wrx90", "x399")
+
+
+def _needs_cpur(m: Machine) -> bool:
+    if m.cpu.vendor is not Vendor.AMD:
+        return False
+    board = (m.firmware.board_name or "").lower()
+    if "threadripper" in (m.cpu.brand or "").lower():
+        return False
+    if any(t in board for t in _TR_CHIPSETS):
+        return False
+    return any(c in board for c in _CPUR_CHIPSETS)
+
+
 def select(m: Machine) -> list[Ssdt]:
     out: list[Ssdt] = []
     gen = m.cpu.intel_gen
@@ -37,6 +54,11 @@ def select(m: Machine) -> list[Ssdt]:
     variant = "LAPTOP" if m.is_laptop else "DESKTOP"
     out.append(Ssdt("SSDT-EC-USBX", f"SSDT-EC-USBX-{variant}",
                     "fake EC + USB power properties (USBX)"))
+
+    if _needs_cpur(m):
+        out.append(Ssdt("SSDT-CPUR", "SSDT-CPUR",
+                        "declare Processor objects for macOS on B550/A520 (and AM5) boards "
+                        "-- X570/older AM4 and Threadripper don't need this"))
 
     if intel and 4 <= gen <= 10:
         out.append(Ssdt("SSDT-PLUG", "SSDT-PLUG-DRTNIA",
