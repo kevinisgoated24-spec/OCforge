@@ -9,12 +9,35 @@ builds anything.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Any
 
 from ocforge.build.config import _IG_PLATFORM
 from ocforge.build.plan import BuildPlan
 from ocforge.catalog import macos
 from ocforge.model import Vendor
+
+# Canonical Dortania / upstream pages, per section. AMD builds point the
+# config sections at the AMD guide instead (see _doc_for).
+_GUIDE = "https://dortania.github.io/OpenCore-Install-Guide/"
+_CONFIG = "https://dortania.github.io/OpenCore-Install-Guide/config.plist/"
+_AMD = "https://dortania.github.io/OpenCore-Install-Guide/AMD/"
+_ACPI = "https://dortania.github.io/Getting-Started-With-ACPI/"
+_AMD_VANILLA = "https://github.com/AMD-OSX/AMD_Vanilla"
+
+_DOC = {
+    "macOS": _GUIDE,
+    "SMBIOS": _CONFIG,
+    "boot-args": _CONFIG,
+    "Booter": _CONFIG,
+    "Kernel": _CONFIG,
+    "DeviceProperties": _CONFIG,
+    "ACPI": _ACPI,
+    "Kexts": _GUIDE,
+    "AMD_Vanilla": _AMD_VANILLA,
+}
+# sections whose doc swaps to the AMD guide on an AMD build
+_AMD_SECTIONS = {"SMBIOS", "boot-args", "Booter", "Kernel", "DeviceProperties"}
 
 
 @dataclass(frozen=True)
@@ -23,6 +46,7 @@ class Decision:
     setting: str
     value: str
     reason: str
+    doc: str = ""
 
 
 _BOOT_ARG_WHY = {
@@ -59,7 +83,43 @@ def _smbios_reason(plan: BuildPlan) -> str:
     return "Intel desktop, pre-9th-gen - iMac19,1"
 
 
-def explain(plan: BuildPlan) -> list[Decision]:
+def _doc_for(section: str, amd: bool) -> str:
+    if amd and section in _AMD_SECTIONS:
+        return _AMD
+    return _DOC.get(section, _GUIDE)
+
+
+def _short_comment(comment: str) -> str:
+    c = " ".join(comment.split())
+    for sep in (" Patch ", " - Patch", " patch "):
+        if sep in c:
+            return c.split(sep)[0].strip()
+    return c if len(c) <= 88 else c[:85] + "..."
+
+
+def _krange(patch: dict[str, Any]) -> str:
+    lo = str(patch.get("MinKernel") or "").removesuffix(".0.0") or "any"
+    hi = str(patch.get("MaxKernel") or "").removesuffix(".0.0") or "any"
+    return "all kernels" if lo == "any" and hi == "any" else f"darwin {lo}..{hi}"
+
+
+def _amd_vanilla_decisions(patches: list[dict[str, Any]], cores: int) -> list[Decision]:
+    out = [Decision(
+        "AMD_Vanilla", "patch set (live)", f"{len(patches)} patches from AMD_Vanilla master",
+        "the community kernel patch set - macOS will not boot on Ryzen/Threadripper "
+        "without it; ocforge fetches it fresh at build time")]
+    for p in patches:
+        name = _short_comment(p.get("Comment", "") or "unnamed patch")
+        note = "AMD kernel patch"
+        if "cpuid_cores_per_package" in p.get("Comment", ""):
+            note = f"CPU topology patch - Replace byte 1 set to {cores} (your physical core count)"
+        if p.get("Enabled") is False:
+            note += "  (disabled for the target kernel range)"
+        out.append(Decision("AMD_Vanilla", name, _krange(p), note))
+    return out
+
+
+def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None) -> list[Decision]:
     m = plan.machine
     cpu = m.cpu
     gen = cpu.intel_gen
@@ -132,7 +192,8 @@ def explain(plan: BuildPlan) -> list[Decision]:
         n = cpu.cores or 1
         out.append(Decision("Kernel", "Patch (AMD_Vanilla)",
                             f"spliced to {n} cores",
-                            "AMD_Vanilla core-count patches rewritten for this CPU"))
+                            "AMD_Vanilla core-count patches rewritten for this CPU - "
+                            "see the AMD_Vanilla section below"))
 
     # --- DeviceProperties --------------------------------------------------
     ig = m.igpu
@@ -176,4 +237,9 @@ def explain(plan: BuildPlan) -> list[Decision]:
         out.append(Decision("Kexts", s.kext.name, "load",
                             s.comment or "matched to detected hardware"))
 
-    return out
+    # --- AMD_Vanilla (live patch list) --------------------------------------
+    if amd and amd_patches:
+        out.extend(_amd_vanilla_decisions(amd_patches, cpu.cores or 1))
+
+    # attach the doc link for each section (AMD build -> AMD guide)
+    return [d if d.doc else replace(d, doc=_doc_for(d.section, amd)) for d in out]

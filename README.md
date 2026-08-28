@@ -27,8 +27,9 @@ ocforge probe --save my-pc.json
 # 2. see the plan: macOS target, kexts, SSDTs, SMBIOS, boot-args, caveats
 ocforge plan --spec my-pc.json
 
-# 2b. or the config.plist decisions themselves, each with a reason
-ocforge explain --spec my-pc.json          # add --json for machine-readable
+# 2b. or the config.plist decisions themselves, each with a reason + a
+#     Dortania link (on AMD: also the live AMD_Vanilla patch list)
+ocforge explain --spec my-pc.json          # --json for machine-readable, --offline to skip the fetch
 
 # 3a. assemble an EFI/ folder (downloads OpenCore, kexts, SSDTs; no USB touched)
 ocforge build --spec my-pc.json --out ./EFI

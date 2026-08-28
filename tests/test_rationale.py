@@ -39,8 +39,9 @@ def test_every_decision_is_fully_populated_and_ascii():
             for field in (d.section, d.setting, d.value, d.reason):
                 assert field and field.strip()
                 assert field.isascii(), field
+            assert d.doc.startswith("https://"), d
             # round-trips for the --json path / GUI
-            assert set(asdict(d)) == {"section", "setting", "value", "reason"}
+            assert set(asdict(d)) == {"section", "setting", "value", "reason", "doc"}
 
 
 def test_amd_decisions_match_the_config():
@@ -56,6 +57,27 @@ def test_amd_decisions_match_the_config():
 
     bootargs = {d.setting for d in decs if d.section == "boot-args"}
     assert {"npci=0x2000", "agdpmod=pikera", "-no_compat_check"} <= bootargs
+
+    # AMD build -> config-section docs point at the Dortania AMD guide
+    assert _find(decs, "Kernel", "AppleXcpmCfgLock")[0].doc.endswith("/AMD/")
+
+
+def test_amd_vanilla_patch_list_is_expanded_when_supplied():
+    plan = make(_amd_desktop())
+    patches = [
+        {"Comment": "algrey - Force cpuid_cores_per_package Patch _foo",
+         "Enabled": True, "Replace": b"\xb8\x00\x00\x00", "MinKernel": "19.0.0", "MaxKernel": ""},
+        {"Comment": "Shaneee - _mtrr_update_action Fix PAT",
+         "Enabled": False, "Replace": b"\x00", "MinKernel": "17.0.0", "MaxKernel": "23.99.99"},
+    ]
+    decs = explain(plan, amd_patches=patches)
+    av = [d for d in decs if d.section == "AMD_Vanilla"]
+    assert av[0].setting == "patch set (live)" and "2 patches" in av[0].value
+    core = next(d for d in av if "cpuid_cores_per_package" in d.setting)
+    assert "6" in core.reason                       # spliced to physical core count
+    disabled = next(d for d in av if d.setting.startswith("Shaneee"))
+    assert "disabled" in disabled.reason
+    assert all(d.doc == "https://github.com/AMD-OSX/AMD_Vanilla" for d in av)
 
 
 def test_intel_laptop_decisions_match_the_config():

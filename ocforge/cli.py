@@ -131,7 +131,17 @@ def cmd_explain(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
-    decisions = explain(plan)
+
+    amd_patches = None
+    if plan.is_amd and not args.offline:
+        from ocforge.build.amdvanilla import fetch as fetch_amd
+
+        try:
+            amd_patches = fetch_amd(m.cpu.cores or 1)
+        except (RuntimeError, OSError) as exc:
+            print(f"(couldn't fetch AMD_Vanilla patches: {exc})", file=sys.stderr)
+
+    decisions = explain(plan, amd_patches=amd_patches)
 
     if args.json:
         print(json.dumps([asdict(d) for d in decisions], indent=2))
@@ -143,6 +153,8 @@ def cmd_explain(args: argparse.Namespace) -> int:
         if d.section != section:
             section = d.section
             print(f"\n{section}")
+            if d.doc:
+                print(f"  see: {d.doc}")
         print(f"  {d.setting}  =  {d.value}")
         print(f"      {d.reason}")
     return 0
@@ -245,10 +257,14 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--macos", type=int, metavar="N", help="force a macOS major (e.g. 14)")
     pl.set_defaults(func=cmd_plan)
 
-    pe = sub.add_parser("explain", help="the config.plist decisions for this hardware, with reasons")
+    pe = sub.add_parser("explain",
+                        help="the config.plist decisions for this hardware, with reasons "
+                             "and Dortania links (AMD: live AMD_Vanilla patch list)")
     pe.add_argument("--spec", metavar="FILE")
     pe.add_argument("--macos", type=int, metavar="N")
     pe.add_argument("--json", action="store_true", help="machine-readable output")
+    pe.add_argument("--offline", action="store_true",
+                    help="don't fetch the live AMD_Vanilla patch list")
     pe.set_defaults(func=cmd_explain)
 
     pu = sub.add_parser("usb", help="list writable USB disks")

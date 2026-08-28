@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -90,8 +91,9 @@ class _ConfigPageState extends State<ConfigPage> {
           child: SectionTitle(
             'Config decisions',
             subtitle:
-                'Every hardware-driven edit ocforge makes to config.plist, and why. '
-                'Same choices the build writes — this view just explains them.',
+                'Every hardware-driven edit ocforge makes to config.plist, and why — with a '
+                'Dortania link per section. On an AMD system it also pulls the live '
+                'AMD_Vanilla kernel-patch list.',
           ),
         ),
         const SizedBox(height: 22),
@@ -164,6 +166,26 @@ class _ConfigPageState extends State<ConfigPage> {
   }
 }
 
+Future<void> _openUrl(String url) async {
+  try {
+    if (Platform.isWindows) {
+      await Process.run('explorer', <String>[url], runInShell: true);
+    } else if (Platform.isMacOS) {
+      await Process.run('open', <String>[url]);
+    } else {
+      await Process.run('xdg-open', <String>[url]);
+    }
+  } on ProcessException {
+    // best effort
+  }
+}
+
+String _docLabel(String url) {
+  if (url.contains('dortania.github.io')) return 'Dortania';
+  if (url.contains('AMD_Vanilla')) return 'AMD_Vanilla';
+  return 'docs';
+}
+
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.section, required this.rows});
 
@@ -173,11 +195,22 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme s = Theme.of(context).colorScheme;
+    final String doc = rows.isEmpty ? '' : (rows.first['doc'] ?? '');
     return ExpressiveCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          CardHeader(_sectionIcon[section] ?? Icons.tune_rounded, section),
+          CardHeader(
+            _sectionIcon[section] ?? Icons.tune_rounded,
+            section,
+            trailing: doc.isEmpty
+                ? null
+                : TextButton.icon(
+                    onPressed: () => _openUrl(doc),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                    label: Text(_docLabel(doc)),
+                  ),
+          ),
           const SizedBox(height: 6),
           for (final Map<String, String> r in rows)
             Padding(
