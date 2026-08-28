@@ -101,12 +101,30 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
+
+      - name: Changelog section for ${{ github.ref_name }}
+        working-directory: .
+        run: |
+          awk -v t="## ${GITHUB_REF_NAME}" '
+            $0 == t {f=1; next}
+            /^## / {f=0}
+            f {print}
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
+            echo "_No changelog entry for ${GITHUB_REF_NAME}; see the commit history._" > "$RUNNER_TEMP/notes.md"
+          fi
+          echo "===== release notes ====="; cat "$RUNNER_TEMP/notes.md"
+
       - run: find dist -type f
+
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/**/*
+          body_path: ${{ runner.temp }}/notes.md
           generate_release_notes: true
           fail_on_unmatched_files: true

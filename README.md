@@ -9,7 +9,7 @@ release is viable, resolves OpenCore + the right kexts + SSDTs, assembles a
 `config.plist`, and writes the whole EFI — optionally straight onto a USB with
 the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
 
-Changelog: New Update Now OCForge Has Linux / MacOS Support You Can Try Everywhere OCForge
+Changelog: [CHANGELOG.md](CHANGELOG.md) — now with Linux and macOS support.
 
 > derived from public OpenCore / Dortania documentation; MIT — see [LICENSE](LICENSE).
 
