@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'cli.dart';
@@ -17,6 +19,7 @@ class OcforgeController extends ChangeNotifier {
   String? specLabel;
   Map<String, dynamic>? machine;
   String? planText;
+  bool _specIsTemp = false; // true when the GUI wrote specPath itself (Detect)
 
   /// null == "Auto (recommended)".
   int? macosOverride;
@@ -57,11 +60,37 @@ class OcforgeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setSpec(String path, String label, Map<String, dynamic>? m) {
+  /// [temp] marks a spec file the GUI created itself (via Detect) — it is
+  /// deleted when replaced by another spec and when the app shuts down. A spec
+  /// the user opened from disk is never touched.
+  void setSpec(String path, String label, Map<String, dynamic>? m, {bool temp = false}) {
+    _deleteTempSpec(); // clean up the previous Detect spec, if any
     specPath = path;
     specLabel = label;
     machine = m;
+    _specIsTemp = temp;
     notifyListeners();
+  }
+
+  /// Delete the GUI-created Detect spec file, if one is current. Idempotent;
+  /// safe to call on app exit and again from [dispose].
+  void cleanupTempSpec() {
+    if (!_specIsTemp || specPath == null) return;
+    try {
+      final File f = File(specPath!);
+      if (f.existsSync()) f.deleteSync();
+    } on Object {
+      // best effort — a leftover temp file is harmless
+    }
+    _specIsTemp = false;
+  }
+
+  void _deleteTempSpec() => cleanupTempSpec();
+
+  @override
+  void dispose() {
+    cleanupTempSpec();
+    super.dispose();
   }
 
   void setPlan(String text) {

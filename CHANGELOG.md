@@ -3,6 +3,12 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.15
+
+- The GUI now **cleans up the temp spec file** it writes on "Detect this PC"
+  (`%TEMP%/ocforge_spec_*.json`) — deleted when you detect/open another spec
+  and on app exit. A spec you opened from disk is never touched.
+
 ## gui-v0.4.14
 
 - **`DevirtualiseMmio` is now ON for every Coffee/Comet Lake desktop**, not

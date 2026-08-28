@@ -40,7 +40,8 @@ class _DetectPageState extends State<DetectPage> {
           throw Exception(err.isEmpty ? 'probe exited ${r.exitCode}' : err);
         }
         final String txt = await File(tmp).readAsString();
-        c.setSpec(tmp, tmp, jsonDecode(txt) as Map<String, dynamic>);
+        c.setSpec(tmp, 'this PC (detected)', jsonDecode(txt) as Map<String, dynamic>,
+            temp: true);
       }
     } catch (e) {
       setState(() => _error = '$e');

@@ -19,12 +19,25 @@ class OcforgeApp extends StatefulWidget {
 
 class _OcforgeAppState extends State<OcforgeApp> {
   final OcforgeController _controller = OcforgeController();
+  late final AppLifecycleListener _lifecycle;
 
   // The CLI probe runs inside SetupGate (see below); no need to also kick it
   // off here.
 
   @override
+  void initState() {
+    super.initState();
+    // On desktop the root State's dispose() isn't guaranteed on window close;
+    // this fires reliably, so the Detect temp spec gets cleaned up.
+    _lifecycle = AppLifecycleListener(onExitRequested: () async {
+      _controller.cleanupTempSpec();
+      return AppExitResponse.exit;
+    });
+  }
+
+  @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.dispose();
     super.dispose();
   }
