@@ -1,5 +1,7 @@
 # OCforge
 
+<img src="docs/icon.webp" alt="OCforge icon" width="96" align="right">
+
 Build a bootable OpenCore EFI for a machine you can describe.
 
 Point it at the machine (or a saved spec of one), and it works out which macOS
