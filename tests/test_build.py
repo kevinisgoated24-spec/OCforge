@@ -1,0 +1,154 @@
+import plistlib
+
+from ocforge.build import config as cfgmod
+from ocforge.build.amdvanilla import splice_core_count
+from ocforge.build.plan import make
+from ocforge.build.smbios import generate
+from ocforge.catalog import acpi, kexts
+from ocforge.model import Chassis, Cpu, Gpu, Input, Machine, NetIf, PciId, Storage, Vendor
+
+
+def ryzen_desktop():
+    return Machine(
+        chassis=Chassis.DESKTOP,
+        cpu=Cpu(brand="AMD Ryzen 5 5600X", vendor=Vendor.AMD, family="Zen 3", cores=6, threads=12),
+        dgpu=Gpu(name="RX 6800", vendor=Vendor.AMD, pci=PciId("1002", "73bf"), discrete=True),
+        net=[NetIf(name="RTL8125", vendor=Vendor.REALTEK, pci=PciId("10ec", "8125"))],
+        storage=Storage(has_nvme=True),
+    )
+
+
+def intel_laptop():
+    return Machine(
+        chassis=Chassis.LAPTOP,
+        cpu=Cpu(brand="i7-8650U", vendor=Vendor.INTEL, family="Coffee Lake", intel_gen=8,
+                cores=4, threads=8, flags=frozenset({"avx2"})),
+        igpu=Gpu(name="UHD 620", vendor=Vendor.INTEL, pci=PciId("8086", "5917")),
+        net=[NetIf(name="I219-V", vendor=Vendor.INTEL, pci=PciId("8086", "15d8")),
+             NetIf(name="Intel 8265", vendor=Vendor.INTEL, wireless=True)],
+        storage=Storage(has_nvme=True),
+        inputs=Input(has_touchpad=True, touchpad_bus="i2c-hid"),
+    )
+
+
+# --- kext resolution ------------------------------------------------------
+
+
+def test_kext_resolve_ryzen_desktop():
+    p = make(ryzen_desktop())
+    names = [s.kext.name for s in p.kexts]
+    assert names[0] == "Lilu"  # load order 0
+    assert {"AMDRyzenCPUPowerManagement", "SMCAMDProcessor", "ForgedInvariant"} <= set(names)
+    assert "LucyRTL8125Ethernet" in names          # RTL8125 -> Lucy, not RTL8111
+    assert "SMCSuperIO" in names and "SMCBatteryManager" not in names  # desktop
+    assert "VoodooI2C" not in names
+    assert names == sorted(names, key=lambda n: kexts.get(n).order)
+
+
+def test_kext_resolve_intel_laptop():
+    p = make(intel_laptop())
+    names = {s.kext.name for s in p.kexts}
+    assert {"VoodooPS2Controller", "VoodooI2C", "VoodooI2CHID", "VoodooInput", "SMCBatteryManager"} <= names
+    assert "IntelMausi" in names          # I219-V
+    assert "AirportItlwm" in names        # Intel wifi
+    assert "AMDRyzenCPUPowerManagement" not in names
+    assert "SMCSuperIO" not in names
+
+
+# --- ACPI selection -----------------------------------------------------------
+
+
+def test_acpi_select():
+    desk = acpi.select(ryzen_desktop())
+    assert [s.name for s in desk] == ["SSDT-EC-USBX"]
+    assert desk[0].remote == "SSDT-EC-USBX-DESKTOP"
+
+    lap = acpi.select(intel_laptop())
+    assert {s.name for s in lap} == {"SSDT-EC-USBX", "SSDT-PLUG", "SSDT-PNLF"}
+    assert next(s for s in lap if s.name == "SSDT-EC-USBX").remote == "SSDT-EC-USBX-LAPTOP"
+    assert next(s for s in lap if s.name == "SSDT-PLUG").remote == "SSDT-PLUG-DRTNIA"
+    assert acpi.needs_generation(intel_laptop())  # I2C trackpad -> SSDT-GPIO todo
+
+
+# --- BuildPlan --------------------------------------------------------------
+
+
+def test_plan_amd():
+    p = make(ryzen_desktop())
+    assert p.is_amd
+    assert p.smbios_model == "MacPro7,1"       # AMD + Navi dGPU
+    assert "npci=0x2000" in p.boot_args
+    assert "-no_compat_check" in p.boot_args
+    assert any("core count" in w for w in p.warnings)
+
+
+def test_plan_forced_macos():
+    p = make(ryzen_desktop(), target_major=12)
+    assert p.target.major == 12
+
+
+# --- config assembly ------------------------------------------------------
+
+
+def test_config_is_valid_plist_and_shaped_right():
+    plan = make(ryzen_desktop())
+    sm = generate(plan.smbios_model, macserial=None)
+    amd = [{"Comment": "algrey - cpuid_cores_per_package", "Replace": b"\xb8\x00\x00\x00"}]
+    cfg = cfgmod.assemble(plan, sm, amd_patches=amd)
+
+    # round-trips through plistlib
+    reparsed = plistlib.loads(cfgmod.dump(cfg))
+    assert set(reparsed) == {"ACPI", "Booter", "DeviceProperties", "Kernel", "Misc", "NVRAM", "PlatformInfo", "UEFI"}
+
+    assert reparsed["PlatformInfo"]["Generic"]["SystemProductName"] == "MacPro7,1"
+    assert reparsed["PlatformInfo"]["Generic"]["ROM"] == sm.rom
+    ba = reparsed["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
+    assert "npci=0x2000" in ba
+    assert reparsed["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] is True   # AMD
+    assert reparsed["Kernel"]["Quirks"]["AppleXcpmCfgLock"] is False       # AMD
+    assert [e["Path"] for e in reparsed["ACPI"]["Add"]] == ["SSDT-EC-USBX.aml"]
+    assert len(reparsed["Kernel"]["Add"]) == len(plan.kexts)
+    assert len(reparsed["Kernel"]["Patch"]) == 1
+
+
+def test_config_has_the_keys_ocvalidate_1_0_7_requires():
+    cfg = cfgmod.assemble(make(intel_laptop()), generate("iMac20,1", None))
+    ui = cfg["UEFI"]
+    assert "Unload" in ui and "ReservedMemory" in ui
+    assert {"ConsoleFont", "InitialMode", "UIScale"} <= set(ui["Output"])
+    assert ui["Output"]["InitialMode"] in ("Auto", "Text", "Graphics")
+    assert {"PointerDwellClickTimeout", "PointerDwellDoubleClickTimeout",
+            "PointerDwellRadius"} <= set(ui["AppleInput"])
+    assert "PciIo" in ui["ProtocolOverrides"]
+    assert "ShimRetainProtocol" in ui["Quirks"]
+    # UIScale must not be doubled up in NVRAM
+    assert "UIScale" not in cfg["NVRAM"]["Add"]["4D1EDE05-38C7-4A6A-9CC6-4BCCA8B38C14"]
+
+
+def test_config_intel_sets_ig_platform_id():
+    plan = make(intel_laptop())
+    sm = generate(plan.smbios_model, macserial=None)
+    cfg = cfgmod.assemble(plan, sm)
+    props = cfg["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x2,0x0)"]
+    assert props["AAPL,ig-platform-id"] == bytes.fromhex("0000C087")   # gen 8 laptop
+    assert cfg["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] is False
+
+
+# --- AMD_Vanilla splice ----------------------------------------------------
+
+
+def test_splice_core_count():
+    patches = [
+        {"Comment": "algrey - Force cpuid_cores_per_package", "Replace": b"\xb8\x00\x00\x00\x00\x00"},
+        {"Comment": "unrelated patch", "Replace": b"\x00\x00\x00"},
+    ]
+    out = splice_core_count(patches, 12)
+    assert out[0]["Replace"] == b"\xb8\x0c\x00\x00\x00\x00"
+    assert out[1]["Replace"] == b"\x00\x00\x00"   # untouched
+
+
+def test_splice_rejects_absurd_core_count():
+    import pytest
+
+    with pytest.raises(ValueError):
+        splice_core_count([], 999)

@@ -26,6 +26,7 @@ packages = ["ocforge"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["ocforge-work", "work", "out", "*-work", "build", "dist"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
