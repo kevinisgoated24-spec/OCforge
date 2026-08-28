@@ -3,6 +3,21 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.5
+
+AMD fixes, cross-checked against the
+[Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html):
+
+- **`AppleMCEReporterDisabler`** is now included on every AMD build — a
+  plist-only kext that blocks `AppleMCEReporter` (kernel panic on AMD). Kexts
+  can now be sourced from a direct URL, not just a GitHub release, and a
+  codeless kext gets an empty `ExecutablePath` (a bogus path made OpenCore skip
+  the kext at boot).
+- `DisableIoMapper` is left **off** on AMD (no VT-d/DMAR — the quirk is
+  irrelevant there).
+- Threadripper (TRX40/TRX50/WRX80/WRX90, or "Threadripper" in the CPU brand)
+  now enables `DevirtualiseMmio`.
+
 ## gui-v0.4.4
 
 - **Fixed GitHub API rate-limit failures** on repeat builds. Release lookups

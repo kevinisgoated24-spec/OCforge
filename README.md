@@ -85,6 +85,15 @@ Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
 `BrcmFirmwareData` + `BrcmPatchRAM3`); laptops on macOS 12+ also get
 `BlueToolFixup`.
 
+AMD (Ryzen / Threadripper, following the
+[Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html)):
+`AMD_Vanilla` kernel patches spliced to the core count, `SMCAMDProcessor` +
+`AMDRyzenCPUPowerManagement`, `ForgedInvariant` for TSC sync, and
+`AppleMCEReporterDisabler` (a plist-only kext — `AppleMCEReporter` panics on
+AMD). Quirks: `DummyPowerManagement`, `ProvideCurrentCpuInfo`,
+`AppleXcpmCfgLock` off, `DisableIoMapper` off (no VT-d), `SetupVirtualMap` off;
+Threadripper (TRX40/TRX50/WRX80) also gets `DevirtualiseMmio`.
+
 Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek — ocforge
 warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
 message), and HEDT (X79/X99/X299) — the SSDTs are selected but the MacPro

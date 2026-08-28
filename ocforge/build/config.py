@@ -57,6 +57,11 @@ def _booter(plan: BuildPlan) -> dict[str, Any]:
     modern_mmap = plan.is_amd or (m.cpu.vendor is Vendor.INTEL and m.cpu.intel_gen >= 8)
     board = m.firmware.board_name.lower()
     z390 = any(x in board for x in ("z390", "z490"))
+    # Threadripper (TRX40/TRX50/WRX80/WRX90) needs DevirtualiseMmio per the AMD guide
+    threadripper = plan.is_amd and (
+        "threadripper" in (m.cpu.brand or "").lower()
+        or any(x in board for x in ("trx40", "trx50", "wrx80", "wrx90"))
+    )
     return {
         "MmioWhitelist": [],
         "Patch": [],
@@ -64,7 +69,7 @@ def _booter(plan: BuildPlan) -> dict[str, Any]:
             "AllowRelocationBlock": False,
             "AvoidRuntimeDefrag": True,
             "ClearTaskSwitchBit": False,
-            "DevirtualiseMmio": z390 or plan.is_amd is False and m.cpu.intel_gen >= 11,
+            "DevirtualiseMmio": z390 or threadripper or (not plan.is_amd and m.cpu.intel_gen >= 11),
             "DisableSingleUser": False,
             "DisableVariableWrite": False,
             "DiscardHibernateMap": False,
@@ -112,7 +117,9 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[s
             "BundlePath": s.kext.bundle_path().split("/")[-1],
             "Comment": s.comment or s.kext.name,
             "Enabled": True,
-            "ExecutablePath": f"Contents/MacOS/{s.kext.name}",
+            # a plist-only kext has no binary; pointing ExecutablePath at a
+            # missing file makes OpenCore skip the kext at boot.
+            "ExecutablePath": "" if s.kext.codeless else f"Contents/MacOS/{s.kext.name}",
             "MaxKernel": f"{s.max_darwin}.99.99" if s.max_darwin else "",
             "MinKernel": f"{s.min_darwin}.0.0" if s.min_darwin else "",
             "PlistPath": "Contents/Info.plist",
@@ -126,7 +133,7 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[s
         "AppleXcpmForceBoost": False,
         "CustomPciSerialDevice": False,
         "CustomSMBIOSGuid": False,
-        "DisableIoMapper": True,
+        "DisableIoMapper": not plan.is_amd,   # AMD has no VT-d/DMAR — irrelevant there
         "DisableIoMapperMapping": False,
         "DisableLinkeditJettison": True,
         "DisableRtcChecksum": False,

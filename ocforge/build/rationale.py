@@ -186,8 +186,10 @@ def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None)
                         "True" if amd else "False",
                         "AMD has no AppleIntelCPUPowerManagement - stub it"
                         if amd else "Intel uses AppleXcpm / plugin-type"))
-    out.append(Decision("Kernel", "Quirks > DisableIoMapper", "True",
-                        "disable VT-d unless you've added a DMAR/-remap SSDT"))
+    out.append(Decision("Kernel", "Quirks > DisableIoMapper",
+                        "False" if amd else "True",
+                        "AMD has no VT-d/DMAR, so this quirk is irrelevant"
+                        if amd else "disable VT-d unless you've added a DMAR/-remap SSDT"))
     if amd:
         n = cpu.cores or 1
         out.append(Decision("Kernel", "Patch (AMD_Vanilla)",

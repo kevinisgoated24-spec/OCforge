@@ -16,12 +16,14 @@ from ocforge.model import Machine, Vendor
 @dataclass(frozen=True)
 class Kext:
     name: str                       # bundle name without .kext
-    repo: str                       # "owner/name" on GitHub
+    repo: str                       # "owner/name" on GitHub ("" if `url` is set or generated locally)
     asset: str                      # regex matched against release asset names
     bundle: str = ""               # path of the .kext inside the zip (default: <name>.kext at root)
     min_darwin: int = 0            # kext's own floor, 0 = none
     max_darwin: int = 0            # kext's own ceiling, 0 = none
     order: int = 50               # OpenCore load order; lower loads first
+    url: str = ""                 # direct zip URL (for kexts not on a GitHub release)
+    codeless: bool = False        # plist-only kext -> ExecutablePath must be empty
 
     def bundle_path(self) -> str:
         return self.bundle or f"{self.name}.kext"
@@ -88,6 +90,9 @@ MANIFEST: tuple[Kext, ...] = (
     Kext("SMCAMDProcessor", "trulyspinach/SMCAMDProcessor",
          r"^SMCAMDProcessor\.kext\.zip$", bundle="SMCAMDProcessor.kext", order=31),
     Kext("ForgedInvariant", "ChefKissInc/ForgedInvariant", r"ForgedInvariant.*\.zip", order=32),
+    # codeless kext — blocks AppleMCEReporter, which panics on AMD (and some HEDT)
+    Kext("AppleMCEReporterDisabler", "", r"", order=29, codeless=True,
+         url="https://github.com/acidanthera/bugtracker/files/3703498/AppleMCEReporterDisabler.kext.zip"),
 
     # Alder Lake+ core topology
     Kext("CpuTopologyRebuild", "b00t-1337/CpuTopologyRebuild", r"CpuTopologyRebuild.*\.zip", order=33),
@@ -172,6 +177,7 @@ def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
         picks["AMDRyzenCPUPowerManagement"] = ""
         picks["SMCAMDProcessor"] = ""
         picks["ForgedInvariant"] = "TSC sync for AMD"
+        picks["AppleMCEReporterDisabler"] = "block AppleMCEReporter (panics on AMD)"
     elif m.cpu.vendor is Vendor.INTEL and m.cpu.intel_gen >= 12:
         picks["CpuTopologyRebuild"] = "E-core topology (Alder Lake+)"
 

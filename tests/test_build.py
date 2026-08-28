@@ -178,6 +178,28 @@ def test_plan_forced_macos():
     assert p.target.major == 12
 
 
+def test_amd_gets_mce_reporter_disabler_as_a_codeless_kext():
+    plan = make(ryzen_desktop())
+    sel = next((s for s in plan.kexts if s.kext.name == "AppleMCEReporterDisabler"), None)
+    assert sel is not None and sel.kext.codeless and sel.kext.url.endswith(".zip")
+
+    cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
+    entry = next(e for e in cfg["Kernel"]["Add"]
+                 if e["BundlePath"] == "AppleMCEReporterDisabler.kext")
+    assert entry["ExecutablePath"] == ""          # plist-only -> no binary path
+    assert entry["PlistPath"] == "Contents/Info.plist"
+
+    # AMD: no VT-d, so DisableIoMapper is left off
+    assert cfg["Kernel"]["Quirks"]["DisableIoMapper"] is False
+
+
+def test_threadripper_enables_devirtualise_mmio():
+    tr = _amd_on("ROG ZENITH II EXTREME", "AMD Ryzen Threadripper 3970X")
+    b450 = _amd_on("B450 TOMAHAWK")
+    assert cfgmod.assemble(make(tr), generate("MacPro7,1", None))["Booter"]["Quirks"]["DevirtualiseMmio"] is True
+    assert cfgmod.assemble(make(b450), generate("MacPro7,1", None))["Booter"]["Quirks"]["DevirtualiseMmio"] is False
+
+
 # --- config assembly ------------------------------------------------------
 
 

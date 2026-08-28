@@ -56,24 +56,30 @@ def fetch_all(selected: list[Selected], work: Path, kexts_out: Path) -> list[Kex
     dl_cache = work / "kext-zips"
     dl_cache.mkdir(parents=True, exist_ok=True)
 
-    zip_cache: dict[tuple[str, str], Path] = {}
+    zip_cache: dict[tuple[str, str, str], Path] = {}
     results: list[KextResult] = []
 
     for s in selected:
         k = s.kext
-        if not k.repo:  # e.g. UTBMap, generated later
+        if not k.repo and not k.url:  # e.g. UTBMap, generated later
             results.append(KextResult(k.name, None, "generated locally, not downloaded"))
             continue
-        key = (k.repo, k.asset)
+        key = (k.repo, k.asset, k.url)
         try:
             if key not in zip_cache:
-                asset = latest_asset(k.repo, k.asset)
-                zp = dl_cache / f"{k.repo.replace('/', '_')}__{asset.name}"
-                download(asset.url, zp, sha256=asset.sha256, expected_size=asset.size)
+                if k.url:
+                    zp = dl_cache / f"{k.name}__{k.url.rsplit('/', 1)[-1]}"
+                    if not zp.exists():
+                        download(k.url, zp)
+                else:
+                    asset = latest_asset(k.repo, k.asset)
+                    zp = dl_cache / f"{k.repo.replace('/', '_')}__{asset.name}"
+                    download(asset.url, zp, sha256=asset.sha256, expected_size=asset.size)
                 zip_cache[key] = zp
             bundle = _extract_bundle(zip_cache[key], k.bundle_path(), kexts_out)
             if bundle is None:
-                results.append(KextResult(k.name, None, f"{k.bundle_path()} not found in {k.repo} release"))
+                where = k.url or f"{k.repo} release"
+                results.append(KextResult(k.name, None, f"{k.bundle_path()} not found in {where}"))
             else:
                 results.append(KextResult(k.name, bundle))
         except (LookupError, DownloadError, OSError) as exc:
