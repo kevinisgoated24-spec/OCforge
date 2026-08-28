@@ -191,7 +191,7 @@ class OcforgeCli {
       const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
       proc.stdout.transform(dec).transform(const LineSplitter()).listen(log);
       proc.stderr.transform(dec).transform(const LineSplitter()).listen(log);
-      return proc.exitCode;
+      return await proc.exitCode;
     } on ProcessException {
       log('winget not found on this system');
       return -1;
