@@ -121,6 +121,53 @@ def intel_generation(brand: str) -> tuple[int, str]:
     return 0, ""
 
 
+# Intel iGPU PCI device-id ranges -> Core generation. A fallback for when the
+# brand string can't be parsed (odd OEM strings, VMs, generic CPUID names) but
+# an Intel iGPU is present.
+_IGPU_GEN_RANGES: tuple[tuple[int, int, int, str], ...] = (
+    (0x0100, 0x0130, 2,  "Sandy Bridge"),
+    (0x0150, 0x017F, 3,  "Ivy Bridge"),
+    (0x0400, 0x0D3F, 4,  "Haswell"),
+    (0x1600, 0x163F, 5,  "Broadwell"),
+    (0x1900, 0x193F, 6,  "Skylake"),
+    (0x5900, 0x593F, 7,  "Kaby Lake"),
+    (0x87C0, 0x87CF, 7,  "Kaby Lake"),
+    (0x3E90, 0x3EAF, 8,  "Coffee Lake"),
+    (0x9B00, 0x9BFF, 10, "Comet Lake"),
+    (0x8A50, 0x8A7F, 10, "Ice Lake"),
+)
+
+
+def intel_gen_from_igpu(device_hex: str) -> tuple[int, str]:
+    """(generation, family) inferred from an Intel iGPU device id, else (0, "")."""
+    try:
+        dev = int(device_hex, 16)
+    except (TypeError, ValueError):
+        return 0, ""
+    for lo, hi, gen, family in _IGPU_GEN_RANGES:
+        if lo <= dev <= hi:
+            return gen, family
+    return 0, ""
+
+
+def backfill_intel_gen(machine) -> None:
+    """If the CPU generation is unknown but there's an Intel iGPU, take the
+    generation from the iGPU device id. Mutates ``machine`` in place."""
+    from ocforge.model import Vendor
+
+    cpu = machine.cpu
+    if cpu.vendor is not Vendor.INTEL or cpu.intel_gen:
+        return
+    ig = machine.igpu
+    if ig is None or ig.vendor is not Vendor.INTEL:
+        return
+    gen, family = intel_gen_from_igpu(ig.pci.device)
+    if gen:
+        cpu.intel_gen = gen
+        if not cpu.family:
+            cpu.family = family
+
+
 # --- AMD Zen family from a brand string -------------------------------------
 
 

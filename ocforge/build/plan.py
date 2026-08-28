@@ -77,6 +77,12 @@ _WIFI_OK = (Vendor.INTEL, Vendor.BROADCOM, Vendor.APPLE, Vendor.UNKNOWN)
 
 
 def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
+    # An old spec (or an unparseable CPU brand) can leave intel_gen at 0; if
+    # there's an Intel iGPU, recover the generation from its device id.
+    from ocforge.probe.base import backfill_intel_gen
+
+    backfill_intel_gen(m)
+
     # Pre-Sandy-Bridge Intel (Nehalem/Westmere and older) has no supported
     # graphics path on any macOS ocforge targets — fail loud, not vague.
     if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 2:
@@ -99,14 +105,15 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         warnings.append("CPU vendor unknown — kernel quirks may be wrong")
     if not m.wired_nics and m.wifi is None:
         warnings.append("no supported NIC detected — you may have no network in the installer")
-    _brand = (m.cpu.brand or "").lower()
-    if m.cpu.vendor is Vendor.INTEL and ("pentium" in _brand or "celeron" in _brand):
+    from ocforge.build.config import is_pentium_or_celeron
+
+    if is_pentium_or_celeron(m):
         if m.cpu.intel_gen:
             warnings.append("Pentium/Celeron: CPUID is spoofed to the same-gen i3 "
                             "(Emulate -> Cpuid1Data) -- required or macOS panics")
         else:
             warnings.append("Pentium/Celeron with unknown generation — CPUID spoof "
-                            "can't be applied; pass --spec after fixing cpu.intel_gen")
+                            "can't be applied; check cpu.intel_gen in the spec")
     if m.wifi is not None and m.wifi.vendor not in _WIFI_OK:
         warnings.append(
             f"Wi-Fi chip is {m.wifi.vendor.value} — no macOS driver exists "

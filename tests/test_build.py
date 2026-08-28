@@ -196,10 +196,10 @@ def test_amd_gets_mce_reporter_disabler_as_a_codeless_kext():
     assert cfg["Kernel"]["Quirks"]["DisableIoMapper"] is False
 
 
-def _pentium(brand="Intel(R) Pentium(R) Gold G5500T CPU @ 3.20GHz", gen=8):
+def _pentium(brand="Intel(R) Pentium(R) Gold G5500T CPU @ 3.20GHz", gen=8, cores=2):
     return Machine(
         chassis=Chassis.DESKTOP,
-        cpu=Cpu(brand=brand, vendor=Vendor.INTEL, intel_gen=gen, cores=2, threads=4,
+        cpu=Cpu(brand=brand, vendor=Vendor.INTEL, intel_gen=gen, cores=cores, threads=cores * 2,
                 flags=frozenset({"avx2", "sse4_2"})),
         igpu=Gpu(name="UHD 630", vendor=Vendor.INTEL, pci=PciId("8086", "3e92")),
         firmware=Firmware(board_vendor="ASUS", board_name="PRIME B360M-A"),
@@ -221,9 +221,17 @@ def test_pentium_gets_cpuid_spoof_to_the_gen_i3():
     assert emu["Cpuid1Data"] == bytes.fromhex("ea060900" + "00" * 12)   # i3-8100
     assert emu["Cpuid1Mask"] == bytes.fromhex("ffffffff" + "00" * 12)
     assert any("Pentium/Celeron" in w for w in plan.warnings)
-    # a plain i5 of the same gen -> no spoof
-    i5 = cfgmod.assemble(make(_pentium("Intel Core i5-8400")), generate("iMac19,1", None))
+    # a real i5 (6 cores) -> no spoof
+    i5 = cfgmod.assemble(make(_pentium("Intel Core i5-8400", cores=6)), generate("iMac19,1", None))
     assert i5["Kernel"]["Emulate"]["Cpuid1Data"] == b""
+
+
+def test_two_core_coffee_lake_desktop_is_spoofed_even_without_a_pentium_brand():
+    # generic CPUID name (broken WMI / VM), 2C/4T, UHD 630 -> treated as Pentium
+    m = _pentium("Intel64 Family 6 Model 158 Stepping 10 GenuineIntel", gen=0)
+    cfg = cfgmod.assemble(make(m), generate("iMac19,1", None))
+    assert m.cpu.intel_gen == 8   # backfilled from the UHD 630 device id
+    assert cfg["Kernel"]["Emulate"]["Cpuid1Data"] == bytes.fromhex("ea060900" + "00" * 12)
 
 
 def test_threadripper_enables_devirtualise_mmio():

@@ -191,8 +191,7 @@ def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None)
                         "AMD has no VT-d/DMAR, so this quirk is irrelevant"
                         if amd else "disable VT-d unless you've added a DMAR/-remap SSDT"))
 
-    _brand = (cpu.brand or "").lower()
-    if intel and ("pentium" in _brand or "celeron" in _brand):
+    if intel:
         from ocforge.build.config import _cpu_spoof
 
         data, _ = _cpu_spoof(m)

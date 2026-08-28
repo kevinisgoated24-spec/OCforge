@@ -43,10 +43,23 @@ _I3_CPUID_EAX = {
 }
 
 
+def is_pentium_or_celeron(m) -> bool:
+    """Pentium/Celeron by brand string, or — when the brand didn't parse — a
+    2-core Coffee/Comet Lake desktop (every 8th-gen+ i3 has 4 cores)."""
+    brand = (m.cpu.brand or "").lower()
+    if "pentium" in brand or "celeron" in brand:
+        return True
+    return bool(
+        m.cpu.vendor is Vendor.INTEL
+        and not m.is_laptop
+        and 8 <= m.cpu.intel_gen <= 10
+        and 0 < m.cpu.cores <= 2
+    )
+
+
 def _cpu_spoof(m) -> tuple[bytes, bytes]:
     """Cpuid1Data / Cpuid1Mask for a Pentium/Celeron, else empty bytes."""
-    brand = (m.cpu.brand or "").lower()
-    if "pentium" not in brand and "celeron" not in brand:
+    if not is_pentium_or_celeron(m):
         return b"", b""
     eax = _I3_CPUID_EAX.get(m.cpu.intel_gen)
     if eax is None:

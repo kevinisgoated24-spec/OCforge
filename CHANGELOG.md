@@ -3,6 +3,20 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.8
+
+More robust Pentium/Celeron and Intel-generation detection — a spec built
+before 0.4.6, or one where the OS reported a generic CPUID name instead of a
+marketing string, was still coming out as "generation unknown" (only
+`SSDT-EC`, empty `Cpuid1Data`):
+
+- **Intel generation is recovered from the iGPU** when the CPU brand can't be
+  parsed — the iGPU PCI device id maps cleanly to a generation (UHD 630
+  `8086:3E92` → Coffee Lake). Runs in both `probe` and `plan`.
+- **The CPUID spoof also triggers for a 2-core Coffee/Comet Lake desktop**
+  even without a "Pentium"/"Celeron" brand string (every 8th-gen-and-newer i3
+  has 4 cores), so `Cpuid1Data`/`Cpuid1Mask` get filled either way.
+
 ## gui-v0.4.7
 
 - Verified `acpi.select()` against every row of the
