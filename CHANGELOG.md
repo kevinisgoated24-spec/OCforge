@@ -3,6 +3,15 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.9
+
+- **The GUI now detects a stale `ocforge` CLI.** `ocforge --version` finally
+  reports a real number (was frozen at `0.0.1`), and the first-run gate
+  compares it to the minimum this build needs — if the CLI is behind (the
+  usual cause of "only SSDT-EC / empty Cpuid1Data" after an app update, since
+  the gate only ever *installed* the CLI, never upgraded it), it shows an
+  **"Update & continue"** button that runs the in-place `pip --upgrade`.
+
 ## gui-v0.4.8
 
 More robust Pentium/Celeron and Intel-generation detection — a spec built

@@ -26,6 +26,7 @@ class _SetupGateState extends State<SetupGate> {
   _Phase _phase = _Phase.checking;
   PythonInfo? _python;
   bool _ocforge = false;
+  bool _outdated = false; // CLI present but older than OcforgeCli.minVersion
   final List<String> _log = <String>[];
 
   @override
@@ -55,9 +56,10 @@ class _SetupGateState extends State<SetupGate> {
     await c.init(); // re-resolves the CLI
     _python = await OcforgeCli.findPython();
     _ocforge = c.cliReady;
+    _outdated = c.cliReady && c.cli.outdated;
     if (!mounted) return;
     setState(() {
-      _phase = _ocforge ? _Phase.ready : _Phase.needsSetup;
+      _phase = (_ocforge && !_outdated) ? _Phase.ready : _Phase.needsSetup;
     });
   }
 
@@ -141,13 +143,17 @@ class _SetupGateState extends State<SetupGate> {
                   children: <Widget>[
                     const AppGlyph(size: 44),
                     const SizedBox(width: 16),
-                    Text('First-run setup',
+                    Text(_outdated ? 'Update the ocforge CLI' : 'First-run setup',
                         style: Theme.of(context).textTheme.headlineMedium),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'OCForge drives the ocforge Python CLI. Let’s make sure it’s here.',
+                  _outdated
+                      ? 'The ocforge CLI on this machine is older than this app '
+                          'expects (needs ${OcforgeCli.minVersion}+). "Update & continue" '
+                          'upgrades it in place.'
+                      : 'OCForge drives the ocforge Python CLI. Let’s make sure it’s here.',
                   style: TextStyle(color: s.onSurfaceVariant),
                 ),
                 const SizedBox(height: 24),
@@ -160,8 +166,12 @@ class _SetupGateState extends State<SetupGate> {
                 const SizedBox(height: 10),
                 _CheckRow(
                   label: 'ocforge CLI',
-                  ok: _ocforge,
-                  detail: _ocforge ? 'installed' : 'not found',
+                  ok: _ocforge && !_outdated,
+                  detail: !_ocforge
+                      ? 'not found'
+                      : _outdated
+                          ? 'update available (need ${OcforgeCli.minVersion}+)'
+                          : 'installed',
                   pending: _phase == _Phase.checking,
                 ),
                 const SizedBox(height: 24),
@@ -182,8 +192,10 @@ class _SetupGateState extends State<SetupGate> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
                       HeroButton(
-                        label: busy ? 'Working…' : 'Install & continue',
-                        icon: Icons.download_rounded,
+                        label: busy
+                            ? 'Working…'
+                            : (_outdated ? 'Update & continue' : 'Install & continue'),
+                        icon: _outdated ? Icons.upgrade_rounded : Icons.download_rounded,
                         busy: busy,
                         onPressed: busy ? null : _install,
                       ),

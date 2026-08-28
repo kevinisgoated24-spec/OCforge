@@ -31,12 +31,33 @@ class OcforgeCli {
     CliResolution('python3', <String>['-m', 'ocforge'], 'python3 -m ocforge'),
   ];
 
+  /// The oldest `ocforge` this GUI build is happy to drive. Bump alongside the
+  /// gui-v* tag when a CLI fix needs to reach users.
+  static const String minVersion = '0.4.9';
+
   CliResolution? _resolved;
   String _version = '';
 
   bool get available => _resolved != null;
   String get label => _resolved?.label ?? 'not found';
   String get version => _version;
+
+  static List<int> _parseVersion(String s) {
+    final Match? m = RegExp(r'(\d+)\.(\d+)\.(\d+)').firstMatch(s);
+    if (m == null) return <int>[0, 0, 0];
+    return <int>[int.parse(m[1]!), int.parse(m[2]!), int.parse(m[3]!)];
+  }
+
+  /// True when a resolved CLI is older than [minVersion] (or unparseable).
+  bool get outdated {
+    if (_resolved == null) return false; // "missing" is a different state
+    final List<int> got = _parseVersion(_version);
+    final List<int> need = _parseVersion(minVersion);
+    for (int i = 0; i < 3; i++) {
+      if (got[i] != need[i]) return got[i] < need[i];
+    }
+    return false;
+  }
 
   static const Map<String, String> _env = <String, String>{
     'PYTHONUTF8': '1',
