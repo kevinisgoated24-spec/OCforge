@@ -367,7 +367,8 @@ class DemoBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 'ocforge CLI not found — running in demo mode with sample data. '
-                'Install it (pipx install ocforge) and reopen to build real EFIs.',
+                'Install it with:  pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"  '
+                '(needs Python 3.11+), then reopen.',
                 style: TextStyle(color: s.onTertiaryContainer, fontSize: 12.5),
               ),
             ),

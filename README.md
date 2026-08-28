@@ -12,7 +12,8 @@ the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
 ## Install
 
 ```bash
-pipx install .            # or: pip install -e .[dev]
+pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"
+# from a clone:  pipx install .   (or: pip install -e .[dev])
 ```
 
 Python 3.11+. No runtime dependencies.

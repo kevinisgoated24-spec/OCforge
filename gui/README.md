@@ -17,6 +17,13 @@ The GUI shells out to the `ocforge` Python CLI (tries `ocforge` on `PATH`, then
 it runs in **demo mode** with sample data so the packaged `.exe` is still fully
 explorable.
 
+Install the CLI (Python 3.11+, git):
+
+```bash
+pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"
+# or, from a clone:  pip install -e .
+```
+
 ## Build locally
 
 ```bash
