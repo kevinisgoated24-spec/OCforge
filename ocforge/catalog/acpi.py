@@ -60,8 +60,12 @@ _XOSI_PATCH = AcpiPatch("_OSI to XOSI rename (pairs with SSDT-XOSI)", b"_OSI", b
 _CPUR_CHIPSETS = ("b550", "a520", "a620", "b650", "x670", "b840", "b850", "x870")
 _TR_CHIPSETS = ("trx40", "trx50", "wrx80", "wrx90", "x399")
 
-_SNB_7SERIES = ("b75", "q75", "z75", "h77", "q77", "z77")
-_IVB_6SERIES = ("h61", "b65", "q65", "p67", "h67", "q67", "z68")
+# SSDT-IMEI: a CPU/PCH generation mismatch (Sandy Bridge on a 7-series PCH, or
+# Ivy Bridge on a 6-series PCH). Desktop + mobile chipset names.
+_PCH_7SERIES = ("b75", "q75", "z75", "h77", "q77", "z77",                   # desktop
+                "hm70", "hm75", "hm76", "hm77", "qm77", "um77", "qs77")     # mobile
+_PCH_6SERIES = ("h61", "b65", "q65", "p67", "h67", "q67", "z68",            # desktop
+                "hm65", "hm67", "qm67", "um67", "qs67")                     # mobile
 _ASUS_400SERIES = ("b460", "h410", "h470", "z490", "w480")
 
 _ICE_LAKE = re.compile(r"\bi[3-9][- ]?10\d{2}g[1-9]\b", re.IGNORECASE)
@@ -131,9 +135,9 @@ def select(m: Machine) -> list[Ssdt]:
         out.append(Ssdt("SSDT-PLUG", "SSDT-PLUG-DRTNIA",
                         "enable XCPM (set plugin-type on the first CPU)"))
 
-    # --- SSDT-IMEI: Sandy Bridge + 7-series, or Ivy Bridge + 6-series
-    if intel and ((gen == 2 and _has(board, _SNB_7SERIES))
-                  or (gen == 3 and _has(board, _IVB_6SERIES))):
+    # --- SSDT-IMEI: Sandy Bridge + 7-series PCH, or Ivy Bridge + 6-series PCH
+    if intel and ((gen == 2 and _has(board, _PCH_7SERIES))
+                  or (gen == 3 and _has(board, _PCH_6SERIES))):
         out.append(Ssdt("SSDT-IMEI", "SSDT-IMEI",
                         "inject the IMEI device missing from this board's ACPI"))
 

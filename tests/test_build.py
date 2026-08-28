@@ -118,10 +118,13 @@ def test_acpi_prebuilt_matrix_intel():
         "SSDT-EC-USBX", "SSDT-PLUG", "SSDT-AWAC", "SSDT-PMC"}
     # ...but a Z370 board drops PMC
     assert "SSDT-PMC" not in _names(_intel(9, board="Z370 AORUS"))
-    # Sandy Bridge + 7-series -> IMEI; Ivy + 6-series -> IMEI
+    # Sandy Bridge + 7-series -> IMEI; Ivy + 6-series -> IMEI (desktop + mobile PCH)
     assert "SSDT-IMEI" in _names(_intel(2, board="P8Z77-V"))
     assert "SSDT-IMEI" in _names(_intel(3, board="P8Z68-V"))
+    assert "SSDT-IMEI" in _names(_intel(2, laptop=True, board="Base Board HM77"))
+    assert "SSDT-IMEI" in _names(_intel(3, laptop=True, board="ThinkPad HM65"))
     assert "SSDT-IMEI" not in _names(_intel(2, board="X79 DELUXE"))
+    assert "SSDT-IMEI" not in _names(_intel(3, laptop=True, board="HM77"))   # normal Ivy pairing
 
 
 def test_acpi_rhub_and_xosi_and_hedt():

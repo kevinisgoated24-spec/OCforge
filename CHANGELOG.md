@@ -3,6 +3,14 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.7
+
+- Verified `acpi.select()` against every row of the
+  [Dortania prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
+  (21 configs). One gap fixed: **laptop** Sandy/Ivy Bridge on a mobile PCH
+  (HM65/HM67/HM70…HM77 etc.) now gets `SSDT-IMEI` — the chipset list was
+  desktop-only.
+
 ## gui-v0.4.6
 
 - **Pentium Gold / Celeron support.** These desktop parts have no `i3/i5`
