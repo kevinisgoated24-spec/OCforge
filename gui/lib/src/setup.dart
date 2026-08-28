@@ -38,6 +38,17 @@ class _SetupGateState extends State<SetupGate> {
     if (mounted) setState(() => _log.add(s));
   }
 
+  String get _pythonHint {
+    if (Platform.isMacOS) {
+      return 'Install Python 3.11+ (brew install python, or python.org), then reopen OCForge.';
+    }
+    if (Platform.isLinux) {
+      return 'Install Python 3.11+ (e.g. sudo apt install python3 python3-pip), then reopen OCForge.';
+    }
+    return 'Install Python 3.11+ from https://www.python.org/downloads/ '
+        '(tick "Add to PATH"), then reopen OCForge.';
+  }
+
   Future<void> _check() async {
     setState(() => _phase = _Phase.checking);
     final OcforgeController c = ControllerScope.of(context);
@@ -58,21 +69,26 @@ class _SetupGateState extends State<SetupGate> {
 
     // 1. Python
     if (_python == null) {
-      _say('Python not found — installing via winget …');
-      final int code = await OcforgeCli.wingetInstallPython(_say);
-      _python = await OcforgeCli.findPython();
-      if (_python == null) {
-        _say('');
-        _say(code == -1
-            ? 'Could not install Python automatically. Install Python 3.11+ '
-                'from https://www.python.org/downloads/ (tick "Add to PATH"), '
-                'then reopen OCForge.'
-            : 'Python was installed but this session can\'t see it yet. '
-                'Close and reopen OCForge to finish setup.');
+      if (Platform.isWindows) {
+        _say('Python not found — installing via winget …');
+        final int code = await OcforgeCli.wingetInstallPython(_say);
+        _python = await OcforgeCli.findPython();
+        if (_python == null) {
+          _say('');
+          _say(code == -1
+              ? 'Could not install Python automatically. $_pythonHint'
+              : 'Python was installed but this session can\'t see it yet. '
+                  'Close and reopen OCForge to finish setup.');
+          setState(() => _phase = _Phase.restartNeeded);
+          return;
+        }
+        _say('found ${_python!.version}');
+      } else {
+        _say('Python not found.');
+        _say(_pythonHint);
         setState(() => _phase = _Phase.restartNeeded);
         return;
       }
-      _say('found ${_python!.version}');
     } else {
       _say('found ${_python!.version}');
     }

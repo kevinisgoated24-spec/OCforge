@@ -1,0 +1,112 @@
+name: GUI · desktop build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "gui-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: windows, name: OCForge-GUI-windows-x64, ext: zip }
+          - { os: macos-latest,   target: macos,   name: OCForge-GUI-macos,       ext: zip }
+          - { os: ubuntu-latest,  target: linux,   name: OCForge-GUI-linux-x64,   ext: tar.gz }
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: gui
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux build deps
+        if: matrix.target == 'linux'
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Toolchain
+        run: flutter --version
+
+      # Only pubspec + lib/ are tracked — regenerate the platform scaffold.
+      - name: Generate ${{ matrix.target }}/ scaffold
+        run: |
+          set -e
+          mkdir -p .stash
+          mv lib pubspec.yaml analysis_options.yaml .stash/
+          flutter create --platforms=${{ matrix.target }} --project-name ocforge_gui --org com.ocforge --overwrite .
+          rm -rf lib pubspec.yaml analysis_options.yaml test
+          mv .stash/lib .stash/pubspec.yaml .stash/analysis_options.yaml .
+          rmdir .stash
+
+      - name: Deps
+        run: |
+          flutter config --enable-${{ matrix.target }}-desktop
+          flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build
+        run: flutter build ${{ matrix.target }} --release
+
+      - name: Package
+        run: |
+          set -e
+          OUT="$GITHUB_WORKSPACE/${{ matrix.name }}.${{ matrix.ext }}"
+          case "${{ matrix.target }}" in
+            windows)
+              REL=build/windows/x64/runner/Release
+              [ -d "$REL" ] || REL=build/windows/runner/Release
+              ls -la "$REL"
+              ( cd "$REL" && 7z a -tzip "$OUT" ./* )
+              ;;
+            macos)
+              APP=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -1)
+              echo "app: $APP"
+              ditto -c -k --keepParent --sequesterRsrc "$APP" "$OUT"
+              ;;
+            linux)
+              ls -la build/linux/x64/release/bundle
+              tar czf "$OUT" -C build/linux/x64/release/bundle .
+              ;;
+          esac
+          ls -la "$OUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ github.workspace }}/${{ matrix.name }}.${{ matrix.ext }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - run: find dist -type f
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

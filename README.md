@@ -58,6 +58,15 @@ root); on Windows/macOS pass `--dsdt` with a folder of tables you dumped.
 Not yet: SSDT-GPIO for I2C-HID trackpads (board-specific, still a manual
 SSDTTime step), Wi-Fi beyond Intel/Broadcom, and pre-Sandy-Bridge hosts.
 
+## Desktop GUI
+
+[`gui/`](gui/) is a Flutter front-end (Windows / macOS / Linux) — Material 3
+Expressive, light/dark + seven accent themes, tabs for Detect / Plan / Config
+(the `explain` view) / Forge. It drives this CLI; on first run it offers to
+install Python + `ocforge` for you, and falls back to a demo mode otherwise.
+Prebuilt bundles are attached to each `gui-v*` [release](https://github.com/kevinisgoated24-spec/OCforge/releases);
+see [`gui/README.md`](gui/README.md).
+
 ## Layout
 
 | package            | does |

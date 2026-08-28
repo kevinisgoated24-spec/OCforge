@@ -37,8 +37,8 @@ class _OcforgeAppState extends State<OcforgeApp> {
         builder: (BuildContext context, _) => MaterialApp(
           title: 'OCForge',
           debugShowCheckedModeBanner: false,
-          theme: expressiveTheme(Brightness.light),
-          darkTheme: expressiveTheme(Brightness.dark),
+          theme: expressiveTheme(Brightness.light, seed: _controller.accent.seed),
+          darkTheme: expressiveTheme(Brightness.dark, seed: _controller.accent.seed),
           themeMode: _controller.themeMode,
           home: const SetupGate(child: _Shell()),
         ),
@@ -83,15 +83,48 @@ class _ShellState extends State<_Shell> {
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: IconButton(
-                    tooltip: 'Theme: ${c.themeMode.name}',
-                    onPressed: c.cycleTheme,
-                    icon: Icon(switch (c.themeMode) {
-                      ThemeMode.light => Icons.light_mode_outlined,
-                      ThemeMode.dark => Icons.dark_mode_outlined,
-                      ThemeMode.system => Icons.brightness_auto_outlined,
-                    }),
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      PopupMenuButton<AccentTheme>(
+                        tooltip: 'Accent colour',
+                        icon: const Icon(Icons.palette_outlined),
+                        onSelected: c.setAccent,
+                        itemBuilder: (BuildContext _) => <PopupMenuEntry<AccentTheme>>[
+                          for (final AccentTheme a in AccentTheme.values)
+                            PopupMenuItem<AccentTheme>(
+                              value: a,
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                        color: a.seed, shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(a.label),
+                                  if (a == c.accent) ...<Widget>[
+                                    const SizedBox(width: 16),
+                                    const Icon(Icons.check_rounded, size: 16),
+                                  ],
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      IconButton(
+                        tooltip: 'Theme: ${c.themeMode.name}',
+                        onPressed: c.cycleTheme,
+                        icon: Icon(switch (c.themeMode) {
+                          ThemeMode.light => Icons.light_mode_outlined,
+                          ThemeMode.dark => Icons.dark_mode_outlined,
+                          ThemeMode.system => Icons.brightness_auto_outlined,
+                        }),
+                      ),
+                    ],
                   ),
                 ),
               ),

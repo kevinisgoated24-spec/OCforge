@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'theme.dart';
-
 /// A soft entrance: fade + rise, with an optional per-item [delay] for stagger.
 class FadeInUp extends StatefulWidget {
   const FadeInUp({super.key, required this.child, this.delay = Duration.zero});
@@ -302,14 +300,15 @@ class AppGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color primary = Theme.of(context).colorScheme.primary;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[kSeed, Color(0xFFB39DFF)],
+          colors: <Color>[primary, Color.lerp(primary, Colors.white, 0.38)!],
         ),
         borderRadius: BorderRadius.circular(size * 0.32),
       ),
