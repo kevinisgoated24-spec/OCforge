@@ -30,6 +30,30 @@ def _b(hex_le: str) -> bytes:
     return bytes.fromhex(hex_le)
 
 
+# Pentium/Celeron aren't in macOS's CPUID whitelist for XCPM / X86PlatformPlugin
+# and panic ("Thread 0 crashed") once SSDT-PLUG is present. Spoof CPUID to the
+# i3 of the same generation via Emulate. Values are the target i3's CPUID EAX
+# (little-endian), padded to 16 bytes; the mask covers only those 4 bytes.
+_I3_CPUID_EAX = {
+    6:  "e3060500",   # i3-6100  (Skylake,     0x000506E3)
+    7:  "e9060900",   # i3-7100  (Kaby Lake,   0x000906E9)
+    8:  "ea060900",   # i3-8100  (Coffee Lake, 0x000906EA)
+    9:  "ec060900",   # i3-9100  (CFL Refresh, 0x000906EC)
+    10: "55060a00",   # i3-10100 (Comet Lake,  0x000A0655)
+}
+
+
+def _cpu_spoof(m) -> tuple[bytes, bytes]:
+    """Cpuid1Data / Cpuid1Mask for a Pentium/Celeron, else empty bytes."""
+    brand = (m.cpu.brand or "").lower()
+    if "pentium" not in brand and "celeron" not in brand:
+        return b"", b""
+    eax = _I3_CPUID_EAX.get(m.cpu.intel_gen)
+    if eax is None:
+        return b"", b""
+    return bytes.fromhex(eax) + b"\x00" * 12, bytes.fromhex("ffffffff") + b"\x00" * 12
+
+
 def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
          patch: list[dict[str, Any]] | None = None,
          delete: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -154,9 +178,10 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[s
     if plan.is_amd:
         quirks["AppleXcpmCfgLock"] = False
 
+    spoof_data, spoof_mask = _cpu_spoof(plan.machine)
     emulate = {
-        "Cpuid1Data": b"",
-        "Cpuid1Mask": b"",
+        "Cpuid1Data": spoof_data,
+        "Cpuid1Mask": spoof_mask,
         "DummyPowerManagement": plan.is_amd,
         "MaxKernel": "",
         "MinKernel": "",

@@ -94,6 +94,11 @@ AMD). Quirks: `DummyPowerManagement`, `ProvideCurrentCpuInfo`,
 `AppleXcpmCfgLock` off, `DisableIoMapper` off (no VT-d), `SetupVirtualMap` off;
 Threadripper (TRX40/TRX50/WRX80) also gets `DevirtualiseMmio`.
 
+Pentium Gold / Celeron desktop parts are detected by their `G`-series SKU
+(macOS doesn't whitelist their CPUID — without a spoof you get a *Thread 0
+crashed* panic once `SSDT-PLUG` loads), and ocforge injects the matching
+`Emulate → Cpuid1Data/Cpuid1Mask` spoof to the same-generation i3.
+
 Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek — ocforge
 warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
 message), and HEDT (X79/X99/X299) — the SSDTs are selected but the MacPro

@@ -99,6 +99,14 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         warnings.append("CPU vendor unknown — kernel quirks may be wrong")
     if not m.wired_nics and m.wifi is None:
         warnings.append("no supported NIC detected — you may have no network in the installer")
+    _brand = (m.cpu.brand or "").lower()
+    if m.cpu.vendor is Vendor.INTEL and ("pentium" in _brand or "celeron" in _brand):
+        if m.cpu.intel_gen:
+            warnings.append("Pentium/Celeron: CPUID is spoofed to the same-gen i3 "
+                            "(Emulate -> Cpuid1Data) -- required or macOS panics")
+        else:
+            warnings.append("Pentium/Celeron with unknown generation — CPUID spoof "
+                            "can't be applied; pass --spec after fixing cpu.intel_gen")
     if m.wifi is not None and m.wifi.vendor not in _WIFI_OK:
         warnings.append(
             f"Wi-Fi chip is {m.wifi.vendor.value} — no macOS driver exists "

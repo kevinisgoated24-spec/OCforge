@@ -100,6 +100,15 @@ _INTEL_GEN_RULES: tuple[tuple[re.Pattern[str], int, str], ...] = (
     (re.compile(r"\bi[3579]-4\d\d\d"), 4, "Haswell"),
     (re.compile(r"\bi[3579]-3\d\d\d"), 3, "Ivy Bridge"),
     (re.compile(r"\bi[3579]-2\d\d\d"), 2, "Sandy Bridge"),
+
+    # Pentium Gold / Celeron desktop parts — no i3/i5 number, keyed off the
+    # G-series SKU. These need a CPUID spoof (handled in build/config.py).
+    (re.compile(r"\b(?:pentium|celeron)\b.*\bg6\d{3}"), 10, "Comet Lake (Pentium/Celeron)"),
+    (re.compile(r"\bceleron\b.*\bg59\d\d"), 10, "Comet Lake (Celeron)"),
+    (re.compile(r"\bpentium\b.*\bg5\d{3}"), 8, "Coffee Lake (Pentium Gold)"),
+    (re.compile(r"\bceleron\b.*\bg49\d\d"), 8, "Coffee Lake (Celeron)"),
+    (re.compile(r"\bpentium\b.*\bg4[56]\d\d"), 7, "Kaby Lake (Pentium)"),
+    (re.compile(r"\b(?:pentium|celeron)\b.*\bg3\d{3}"), 6, "Skylake (Pentium/Celeron)"),
 )
 
 

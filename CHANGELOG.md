@@ -3,6 +3,16 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.6
+
+- **Pentium Gold / Celeron support.** These desktop parts have no `i3/i5`
+  number, so ocforge was reading them as "generation unknown" — no
+  `SSDT-PLUG`, no `ig-platform-id`, and a *Thread 0 crashed* panic at boot
+  because macOS doesn't whitelist their CPUID. Now the `G`-series SKU maps to
+  the right generation (G5xxx → Coffee Lake, G6xxx → Comet Lake, …) and the
+  config gets the `Emulate → Cpuid1Data/Cpuid1Mask` spoof to that gen's i3
+  (i3-8100 for Coffee Lake, etc.).
+
 ## gui-v0.4.5
 
 AMD fixes, cross-checked against the

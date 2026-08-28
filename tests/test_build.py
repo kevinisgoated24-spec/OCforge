@@ -193,6 +193,36 @@ def test_amd_gets_mce_reporter_disabler_as_a_codeless_kext():
     assert cfg["Kernel"]["Quirks"]["DisableIoMapper"] is False
 
 
+def _pentium(brand="Intel(R) Pentium(R) Gold G5500T CPU @ 3.20GHz", gen=8):
+    return Machine(
+        chassis=Chassis.DESKTOP,
+        cpu=Cpu(brand=brand, vendor=Vendor.INTEL, intel_gen=gen, cores=2, threads=4,
+                flags=frozenset({"avx2", "sse4_2"})),
+        igpu=Gpu(name="UHD 630", vendor=Vendor.INTEL, pci=PciId("8086", "3e92")),
+        firmware=Firmware(board_vendor="ASUS", board_name="PRIME B360M-A"),
+    )
+
+
+def test_pentium_gold_is_detected_as_coffee_lake():
+    from ocforge.probe.base import intel_generation
+    assert intel_generation("Intel(R) Pentium(R) Gold G5500T CPU @ 3.20GHz")[0] == 8
+    assert intel_generation("Pentium Gold G6400")[0] == 10
+    assert intel_generation("Celeron G3930")[0] == 6
+    assert intel_generation("Intel Core i5-8400")[0] == 8   # unchanged
+
+
+def test_pentium_gets_cpuid_spoof_to_the_gen_i3():
+    plan = make(_pentium())
+    cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
+    emu = cfg["Kernel"]["Emulate"]
+    assert emu["Cpuid1Data"] == bytes.fromhex("ea060900" + "00" * 12)   # i3-8100
+    assert emu["Cpuid1Mask"] == bytes.fromhex("ffffffff" + "00" * 12)
+    assert any("Pentium/Celeron" in w for w in plan.warnings)
+    # a plain i5 of the same gen -> no spoof
+    i5 = cfgmod.assemble(make(_pentium("Intel Core i5-8400")), generate("iMac19,1", None))
+    assert i5["Kernel"]["Emulate"]["Cpuid1Data"] == b""
+
+
 def test_threadripper_enables_devirtualise_mmio():
     tr = _amd_on("ROG ZENITH II EXTREME", "AMD Ryzen Threadripper 3970X")
     b450 = _amd_on("B450 TOMAHAWK")

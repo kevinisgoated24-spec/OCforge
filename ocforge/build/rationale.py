@@ -190,6 +190,18 @@ def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None)
                         "False" if amd else "True",
                         "AMD has no VT-d/DMAR, so this quirk is irrelevant"
                         if amd else "disable VT-d unless you've added a DMAR/-remap SSDT"))
+
+    _brand = (cpu.brand or "").lower()
+    if intel and ("pentium" in _brand or "celeron" in _brand):
+        from ocforge.build.config import _cpu_spoof
+
+        data, _ = _cpu_spoof(m)
+        if data:
+            out.append(Decision(
+                "Kernel", "Emulate > Cpuid1Data / Cpuid1Mask",
+                "0x" + data[:4].hex(),
+                "Pentium/Celeron aren't in macOS's CPUID whitelist and panic once "
+                f"SSDT-PLUG loads - spoof to the gen-{gen} i3"))
     if amd:
         n = cpu.cores or 1
         out.append(Decision("Kernel", "Patch (AMD_Vanilla)",
