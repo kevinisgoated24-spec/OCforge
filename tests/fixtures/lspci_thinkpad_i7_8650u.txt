@@ -1,0 +1,8 @@
+00:00.0 "Host bridge [0600]" "Intel Corporation [8086]" "Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers [5914]" -r08 "Lenovo [17aa]" "Device [225d]"
+00:02.0 "VGA compatible controller [0300]" "Intel Corporation [8086]" "UHD Graphics 620 [5917]" -r07 "Lenovo [17aa]" "Device [225d]"
+00:14.0 "USB controller [0c03]" "Intel Corporation [8086]" "Sunrise Point-LP USB 3.0 xHCI Controller [9d2f]" -r21 "Lenovo [17aa]" "Device [225d]"
+00:1c.0 "PCI bridge [0604]" "Intel Corporation [8086]" "Sunrise Point-LP PCI Express Root Port [9d10]" -rf1
+00:1f.3 "Audio device [0403]" "Intel Corporation [8086]" "Sunrise Point-LP HD Audio [9d71]" -r21 "Lenovo [17aa]" "Device [225d]"
+02:00.0 "Network controller [0280]" "Intel Corporation [8086]" "Wireless 8265 / 8275 [24fd]" -r78 "Intel Corporation [8086]" "Dual Band Wireless-AC 8265 [0010]"
+03:00.0 "Non-Volatile memory controller [0108]" "Samsung Electronics Co Ltd [144d]" "NVMe SSD Controller SM961/PM961/SM963 [a804]" "Lenovo [17aa]" "Device [3801]"
+04:00.0 "Ethernet controller [0200]" "Intel Corporation [8086]" "Ethernet Connection (4) I219-V [15d8]" -r21 "Lenovo [17aa]" "Device [225d]"

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ocforge"
+version = "0.0.1"
+description = "Build a bootable OpenCore EFI for a machine you can describe."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Epic34-cyberdudder" }]
+keywords = ["opencore", "hackintosh", "efi", "bootloader"]
+dependencies = []
+
+[project.optional-dependencies]
+tui = ["rich>=13"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+ocforge = "ocforge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ocforge"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

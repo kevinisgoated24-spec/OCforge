@@ -1,0 +1,7 @@
+00:00.0 "Host bridge [0600]" "Advanced Micro Devices, Inc. [AMD] [1022]" "Starship/Matisse Root Complex [1480]" -r00 "Advanced Micro Devices, Inc. [AMD] [1022]" "Device [1480]"
+00:02.1 "PCI bridge [0604]" "Advanced Micro Devices, Inc. [AMD] [1022]" "Starship/Matisse GPP Bridge [1483]" -r00
+01:00.0 "Non-Volatile memory controller [0108]" "Samsung Electronics Co Ltd [144d]" "NVMe SSD Controller SM981/PM981/PM983 [a808]" -r00 "Samsung Electronics Co Ltd [144d]" "SSD 970 EVO Plus 1TB [a801]"
+0a:00.0 "VGA compatible controller [0300]" "Advanced Micro Devices, Inc. [AMD/ATI] [1002]" "Navi 21 [Radeon RX 6800/6800 XT / 6900 XT] [73bf]" -rc1 "Sapphire Technology Limited [1da2]" "Device [e438]"
+0a:00.1 "Audio device [0403]" "Advanced Micro Devices, Inc. [AMD/ATI] [1002]" "Navi 21/23 HDMI/DP Audio Controller [ab28]" -r00 "Advanced Micro Devices, Inc. [AMD/ATI] [1002]" "Device [ab28]"
+0b:00.0 "Ethernet controller [0200]" "Realtek Semiconductor Co., Ltd. [10ec]" "RTL8125 2.5GbE Controller [8125]" -r05 "ASRock Incorporation [1849]" "Device [8125]"
+0d:00.3 "Audio device [0403]" "Advanced Micro Devices, Inc. [AMD] [1022]" "Starship/Matisse HD Audio Controller [1487]" -r00 "ASRock Incorporation [1849]" "Device [1487]"
