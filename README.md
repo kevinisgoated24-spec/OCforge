@@ -1,6 +1,6 @@
 # OCforge
 
-<img src="docs/icon.webp" alt="OCforge icon" width="96" align="right">
+<img src="docs/icon.webp" alt="OCforge icon" width="80" align="right">
 
 Build a bootable OpenCore EFI for a machine you can describe.
 
