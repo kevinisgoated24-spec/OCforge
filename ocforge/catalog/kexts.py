@@ -60,8 +60,9 @@ MANIFEST: tuple[Kext, ...] = (
 
     # ethernet
     _ac("IntelMausi", order=40),
-    Kext("AppleIGC", "Chris1111/AppleIGC", r"AppleIGC.*\.zip", order=41),  # Intel I225/I226 2.5GbE
-    Kext("RealtekRTL8111", "CedWorf/RealtekRTL8111", r"RealtekRTL8111.*\.zip", order=42),
+    Kext("AppleIGC", "SongXiaoXi/AppleIGC", r"^AppleIGC\.kext\.zip$", order=41),  # Intel I225/I226 2.5GbE
+    Kext("RealtekRTL8111", "Mieze/RTL8111_driver_for_OS_X",
+         r"^RealtekRTL8111-V[\d.]+\.zip$", order=42),
     Kext("LucyRTL8125Ethernet", "Mieze/LucyRTL8125Ethernet", r"LucyRTL8125Ethernet.*\.zip", order=43),
     Kext("AtherosE2200Ethernet", "Mieze/AtherosE2200Ethernet", r"AtherosE2200Ethernet.*\.zip", order=44),
 
@@ -95,7 +96,7 @@ MANIFEST: tuple[Kext, ...] = (
          url="https://github.com/acidanthera/bugtracker/files/3703498/AppleMCEReporterDisabler.kext.zip"),
 
     # Alder Lake+ core topology
-    Kext("CpuTopologyRebuild", "b00t-1337/CpuTopologyRebuild", r"CpuTopologyRebuild.*\.zip", order=33),
+    Kext("CpuTopologyRebuild", "b00t0x/CpuTopologyRebuild", r"CpuTopologyRebuild.*\.zip", order=33),
 
     # laptop input
     Kext("VoodooPS2Controller", "acidanthera/VoodooPS2",
@@ -106,7 +107,7 @@ MANIFEST: tuple[Kext, ...] = (
     _ac("VoodooInput", order=69),
     Kext("BrightnessKeys", "acidanthera/BrightnessKeys",
          r"^BrightnessKeys-[\d.]+-RELEASE\.zip$", order=73),
-    Kext("ECEnabler", "1Revenger1/ECEnabler", r"ECEnabler.*\.zip", order=74),
+    Kext("ECEnabler", "averycblack/ECEnabler", r"ECEnabler.*\.zip", order=74),
 )
 
 _BY_NAME = {k.name: k for k in MANIFEST}

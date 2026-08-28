@@ -97,9 +97,9 @@ def latest_asset(repo: str, name_pattern: str, *, tag: str | None = "latest") ->
     matches = [a for a in list_assets(repo, tag) if rx.search(a.name)]
     if not matches:
         raise LookupError(f"no asset matching /{name_pattern}/ in {repo}@{tag}")
-    # prefer the shortest name (avoids picking a *-DEBUG when both exist and the
-    # pattern was loose) then the largest — real payloads over checksums.
-    matches.sort(key=lambda a: (len(a.name), -a.size))
+    # RELEASE before DEBUG, then the shortest name (avoids -dev / -d1 pre-release
+    # tags), then the largest — real payloads over checksums.
+    matches.sort(key=lambda a: ("debug" in a.name.lower(), len(a.name), -a.size))
     return matches[0]
 
 

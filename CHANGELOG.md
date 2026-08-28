@@ -3,6 +3,16 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.10
+
+- **Fixed dead kext repos.** `RealtekRTL8111` pointed at a repo that no longer
+  exists (`HTTP 404`); it, plus `AppleIGC`, `CpuTopologyRebuild` and
+  `ECEnabler`, now point at maintained sources (`Mieze/RTL8111_driver_for_OS_X`,
+  `SongXiaoXi/AppleIGC`, `b00t0x/CpuTopologyRebuild`, `averycblack/ECEnabler`).
+- **Always pick the RELEASE asset.** When a repo ships both `-DEBUG` and
+  `-RELEASE` zips, the shortest-name tiebreak was silently choosing `-DEBUG`
+  (affected `ForgedInvariant`, `USBToolBox`, and the newly-fixed repos).
+
 ## gui-v0.4.9
 
 - **The GUI now detects a stale `ocforge` CLI.** `ocforge --version` finally
