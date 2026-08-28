@@ -29,6 +29,10 @@ ocforge plan --spec my-pc.json
 # 3a. assemble an EFI/ folder (downloads OpenCore, kexts, SSDTs; no USB touched)
 ocforge build --spec my-pc.json --out ./EFI
 
+# …with SSDTs compiled from the target's own ACPI by SSDTTime
+ocforge build --spec my-pc.json --out ./EFI --dsdt ./my-pc-acpi   # folder or DSDT.aml
+ocforge build --out ./EFI --dump-dsdt                             # dump this host's tables (Linux)
+
 # 3b. …or write a bootable USB, macOS recovery included
 ocforge usb                              # list writable USB disks first
 ocforge build --spec my-pc.json --usb /dev/sdX --recovery
@@ -39,17 +43,24 @@ current OpenCore. Always re-run `ocvalidate` yourself before booting, map your
 USB ports after first boot, and fill in a real SMBIOS serial if `macserial`
 wasn't available at build time (the tool tells you).
 
-Not yet: DSDT-derived SSDTs (I2C-HID trackpad GPIO pinning is flagged as a
-manual step), Wi-Fi beyond Intel/Broadcom, and pre-Sandy-Bridge hosts.
+Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
+hotpatch set. With them, ocforge fetches [SSDTTime](https://github.com/corpnewt/SSDTTime),
+runs the non-interactive ops your machine needs (FakeEC, USBX, PluginType,
+PMC, RTCAWAC, PNLF), and merges the compiled `.aml` + any ACPI renames into
+the config. `--dump-dsdt` reads `/sys/firmware/acpi/tables` (Linux only, no
+root); on Windows/macOS pass `--dsdt` with a folder of tables you dumped.
+
+Not yet: SSDT-GPIO for I2C-HID trackpads (board-specific, still a manual
+SSDTTime step), Wi-Fi beyond Intel/Broadcom, and pre-Sandy-Bridge hosts.
 
 ## Layout
 
 | package            | does |
 |-------------------|------|
 | `ocforge.model`    | the `Machine` value object everything reads |
-| `ocforge.probe`    | per-OS hardware detection → `Machine` |
+| `ocforge.probe`    | per-OS hardware detection → `Machine`; ACPI-table dump for SSDTTime |
 | `ocforge.spec`     | `Machine` ⇄ JSON, for off-target planning |
 | `ocforge.catalog`  | macOS compatibility, kext selection, SSDT selection |
-| `ocforge.fetch`    | OpenCore / OcBinaryData / kexts / SSDTs / recovery downloads |
-| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, EFI layout, pipeline |
+| `ocforge.fetch`    | OpenCore / OcBinaryData / kexts / SSDTs / SSDTTime / recovery downloads |
+| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, EFI layout, pipeline |
 | `ocforge.media`    | USB enumerate / GPT+FAT32 format / write |

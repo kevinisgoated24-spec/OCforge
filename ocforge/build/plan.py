@@ -1,0 +1,97 @@
+"""A BuildPlan is the fully-resolved answer to "what goes on this USB".
+
+It is pure data derived from a :class:`Machine` — no downloads, no disk I/O —
+so it can be printed by ``ocforge plan`` and consumed by ``ocforge build``.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from ocforge.catalog import acpi, kexts, macos
+from ocforge.model import Chassis, Machine, Vendor
+
+# SMBIOS model per hardware class. Chosen for a still-supported board-id with
+# the right core count / graphics expectations; the serial is generated later.
+_SMBIOS = {
+    "amd_desktop": "iMacPro1,1",
+    "amd_desktop_navi": "MacPro7,1",
+    "intel_desktop": "iMac20,1",
+    "intel_desktop_old": "iMac19,1",
+    "intel_laptop": "MacBookPro16,1",
+    "intel_laptop_old": "MacBookPro15,1",
+}
+
+
+def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
+    if m.cpu.vendor is Vendor.AMD:
+        navi = m.dgpu is not None and m.dgpu.vendor is Vendor.AMD
+        return _SMBIOS["amd_desktop_navi"] if navi else _SMBIOS["amd_desktop"]
+    if m.is_laptop:
+        return _SMBIOS["intel_laptop"] if m.cpu.intel_gen >= 8 else _SMBIOS["intel_laptop_old"]
+    if m.cpu.intel_gen >= 9:
+        return _SMBIOS["intel_desktop"]
+    return _SMBIOS["intel_desktop_old"]
+
+
+@dataclass
+class BuildPlan:
+    machine: Machine
+    target: macos.MacOSRelease
+    smbios_model: str
+    kexts: list[kexts.Selected]
+    ssdts: list[acpi.Ssdt]
+    manual_acpi: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def is_amd(self) -> bool:
+        return self.machine.cpu.vendor is Vendor.AMD
+
+    @property
+    def boot_args(self) -> list[str]:
+        args = ["-v", "debug=0x100", "keepsyms=1"]
+        if self.smbios_model not in ("iMac20,1", "iMac19,1", "MacBookPro16,1"):
+            args.append("-no_compat_check")
+        if self.is_amd:
+            args.append("npci=0x2000")
+        if self.machine.dgpu and self.machine.dgpu.vendor is Vendor.NVIDIA:
+            args.append("nv_disable=1")
+        dg = self.machine.dgpu
+        if dg and dg.vendor is Vendor.AMD:
+            try:  # Navi (RX 5000+) needs agdpmod=pikera or it black-screens on boot
+                if int(dg.pci.device, 16) >= 0x7300:
+                    args.append("agdpmod=pikera")
+            except (ValueError, AttributeError):
+                pass
+        if self.machine.is_laptop and self.machine.igpu and self.machine.igpu.vendor is Vendor.INTEL:
+            args.append("igfxonln=1")
+        if self.target.darwin >= 24:  # Sequoia+
+            args.append("-lilubetaall")
+        return args
+
+
+def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
+    target = macos.by_major(target_major) if target_major else macos.recommended(m)
+    if target is None:
+        raise ValueError("no supported macOS release for this machine")
+
+    warnings: list[str] = []
+    if m.chassis is Chassis.UNKNOWN:
+        warnings.append("chassis type unknown — assuming desktop for ACPI/SMBIOS")
+    if m.cpu.vendor is Vendor.UNKNOWN:
+        warnings.append("CPU vendor unknown — kernel quirks may be wrong")
+    if not m.wired_nics and m.wifi is None:
+        warnings.append("no supported NIC detected — you may have no network in the installer")
+    if m.cpu.vendor is Vendor.AMD:
+        warnings.append("AMD build: kernel patches are spliced from AMD_Vanilla; verify the core count")
+
+    return BuildPlan(
+        machine=m,
+        target=target,
+        smbios_model=pick_smbios(m, target),
+        kexts=kexts.resolve(m, target),
+        ssdts=acpi.select(m),
+        manual_acpi=acpi.needs_generation(m),
+        warnings=warnings,
+    )

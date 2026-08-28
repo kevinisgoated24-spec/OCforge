@@ -4,7 +4,8 @@
     ocforge plan    [--spec FILE] [--macos N]      compatibility + full build plan
     ocforge usb                                    list writable USB disks
     ocforge build   [--spec FILE] [--macos N] \\
-                    [--out DIR | --usb DEV] [--recovery]
+                    [--out DIR | --usb DEV] [--recovery] \\
+                    [--dsdt PATH | --dump-dsdt]
 """
 
 from __future__ import annotations
@@ -89,6 +90,16 @@ def cmd_probe(args: argparse.Namespace) -> int:
 
         save(m, args.save)
         print(f"\nsaved -> {args.save}")
+
+        from ocforge.probe import acpi_dump
+
+        if acpi_dump.can_dump():
+            dest = Path(args.save).with_suffix("").parent / (Path(args.save).stem + "-acpi")
+            try:
+                acpi_dump.dump_tables(dest)
+                print(f"dumped ACPI tables -> {dest}  (pass to `build --dsdt {dest}`)")
+            except acpi_dump.DsdtUnavailable as exc:
+                print(f"(ACPI dump skipped: {exc})")
     return 0
 
 
@@ -137,14 +148,20 @@ def cmd_build(args: argparse.Namespace) -> int:
     print()
 
     work = Path(args.work or "ocforge-work").resolve()
+    dsdt = Path(args.dsdt).resolve() if args.dsdt else None
+    if dsdt and not dsdt.exists():
+        print(f"--dsdt path not found: {dsdt}", file=sys.stderr)
+        return 1
 
     if args.usb:
         if input(f"\nERASE {args.usb} and write a bootable USB? [y/N] ").strip().lower() != "y":
             return 130
         rec = plan.target.major if args.recovery else None
-        report = build_usb(plan, work, args.usb, recovery_major=rec, log=print)
+        report = build_usb(plan, work, args.usb, recovery_major=rec, log=print,
+                           dsdt=dsdt, dump_dsdt=args.dump_dsdt)
     else:
-        report = build_efi(plan, work, Path(args.out).resolve(), log=print, debug=args.debug)
+        report = build_efi(plan, work, Path(args.out).resolve(), log=print, debug=args.debug,
+                           dsdt=dsdt, dump_dsdt=args.dump_dsdt)
         print(f"\nEFI folder: {report.efi_dir}")
 
     _print_build_report(report)
@@ -152,6 +169,9 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def _print_build_report(r) -> None:
+    src = {"ssdttime": "SSDTTime (from the target's DSDT)",
+           "precompiled": "Dortania precompiled hotpatches"}.get(r.ssdt_source, r.ssdt_source)
+    print(f"\nSSDTs: {src}")
     if r.used_placeholder_smbios:
         print("\n! macserial unavailable — SMBIOS serial/MLB are PLACEHOLDERS, not usable. "
               "Re-run where the OpenCore Utilities are present, or fill them by hand.")
@@ -198,6 +218,10 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--out", metavar="DIR", help="write EFI/ into this folder")
     pb.add_argument("--usb", metavar="DEVICE", help="ERASE this disk and write a bootable USB")
     pb.add_argument("--recovery", action="store_true", help="also download + stage macOS recovery (USB only)")
+    pb.add_argument("--dsdt", metavar="PATH",
+                    help="a DSDT.aml (or folder of ACPI tables) — SSDTs are built from it with SSDTTime")
+    pb.add_argument("--dump-dsdt", action="store_true",
+                    help="dump this host's ACPI tables and build SSDTs from them (Linux only)")
     pb.add_argument("--work", metavar="DIR", help="download/scratch dir (default: ./ocforge-work)")
     pb.add_argument("--debug", action="store_true", help="use the OpenCore DEBUG build")
     pb.set_defaults(func=cmd_build)
