@@ -39,6 +39,7 @@ ocforge plan --spec my-pc.json
 # 2b. or the config.plist decisions themselves, each with a reason + a
 #     Dortania link (on AMD: also the live AMD_Vanilla patch list)
 ocforge explain --spec my-pc.json          # --json for machine-readable, --offline to skip the fetch
+ocforge bios    --spec my-pc.json          # BIOS/UEFI settings to change for this box
 
 # 3a. assemble an EFI/ folder (downloads OpenCore, kexts, SSDTs; no USB touched)
 ocforge build --spec my-pc.json --out ./EFI
@@ -97,7 +98,13 @@ Threadripper (TRX40/TRX50/WRX80) also gets `DevirtualiseMmio`.
 Pentium Gold / Celeron desktop parts are detected by their `G`-series SKU
 (macOS doesn't whitelist their CPUID — without a spoof you get a *Thread 0
 crashed* panic once `SSDT-PLUG` loads), and ocforge injects the matching
-`Emulate → Cpuid1Data/Cpuid1Mask` spoof to the same-generation i3.
+`Emulate → Cpuid1Data/Cpuid1Mask` spoof to the same-generation i3. They also
+have **no AVX2** (Intel fuses it off), so the target is capped at **Monterey**
+— Ventura and newer require AVX2 and will not boot.
+
+`ocforge bios` (also folded into `ocforge plan`) prints the BIOS/UEFI settings
+to change — AHCI, Secure Boot / CSM off, CFG-Lock, Above-4G — with per-vendor
+notes for Dell / HP / Lenovo / the DIY board makers.
 
 Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek — ocforge
 warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear

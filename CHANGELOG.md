@@ -3,6 +3,19 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.11
+
+- **Pentium/Celeron are capped at Monterey.** They have no AVX2 (Intel fuses
+  it off), which Ventura and newer require — building for Sequoia was a
+  guaranteed *Thread 0 crashed* even with the CPUID spoof. `recommended()`
+  now returns Monterey for them; a bare Core i-series with no probed feature
+  flags (Windows/macOS probe) is assumed AVX2-capable instead of being
+  wrongly capped.
+- **New `ocforge bios`** — a BIOS/UEFI checklist for the target machine
+  (AHCI, Secure Boot / CSM off, CFG-Lock, Above-4G, …) with per-vendor notes
+  for Dell / HP / Lenovo / DIY boards. Also appears as a "BIOS settings"
+  section in `ocforge plan` (so the GUI Plan tab shows it).
+
 ## gui-v0.4.10
 
 - **Fixed dead kext repos.** `RealtekRTL8111` pointed at a repo that no longer

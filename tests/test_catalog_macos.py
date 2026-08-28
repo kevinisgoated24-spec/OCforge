@@ -45,11 +45,26 @@ def test_intel_6th_gen_stops_at_ventura():
     assert macos.recommended(_intel_laptop(6)).major == 13
 
 
-def test_intel_needs_avx2_for_ventura_plus():
-    old = _intel_laptop(8, flags=frozenset())
-    verdicts = {c.release.major: c for c in macos.evaluate(old)}
+def test_pentium_celeron_capped_at_monterey_no_avx2():
+    pen = _intel_laptop(8, flags=frozenset())
+    pen.cpu.brand = "Intel(R) Pentium(R) Gold G5500T CPU @ 3.20GHz"
+    verdicts = {c.release.major: c for c in macos.evaluate(pen)}
     assert not verdicts[13].supported and "AVX2" in verdicts[13].note
     assert verdicts[12].supported
+    assert macos.recommended(pen).major == 12
+
+
+def test_iseries_with_unknown_flags_is_assumed_avx2_capable():
+    # Windows/macOS probe reports no feature flags — a Core i-series still
+    # gets Ventura+ (they all have AVX2 from Haswell on).
+    i5 = _intel_laptop(8, flags=frozenset())
+    i5.cpu.brand = "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz"
+    verdicts = {c.release.major: c for c in macos.evaluate(i5)}
+    assert verdicts[13].supported
+    # but a linux probe that positively lacks avx2 is still blocked
+    noavx = _intel_laptop(8, flags=frozenset({"sse4_2"}))
+    noavx.cpu.brand = "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz"
+    assert not {c.release.major: c for c in macos.evaluate(noavx)}[13].supported
 
 
 def test_11th_gen_laptop_is_a_dead_end():

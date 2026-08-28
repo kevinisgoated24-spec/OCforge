@@ -306,3 +306,27 @@ def test_splice_rejects_absurd_core_count():
 
     with pytest.raises(ValueError):
         splice_core_count([], 999)
+
+
+def test_bios_checklist_is_vendor_aware():
+    from ocforge.catalog import bios
+
+    dell = _pentium()
+    dell.firmware = Firmware(board_vendor="Dell Inc.", board_name="03KWTV")
+    lines = "\n".join(bios.checklist(dell))
+    assert "AHCI" in lines and "Secure Boot" in lines and "CFG Lock" in lines
+    assert "Dell notes" in lines and "RAID -> AHCI" in lines
+    assert "Above 4G" in lines            # desktop
+    assert "DVMT" not in lines            # not a laptop
+
+    lap = intel_laptop()
+    lap.firmware = Firmware(board_vendor="LENOVO", board_name="20LES")
+    ltxt = "\n".join(bios.checklist(lap))
+    assert "DVMT" in ltxt and "Lenovo notes" in ltxt
+    assert "Above 4G" not in ltxt
+
+    amd = ryzen_desktop()
+    amd.firmware = Firmware(board_vendor="ASUSTeK COMPUTER INC.", board_name="TUF B550")
+    atxt = "\n".join(bios.checklist(amd))
+    assert "fTPM" in atxt
+    assert "CFG Lock" not in atxt and "VT-d" not in atxt   # Intel-only concepts

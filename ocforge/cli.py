@@ -3,6 +3,7 @@
     ocforge probe   [--save FILE]                  detect this machine
     ocforge plan    [--spec FILE] [--macos N]      compatibility + full build plan
     ocforge explain [--spec FILE] [--macos N]      config.plist decisions, with reasons
+    ocforge bios   [--spec FILE]                   BIOS/UEFI settings to change
     ocforge validate [--efi DIR | --config FILE]   run ocvalidate on a config.plist
     ocforge plist  show|save FILE                  config.plist <-> JSON (GUI editor)
     ocforge usb                                    list writable USB disks
@@ -74,6 +75,10 @@ def _print_plan(p) -> None:
         print("\nmanual ACPI (needs the target's DSDT)")
         for t in p.manual_acpi:
             print(f"  ! {t}")
+    if p.bios:
+        print("\nBIOS settings")
+        for line in p.bios:
+            print(f"  {line}")
     if p.warnings:
         print("\nwarnings")
         for w in p.warnings:
@@ -171,6 +176,18 @@ def cmd_usb(_args: argparse.Namespace) -> int:
         return 1
     for d in disks:
         print(d)
+    return 0
+
+
+def cmd_bios(args: argparse.Namespace) -> int:
+    from ocforge.catalog import bios
+
+    m = _load_machine(args.spec)
+    _print_machine(m)
+    print("\nBIOS / UEFI settings for this machine\n")
+    for line in bios.checklist(m):
+        print(f"  {line}")
+    print("\n(guidance from the Dortania BIOS pages; wording varies by firmware)")
     return 0
 
 
@@ -322,6 +339,10 @@ def build_parser() -> argparse.ArgumentParser:
     pe.add_argument("--offline", action="store_true",
                     help="don't fetch the live AMD_Vanilla patch list")
     pe.set_defaults(func=cmd_explain)
+
+    pbios = sub.add_parser("bios", help="BIOS / UEFI settings to change for this machine")
+    pbios.add_argument("--spec", metavar="FILE")
+    pbios.set_defaults(func=cmd_bios)
 
     pu = sub.add_parser("usb", help="list writable USB disks")
     pu.set_defaults(func=cmd_usb)

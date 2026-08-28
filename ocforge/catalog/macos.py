@@ -47,8 +47,15 @@ def by_major(major: int) -> MacOSRelease | None:
 
 def _release_ok(rel: MacOSRelease, m: Machine) -> tuple[bool, str]:
     cpu = m.cpu
-    if rel.needs_avx2 and "avx2" not in cpu.flags and cpu.vendor is Vendor.INTEL:
-        return False, "needs AVX2"
+    if rel.needs_avx2 and cpu.vendor is Vendor.INTEL:
+        brand = (cpu.brand or "").lower()
+        if "pentium" in brand or "celeron" in brand:
+            # Intel fuses AVX/AVX2 off on every Pentium/Celeron -> Monterey is
+            # the newest macOS that boots. (The Windows/macOS probe reports no
+            # feature flags, so a bare i3/i5/i7 is assumed to have AVX2.)
+            return False, "Pentium/Celeron have no AVX2 (needed by Ventura+)"
+        if cpu.flags and "avx2" not in cpu.flags:
+            return False, "needs AVX2"
 
     if cpu.vendor is Vendor.AMD:
         if not rel.amd_ok:

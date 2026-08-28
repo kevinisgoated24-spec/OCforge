@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ocforge.catalog import acpi, kexts, macos
+from ocforge.catalog import acpi, bios, kexts, macos
 from ocforge.model import Chassis, Machine, Vendor
 
 # SMBIOS model per hardware class. Chosen for a still-supported board-id with
@@ -44,6 +44,7 @@ class BuildPlan:
     acpi_patches: list[dict] = field(default_factory=list)
     manual_acpi: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    bios: list[str] = field(default_factory=list)
 
     @property
     def is_amd(self) -> bool:
@@ -114,6 +115,9 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         else:
             warnings.append("Pentium/Celeron with unknown generation — CPUID spoof "
                             "can't be applied; check cpu.intel_gen in the spec")
+        if target.major >= 13:
+            warnings.append(f"Pentium/Celeron have no AVX2, but macOS {target.major} "
+                            "needs it -- this build will not boot; use --macos 12 (Monterey)")
     if m.wifi is not None and m.wifi.vendor not in _WIFI_OK:
         warnings.append(
             f"Wi-Fi chip is {m.wifi.vendor.value} — no macOS driver exists "
@@ -132,5 +136,6 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         ssdts=acpi.select(m),
         acpi_patches=acpi.patches(m),
         manual_acpi=acpi.needs_generation(m),
+        bios=bios.checklist(m),
         warnings=warnings,
     )
