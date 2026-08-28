@@ -1,4 +1,4 @@
-# ocforge
+# OCForge
 
 Build a bootable OpenCore EFI for a machine you can describe.
 
@@ -6,6 +6,8 @@ Point it at the machine (or a saved spec of one), and it works out which macOS
 release is viable, resolves OpenCore + the right kexts + SSDTs, assembles a
 `config.plist`, and writes the whole EFI — optionally straight onto a USB with
 the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
+
+Changelog: New Update Now OCForge Has Linux / MacOS Support You Can Try Everywhere OCForge
 
 > derived from public OpenCore / Dortania documentation; MIT — see [LICENSE](LICENSE).
 
