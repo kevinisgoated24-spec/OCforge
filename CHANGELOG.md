@@ -3,7 +3,7 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
-##gui-v0.4.17
+## gui-v0.4.17
 
 - **Added Support For Offline Installer** New Option To Make A Offline Installer With gibMacOS Inside Of OCForge How Does It Work?
 First Your Going To Selected What Build Of MacOS Your Going To Get OCForge Will Installed It Get The installassistant.pkg Place It Inside Of The USB With Unplugged (tuto will show on the guide that is in progress)
