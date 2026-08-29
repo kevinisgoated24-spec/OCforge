@@ -129,6 +129,11 @@ def _booter(plan: BuildPlan) -> dict[str, Any]:
     }
 
 
+# Coffee/Comet Lake desktop UHD 630 device-ids the Apple framebuffer matches
+# directly. Anything else in the range gets faked to 0x3E9B.
+_CFL_OK_IGPU = {"3e91", "3e92", "3e98", "3e9b", "9bc5", "9bc8"}
+
+
 def _device_properties(plan: BuildPlan) -> dict[str, Any]:
     add: dict[str, dict[str, Any]] = {}
     m = plan.machine
@@ -140,6 +145,15 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
         props: dict[str, Any] = {"AAPL,ig-platform-id": _b(pid)}
         if not drives_display:
             props["framebuffer-unifiedmem"] = _b("00000080")
+        elif not m.is_laptop:
+            # desktop iGPU driving the display: WhateverGreen patching + a 19MB
+            # stolen-mem floor, for boards with DVMT locked in firmware (most
+            # OEM boxes). Dortania Coffee Lake -> DeviceProperties.
+            props["framebuffer-patch-enable"] = _b("01000000")
+            props["framebuffer-stolenmem"] = _b("00003001")
+            dev = (ig.pci.device or "").lower()
+            if 8 <= m.cpu.intel_gen and dev and dev not in _CFL_OK_IGPU:
+                props["device-id"] = _b("9b3e0000")  # -> 0x3E9B (UHD 630 desktop)
         add["PciRoot(0x0)/Pci(0x2,0x0)"] = props
     # onboard audio: AppleALC layout-id 1 is the safest generic starting point
     add["PciRoot(0x0)/Pci(0x1f,0x3)"] = {"layout-id": _b("01000000")}

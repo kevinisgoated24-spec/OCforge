@@ -3,6 +3,14 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.13
+
+- **Coffee/Comet Lake desktop iGPU: added `framebuffer-patch-enable` +
+  `framebuffer-stolenmem` (0x3001 / 19 MB)** when the iGPU drives the display,
+  per the Dortania Coffee Lake DeviceProperties section — the fix for OEM
+  boards (Dell/HP/Lenovo) that lock DVMT. A non-standard CFL desktop iGPU
+  device-id is also faked to 0x3E9B.
+
 ## gui-v0.4.12
 
 - **iGPU-only Coffee Lake desktops now use `Macmini8,1`** instead of

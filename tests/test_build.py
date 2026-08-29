@@ -330,3 +330,24 @@ def test_bios_checklist_is_vendor_aware():
     atxt = "\n".join(bios.checklist(amd))
     assert "fTPM" in atxt
     assert "CFG Lock" not in atxt and "VT-d" not in atxt   # Intel-only concepts
+
+
+def test_coffee_lake_desktop_igpu_gets_framebuffer_props():
+    m = _pentium()   # UHD 630 (3e92), no dGPU, gen 8, Dell board
+    cfg = cfgmod.assemble(make(m), generate("Macmini8,1", None))
+    dp = cfg["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x2,0x0)"]
+    assert dp["AAPL,ig-platform-id"] == bytes.fromhex("07009b3e")
+    assert dp["framebuffer-patch-enable"] == bytes.fromhex("01000000")
+    assert dp["framebuffer-stolenmem"] == bytes.fromhex("00003001")
+    assert "device-id" not in dp                      # 3e92 is natively matched
+
+    # an odd CFL desktop iGPU id -> device-id faked to 0x3E9B
+    m2 = _pentium()
+    m2.igpu = Gpu(name="UHD 630", vendor=Vendor.INTEL, pci=PciId("8086", "3ea0"))
+    dp2 = cfgmod.assemble(make(m2), generate("Macmini8,1", None)) \
+        ["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x2,0x0)"]
+    assert dp2["device-id"] == bytes.fromhex("9b3e0000")
+
+    # AMD build has no iGPU props at all
+    amd = cfgmod.assemble(make(ryzen_desktop()), generate("MacPro7,1", None))
+    assert "PciRoot(0x0)/Pci(0x2,0x0)" not in amd["DeviceProperties"]["Add"]
