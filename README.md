@@ -28,42 +28,51 @@ Downloads come from GitHub releases.
 
 ## Use
 
+Three commands take you from bare hardware to a bootable EFI.
+
+**1. Scan this machine.** Writes the specs to `my-pc.json`.
+
 ```bash
-# 1. detect this machine (essentially grabs specs)
 ocforge probe --save my-pc.json
-
-# 2. see the efi it thinks is best
-ocforge plan --spec my-pc.json
-
-# 2b. or the config.plist decisions themselves, each with a reason + a
-#     Dortania link (on AMD: also the live AMD_Vanilla patch list)
-ocforge explain --spec my-pc.json          # --json for machine-readable, --offline to skip the fetch
-ocforge bios    --spec my-pc.json          # BIOS/UEFI settings to change for this box
-
-# 3a. assemble an EFI/ folder (downloads OpenCore, kexts, SSDTs; no USB touched)
-ocforge build --spec my-pc.json --out ./EFI
-
-# …with SSDTs compiled from the target's own ACPI by SSDTTime
-ocforge build --spec my-pc.json --out ./EFI --dsdt ./my-pc-acpi   # folder or DSDT.aml
-ocforge build --out ./EFI --dump-dsdt                             # dump this host's tables (Linux)
-
-# 3b. …or write a bootable USB, macOS recovery included
-ocforge usb                              # list writable USB disks first
-ocforge build --spec my-pc.json --usb /dev/sdX --recovery
-
-# 4. check / tweak an existing EFI
-ocforge validate --efi ./EFI                       # OpenCore's ocvalidate on the config
-ocforge plist show ./EFI/OC/config.plist           # config.plist -> JSON (hex data sentinels)
-ocforge plist save ./EFI/OC/config.plist < edited.json
-
-# 5. hit a wall? file a bug with your version + hardware already filled in
-ocforge report --spec my-pc.json
 ```
 
-The assembled `config.plist` validates clean against `ocvalidate` for the
-current OpenCore. Always re-run `ocvalidate` yourself before booting, map your
-USB ports after first boot, and fill in a real SMBIOS serial if `macserial`
-wasn't available at build time (the tool tells you).
+**2. See what it'll build** — macOS version, kexts, SSDTs, each with a reason.
+
+```bash
+ocforge plan --spec my-pc.json
+```
+
+**3. Build it.** Either an `EFI/` folder you copy onto the drive yourself:
+
+```bash
+ocforge build --spec my-pc.json --out ./EFI
+```
+
+…or written straight onto a USB stick with the macOS recovery included. Run
+`ocforge usb` first to get the disk name, then:
+
+```bash
+ocforge build --spec my-pc.json --usb /dev/sdX --recovery
+```
+
+That's the whole flow. Copy the `EFI` folder to your drive's EFI partition and boot.
+
+Before you boot: re-run `ocvalidate` yourself (see below), map your USB ports
+after first boot, and set a real SMBIOS serial if `macserial` wasn't available
+at build time — the tool tells you when that happens.
+
+### Other commands
+
+| command | what it does |
+|---|---|
+| `ocforge explain --spec my-pc.json` | every `config.plist` decision with a Dortania link (`--json`, `--offline`) |
+| `ocforge bios --spec my-pc.json` | BIOS/UEFI settings to change for this box |
+| `ocforge validate --efi ./EFI` | run OpenCore's `ocvalidate` on the config |
+| `ocforge plist show ./EFI/OC/config.plist` | `config.plist` → JSON |
+| `ocforge plist save ./EFI/OC/config.plist < edited.json` | write edited JSON back |
+| `ocforge build --spec my-pc.json --out ./EFI --dsdt ./my-pc-acpi` | compile SSDTs from the target's own ACPI |
+| `ocforge build --out ./EFI --dump-dsdt` | dump this host's ACPI tables (Linux) |
+| `ocforge report --spec my-pc.json` | file a bug with version + hardware pre-filled |
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
 hotpatch set, following the [prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
