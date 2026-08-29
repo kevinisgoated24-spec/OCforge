@@ -3,6 +3,18 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.26
+
+- **The GUI now checks for its own updates.** On launch it quietly checks
+  GitHub for a newer `gui-v*` release; if one exists, a banner offers a
+  **Download** button that opens that release's page. It does *not*
+  download or replace the running app itself — self-updating a native
+  desktop app safely (the running `.exe` can't overwrite itself on
+  Windows, a half-swapped install is worse than a missed update) is a much
+  bigger, riskier feature than this. The existing **"Update & continue"**
+  on the setup screen is unrelated — that updates the `ocforge` CLI, not
+  the GUI app.
+
 ## gui-v0.4.25
 
 - **Sandy Bridge through Kaby Lake desktop: cross-checked against

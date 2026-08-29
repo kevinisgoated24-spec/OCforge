@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import 'cli.dart';
+import 'gui_update.dart';
 import 'prefs.dart';
 import 'theme.dart';
 
@@ -28,6 +30,12 @@ class OcforgeController extends ChangeNotifier {
   AccentTheme accent = AccentTheme.violet;
 
   bool _prefsLoaded = false;
+  bool _disposed = false;
+
+  /// (version, releaseUrl) of a newer GUI release, once the background check
+  /// in [init] finds one. Null until then, and stays null if none exists or
+  /// the check couldn't complete — never blocks startup either way.
+  (String, String)? guiUpdate;
 
   Future<void> init() async {
     if (!_prefsLoaded) {
@@ -42,6 +50,14 @@ class OcforgeController extends ChangeNotifier {
     }
     cliReady = await cli.resolve();
     notifyListeners();
+    unawaited(checkForGuiUpdate().then(((String, String)? r) {
+      // The app may have closed before this network call finished --
+      // notifyListeners() on a disposed ChangeNotifier throws.
+      if (r != null && !_disposed) {
+        guiUpdate = r;
+        notifyListeners();
+      }
+    }));
   }
 
   void _persist() {
@@ -87,6 +103,7 @@ class OcforgeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     cleanupTempSpec();
     super.dispose();
   }

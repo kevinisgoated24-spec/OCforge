@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'gui_update.dart';
+
 /// A soft entrance: fade + rise, with an optional per-item [delay] for stagger.
 class FadeInUp extends StatefulWidget {
   const FadeInUp({super.key, required this.child, this.delay = Duration.zero});
@@ -384,6 +386,46 @@ Future<bool> confirmUnsupportedGpu(BuildContext context, String detail) async {
     ),
   );
   return proceed ?? false;
+}
+
+/// "A newer OCForge GUI is out — Download" — shown whenever
+/// [OcforgeController.guiUpdate] finds a newer `gui-v*` release than this
+/// build's [appVersion]. Only opens the release page in the browser; it
+/// never downloads or replaces the running app itself (self-updating a
+/// native desktop app safely is a much bigger, riskier feature — see
+/// gui/README.md).
+class GuiUpdateBanner extends StatelessWidget {
+  const GuiUpdateBanner({super.key, required this.version, required this.url});
+
+  final String version;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme s = Theme.of(context).colorScheme;
+    return Material(
+      color: s.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.system_update_alt_rounded, size: 18, color: s.onSecondaryContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'OCForge GUI $version is available — you have $appVersion.',
+                style: TextStyle(color: s.onSecondaryContainer, fontSize: 12.5),
+              ),
+            ),
+            TextButton(
+              onPressed: () => openInBrowser(url),
+              child: const Text('Download'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class DemoBanner extends StatelessWidget {

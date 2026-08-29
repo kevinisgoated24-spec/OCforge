@@ -37,6 +37,21 @@ platform config dir):
   Cyan, Slate); each reseeds the whole Material 3 scheme, including the app
   glyph.
 
+## Checking for updates
+
+Every launch, the app quietly checks GitHub for a newer `gui-v*` release
+than the one you're running. If one exists, a banner appears with a
+**Download** button that opens that release's page in your browser — same
+as checking manually. It does **not** download or replace the running app
+for you: on Windows the running `.exe` can't overwrite itself, and a
+half-swapped install on any platform is worse than just clicking the link.
+The check fails silently (offline, rate-limited, etc.) and never blocks
+startup either way.
+
+The **"Update & continue"** button on the setup screen is a different
+thing — that updates the `ocforge` **CLI** (the Python package this app
+drives), not the GUI app itself.
+
 ## First-run setup
 
 On first launch a **setup gate** checks for Python 3.11+ and the `ocforge` CLI.

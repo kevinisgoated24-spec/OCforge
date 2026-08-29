@@ -181,6 +181,8 @@ class _ShellState extends State<_Shell> {
             child: Column(
               children: <Widget>[
                 if (c.demo) const DemoBanner(),
+                if (c.guiUpdate != null)
+                  GuiUpdateBanner(version: c.guiUpdate!.$1, url: c.guiUpdate!.$2),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 340),
