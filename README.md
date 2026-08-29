@@ -29,10 +29,10 @@ Downloads come from GitHub releases.
 ## Use
 
 ```bash
-# 1. detect this machine (or run it on the target and save the spec)
+# 1. detect this machine (essentially grabs specs)
 ocforge probe --save my-pc.json
 
-# 2. see the plan: macOS target, kexts, SSDTs, SMBIOS, boot-args, caveats
+# 2. see the efi it thinks is best
 ocforge plan --spec my-pc.json
 
 # 2b. or the config.plist decisions themselves, each with a reason + a
