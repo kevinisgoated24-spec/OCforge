@@ -86,6 +86,13 @@ class _BuildPageState extends State<BuildPage> {
           return;
         }
         code = await _runStreamed(c, <String>[...args, '--force-unsupported-gpu']);
+      } else if (code == unsupportedOsExitCode) {
+        final String detail = _log.join('\n');
+        if (!await confirmUnsupportedOs(context, detail)) {
+          _finish(130, out);
+          return;
+        }
+        code = await _runStreamed(c, <String>[...args, '--force-unsupported-os']);
       }
       _finish(code, out);
     } catch (e) {

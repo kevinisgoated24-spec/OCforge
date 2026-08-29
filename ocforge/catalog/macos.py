@@ -29,6 +29,17 @@ class UnsupportedGpuError(ValueError):
     :func:`ocforge.build.plan.make` to do so."""
 
 
+class UnsupportedReleaseError(ValueError):
+    """An explicit ``--macos N`` (see :func:`ocforge.build.plan.make`'s
+    ``target_major``) isn't actually supported on this hardware per
+    ``_release_ok`` — e.g. forcing Tahoe on a 7th-gen Intel iGPU with no
+    Tahoe driver. Unlike the auto-picked ``recommended()`` path, an explicit
+    target used to skip this check entirely and build anyway with no
+    warning at all. Distinct from a plain ``ValueError`` so a caller can
+    offer "continue anyway?" — pass ``allow_unsupported_os=True`` to
+    :func:`ocforge.build.plan.make` to do so."""
+
+
 @dataclass(frozen=True)
 class MacOSRelease:
     name: str
@@ -120,6 +131,14 @@ class Compatibility:
     release: MacOSRelease
     supported: bool
     note: str
+
+
+def check(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False) -> Compatibility:
+    """The verdict for one specific release — same rule ``evaluate()`` and
+    ``recommended()`` apply to every release, exposed for a caller that
+    already has one in hand (an explicit ``--macos N``) instead of picking
+    the newest clean one itself."""
+    return Compatibility(rel, *_release_ok(rel, m, ignore_gpu=ignore_gpu))
 
 
 def evaluate(m: Machine, *, ignore_gpu: bool = False) -> list[Compatibility]:

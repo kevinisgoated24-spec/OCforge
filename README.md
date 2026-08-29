@@ -123,6 +123,13 @@ version doesn't change what the hardware can do. Not at a terminal (the
 GUI shows its own dialog with the same choice) or scripting this? Pass
 `--force-unsupported-gpu` to skip straight to yes.
 
+An explicit `--macos N` gets the same treatment against the CPU-generation/
+AVX2/AMD rules a target normally has to clear to be *recommended* — forcing
+Tahoe on a 7th-gen Kaby Lake iGPU (no Tahoe driver; needs 8th-gen+) asks the
+same "continue anyway?" question instead of silently building a real install
+that reaches a desktop with corrupted/garbled graphics. `--force-unsupported-os`
+is the scripting/GUI equivalent of `--force-unsupported-gpu` for this case.
+
 Older Intel desktops (Sandy Bridge through Kaby Lake, cross-checked against
 Dortania's own guide for each) get generation-correct treatment, not one
 generic profile: the right SMBIOS per generation and macOS target — bumped

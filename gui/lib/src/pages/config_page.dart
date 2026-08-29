@@ -61,6 +61,13 @@ class _ConfigPageState extends State<ConfigPage> {
             return;
           }
           r = await c.cli.run(<String>[...args, '--force-unsupported-gpu']);
+        } else if (r.exitCode == unsupportedOsExitCode) {
+          final String detail = '${r.stderr}'.trim();
+          if (!await confirmUnsupportedOs(context, detail)) {
+            setState(() => _busy = false);
+            return;
+          }
+          r = await c.cli.run(<String>[...args, '--force-unsupported-os']);
         }
         if (r.exitCode != 0) {
           final String e = '${r.stderr}'.trim();

@@ -27,7 +27,12 @@ def _amd_dgpu():
 
 
 def _config_for(m, target_major=None):
-    plan = make(m, target_major=target_major)
+    # allow_unsupported_os: this file deliberately forces older generations
+    # onto a fixed target_major to check the resulting config in isolation
+    # (SMBIOS/ig-platform-id/quirks) regardless of whether that combination
+    # is something ocforge would actually recommend -- e.g. Sandy Bridge
+    # forced to Monterey, well past its real driver support.
+    plan = make(m, target_major=target_major, allow_unsupported_os=True)
     cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
     return plan, cfg
 
@@ -38,6 +43,19 @@ def _config_for(m, target_major=None):
 def test_smbios_sandy_bridge_is_macpro6_1():
     plan, _ = _config_for(_desktop(2), target_major=12)
     assert plan.smbios_model == "MacPro6,1"
+
+
+def test_forcing_sandy_bridge_onto_monterey_needs_the_override_flag():
+    # Sandy Bridge's HD 3000 has no Monterey driver (min_intel_gen 3) -- an
+    # explicit --macos 12 without --force-unsupported-os must not silently
+    # build anyway (this was the actual bug: a real machine forced onto an
+    # unsupported target this way produced a broken/corrupted display).
+    import pytest
+
+    from ocforge.catalog.macos import UnsupportedReleaseError
+
+    with pytest.raises(UnsupportedReleaseError):
+        make(_desktop(2), target_major=12)
 
 
 def test_smbios_ivy_bridge_igpu_big_sur():

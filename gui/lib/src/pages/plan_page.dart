@@ -57,6 +57,13 @@ class _PlanPageState extends State<PlanPage> {
             return;
           }
           r = await c.cli.run(<String>[...args, '--force-unsupported-gpu']);
+        } else if (r.exitCode == unsupportedOsExitCode) {
+          final String detail = '${r.stderr}'.trim();
+          if (!await confirmUnsupportedOs(context, detail)) {
+            setState(() => _busy = false);
+            return;
+          }
+          r = await c.cli.run(<String>[...args, '--force-unsupported-os']);
         }
         final String out = '${r.stdout}'.trim();
         final String err = '${r.stderr}'.trim();

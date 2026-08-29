@@ -3,6 +3,30 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.30
+
+- **Fixed: an explicit `--macos N` bypassed hardware-support checking
+  entirely.** `ocforge plan`/`explain`/`build`/`offline-installer --macos N`
+  used to skip straight to that release with zero validation — only the
+  *auto-picked* target went through `_release_ok`'s AVX2/Intel-generation/
+  AMD checks. Forcing an unsupported combination (e.g. Tahoe, which needs
+  8th-gen Intel+, on a 7th-gen Kaby Lake iGPU with no Tahoe driver at all)
+  built and installed silently, producing a real machine with corrupted/
+  garbled graphics on first boot instead of a clean refusal — this is
+  exactly what happened to a real tester's Dell Inspiron 15-3567.
+  - New `UnsupportedReleaseError` (`catalog/macos.py`), raised by
+    `build/plan.py`'s `make()` when a forced target fails the same
+    `_release_ok` check the recommended path already used — same shape as
+    the existing `UnsupportedGpuError`/`allow_unsupported_gpu` pattern.
+  - New `--force-unsupported-os` CLI flag and `UNSUPPORTED_OS_EXIT` (4)
+    sentinel exit code, handled by `_resolve_plan` exactly like the GPU
+    case: a real terminal gets a "continue anyway?" prompt; a non-
+    interactive caller (the GUI) gets the sentinel exit and shows its own
+    confirm dialog (`confirmUnsupportedOs` in the GUI), then retries with
+    the flag.
+  - Forcing through anyway still gets a loud `UNSUPPORTED macOS TARGET`
+    warning in the plan, same as the unsupported-GPU case.
+
 ## gui-v0.4.29
 
 - **The GUI now actually self-updates**, both halves. The update banner's

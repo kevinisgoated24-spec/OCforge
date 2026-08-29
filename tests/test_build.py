@@ -219,6 +219,41 @@ def test_unsupported_gpu_can_be_forced_through():
     assert any("UNSUPPORTED BUILD" in w for w in p.warnings)
 
 
+def _kaby_lake_laptop():
+    # The real machine behind this bug report: a Dell Inspiron 15-3567
+    # (7th-gen Kaby Lake) -- Tahoe's min_intel_gen is 8, so forcing --macos 26
+    # used to silently build anyway with zero warning, producing a real
+    # install with corrupted/garbled graphics instead of a clean refusal.
+    return Machine(
+        chassis=Chassis.LAPTOP,
+        cpu=Cpu(brand="i5-7200U", vendor=Vendor.INTEL, family="Kaby Lake", intel_gen=7,
+                cores=2, threads=4, flags=frozenset({"avx2"})),
+        igpu=Gpu(name="HD 620", vendor=Vendor.INTEL, pci=PciId("8086", "5916")),
+    )
+
+
+def test_forcing_an_unsupported_macos_target_now_raises_instead_of_building_silently():
+    import pytest
+
+    from ocforge.catalog.macos import UnsupportedReleaseError
+
+    with pytest.raises(UnsupportedReleaseError, match="Tahoe.*8th gen"):
+        make(_kaby_lake_laptop(), target_major=26)
+
+
+def test_forced_unsupported_macos_target_can_be_pushed_through_with_a_warning():
+    p = make(_kaby_lake_laptop(), target_major=26, allow_unsupported_os=True)
+    assert p.target.major == 26
+    assert any("UNSUPPORTED macOS TARGET" in w and "Tahoe" in w for w in p.warnings)
+
+
+def test_forcing_an_actually_supported_macos_target_is_unaffected():
+    # Sequoia (min_intel_gen 7) IS fine on this CPU -- no error, no warning.
+    p = make(_kaby_lake_laptop(), target_major=15)
+    assert p.target.major == 15
+    assert not any("UNSUPPORTED macOS TARGET" in w for w in p.warnings)
+
+
 def test_amd_gets_mce_reporter_disabler_as_a_codeless_kext():
     plan = make(ryzen_desktop())
     sel = next((s for s in plan.kexts if s.kext.name == "AppleMCEReporterDisabler"), None)

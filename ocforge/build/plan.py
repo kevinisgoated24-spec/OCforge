@@ -136,7 +136,7 @@ _WIFI_OK = (Vendor.INTEL, Vendor.BROADCOM, Vendor.APPLE, Vendor.UNKNOWN)
 
 
 def make(m: Machine, *, target_major: int | None = None,
-        allow_unsupported_gpu: bool = False) -> BuildPlan:
+        allow_unsupported_gpu: bool = False, allow_unsupported_os: bool = False) -> BuildPlan:
     # An old spec (or an unparseable CPU brand) can leave intel_gen at 0; if
     # there's an Intel iGPU, recover the generation from its device id.
     from ocforge.probe.base import backfill_intel_gen
@@ -164,15 +164,41 @@ def make(m: Machine, *, target_major: int | None = None,
             "iGPU to fall back on. Needs an Intel iGPU or a supported AMD dGPU."
         )
 
-    target = (macos.by_major(target_major) if target_major
-             else macos.recommended(m, ignore_gpu=gpu_unsupported))
-    if target is None:
-        why = "no supported macOS release for this machine"
-        if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 3:
-            why += " (pre-Ivy-Bridge Intel — try --macos 11/12 at your own risk)"
-        raise ValueError(why)
+    forced_note = ""
+    if target_major:
+        target = macos.by_major(target_major)
+        if target is None:
+            raise ValueError(f"no such macOS release: {target_major}")
+        # An explicit --macos used to skip _release_ok entirely and build
+        # anyway with no warning at all -- e.g. forcing Tahoe on a 7th-gen
+        # iGPU with no Tahoe driver produces a build that reaches the
+        # desktop with corrupted/garbled graphics, not a clean failure.
+        # Same "raise unless explicitly forced through" shape as the
+        # GPU check above, so a caller (the CLI, the GUI) can offer the
+        # same "continue anyway?" prompt instead of a silent bad build.
+        compat = macos.check(target, m, ignore_gpu=gpu_unsupported)
+        if not compat.supported and not allow_unsupported_os:
+            raise macos.UnsupportedReleaseError(
+                f"{target.name} (macOS {target.major}) isn't supported on this hardware "
+                f"— {compat.note}. Pass --force-unsupported-os to build it anyway "
+                "(expect a broken or non-functional display)."
+            )
+        forced_note = compat.note if not compat.supported else ""
+    else:
+        target = macos.recommended(m, ignore_gpu=gpu_unsupported)
+        if target is None:
+            why = "no supported macOS release for this machine"
+            if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 3:
+                why += " (pre-Ivy-Bridge Intel — try --macos 11/12 at your own risk)"
+            raise ValueError(why)
 
     warnings: list[str] = []
+    if forced_note:
+        warnings.append(
+            f"UNSUPPORTED macOS TARGET — {target.name} (macOS {target.major}) forced "
+            f"through anyway despite not being supported on this hardware: {forced_note}. "
+            "Expect a broken or non-functional display; this is very unlikely to be usable."
+        )
     if gpu_unsupported:
         warnings.append(
             "UNSUPPORTED BUILD — no working display path was detected (needs an Intel "

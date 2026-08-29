@@ -392,6 +392,46 @@ Future<bool> confirmUnsupportedGpu(BuildContext context, String detail) async {
   return proceed ?? false;
 }
 
+/// The exit code `_resolve_plan` (ocforge/cli.py) uses when an explicit
+/// macOS-target override isn't actually supported on this hardware and
+/// there was no terminal to ask "continue anyway?" on. Same shape as
+/// [unsupportedGpuExitCode] — show [confirmUnsupportedOs] and, if the
+/// answer is yes, re-run the same command with `--force-unsupported-os`.
+const int unsupportedOsExitCode = 4;
+
+/// Same dialog as [confirmUnsupportedGpu], for a forced `--macos N` that
+/// isn't supported on this hardware (e.g. forcing Tahoe on a CPU generation
+/// with no Tahoe iGPU driver — the build will very likely reach a desktop
+/// with corrupted or missing graphics, not a clean failure). Returns true if
+/// the user wants to proceed anyway (retry with `--force-unsupported-os`).
+Future<bool> confirmUnsupportedOs(BuildContext context, String detail) async {
+  final ColorScheme s = Theme.of(context).colorScheme;
+  final bool? proceed = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      icon: Icon(Icons.warning_amber_rounded, color: s.error),
+      title: const Text('This macOS version isn\'t supported here'),
+      content: Text(
+        'Would you still like to continue? Expect a broken or non-functional '
+        'display, not a clean failure.\n\n$detail',
+        style: TextStyle(color: s.onSurfaceVariant, fontSize: 13),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.tonal(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Continue anyway'),
+        ),
+      ],
+    ),
+  );
+  return proceed ?? false;
+}
+
 /// "A newer OCForge GUI is out — Update" — shown whenever
 /// [OcforgeController.guiUpdate] finds a newer `gui-v*` release than this
 /// build's [appVersion]. "Update" opens [showGuiUpdateDialog], which updates
