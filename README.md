@@ -126,6 +126,13 @@ you submit it yourself under your own (free) GitHub account, same as filing
 one by hand. Attach whatever you have — a panic photo, the `opencore-*.txt`
 from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
+Running a Discord server for this? [`discordbot/`](discordbot/) is a
+self-hosted `/report` slash command that opens the same kind of form and
+*does* file the issue directly, via a GitHub token scoped to just
+`Issues: write` on this repo. That's a real (if narrow) credential, so it's
+opt-in and self-hosted — see [`discordbot/README.md`](discordbot/README.md)
+for the trade-off and setup.
+
 ## Desktop GUI
 
 [`gui/`](gui/) is a Flutter front-end (Windows / macOS / Linux) — Material 3
