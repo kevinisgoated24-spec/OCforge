@@ -71,7 +71,7 @@ at build time. The tool tells you when that happens.
 | `ocforge plist show ./EFI/OC/config.plist` | `config.plist` → JSON |
 | `ocforge plist save ./EFI/OC/config.plist < edited.json` | write edited JSON back |
 | `ocforge build --spec my-pc.json --out ./EFI --dsdt ./my-pc-acpi` | compile SSDTs from the target's own ACPI |
-| `ocforge build --out ./EFI --dump-dsdt` | dump this host's ACPI tables (Linux) |
+| `ocforge build --out ./EFI --dump-dsdt` | dump this host's ACPI tables (Linux, Windows) |
 | `ocforge report --spec my-pc.json` | file a bug with version + hardware pre-filled |
 | `ocforge offline-installer --spec my-pc.json --out ./offline` | stage a [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged) offline installer |
 
@@ -85,16 +85,22 @@ rename), `SSDT-IMEI` (Sandy+7-series / Ivy+6-series), `SSDT-RHUB` (Asus
 `SSDT-UNC` / `SSDT-RTC0-RANGE-HEDT` for X79/X99/X299 HEDT. With them, ocforge
 fetches [SSDTTime](https://github.com/corpnewt/SSDTTime), runs the
 non-interactive ops your machine needs (FakeEC, USBX, PluginType, PMC, RTCAWAC,
-PNLF), and fills the rest (XOSI/IMEI/CPUR/…) from the prebuilt set. `--dump-dsdt` reads
-`/sys/firmware/acpi/tables` (Linux only,
-usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
-dumped. For an I2C-HID trackpad, ocforge also decompiles the DSDT and
-best-effort generates **SSDT-GPIO**: the interrupt pin and GPIO controller
-read straight from the touchpad's `_CRS`. **On a Linux host that can dump its
-own tables, a laptop with an I2C-HID trackpad triggers this automatically** —
-no `--dsdt`/`--dump-dsdt` needed; without it, SSDT-GPIO silently never gets
-generated (a manual-TODO note is easy to miss). Verify the trackpad after
-first boot; if it's dead, that pin was wrong and needs doing by hand.
+PNLF), and fills the rest (XOSI/IMEI/CPUR/…) from the prebuilt set. `--dump-dsdt`
+reads `/sys/firmware/acpi/tables` on Linux (usually no root); on Windows it
+fetches the [ACPICA project](https://github.com/open-acpica/acpica)'s
+`acpidump.exe` and dumps from there — also fully automatic, no separate tool
+to install. macOS has no automatic path at all (nothing in ocforge or in
+SSDTTime itself implements one there — reading live ACPI tables needs macOS
+already booted, which is the chicken-and-egg problem this whole tool exists
+to get you past); pass `--dsdt` with a folder of tables dumped some other way.
+For an I2C-HID trackpad, ocforge also decompiles the DSDT and best-effort
+generates **SSDT-GPIO**: the interrupt pin and GPIO controller read straight
+from the touchpad's `_CRS`. **On Linux or Windows, a laptop with an I2C-HID
+trackpad triggers this automatically** — no `--dsdt`/`--dump-dsdt` needed;
+without it (macOS, or a host that genuinely can't dump), SSDT-GPIO silently
+never gets generated otherwise — just an easy-to-miss manual-TODO note.
+Verify the trackpad after first boot; if it's dead, that pin was wrong and
+needs doing by hand.
 
 Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
 (`AirportItlwm`) and Broadcom Wi-Fi + Bluetooth (`AirportBrcmFixup`,

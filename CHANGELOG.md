@@ -3,6 +3,26 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.22
+
+- **`--dump-dsdt` (and the auto SSDT-GPIO from gui-v0.4.21) now works on
+  Windows too**, not just Linux. Turns out SSDTTime's own dumper only
+  *checks* for a local `acpidump.exe` next to itself — it never fetches
+  one, confirmed by actually pulling the SSDTTime tree and finding it
+  missing. ocforge now fetches the real thing straight from its upstream,
+  the [ACPICA project](https://github.com/open-acpica/acpica) (the same
+  repo SSDTTime's own code already points its Windows `iasl` download at),
+  and runs it the same way SSDTTime would have. Verified end-to-end against
+  this machine's real firmware — a genuine 47&nbsp;KB DSDT plus 10 SSDTs,
+  correct ACPI headers throughout.
+- **macOS still has no automatic path**, and won't — this isn't ocforge
+  cutting a corner, SSDTTime itself has never implemented one either (its
+  `dsdt.py` only branches on Windows and Linux). Reading a machine's own
+  live ACPI tables needs macOS already booted there, which is the
+  chicken-and-egg problem a hackintosh-prep tool exists to get you past in
+  the first place. `--dsdt` with a folder dumped some other way still works
+  fine on macOS, same as before.
+
 ## gui-v0.4.21
 
 - **Unsupported-GPU builds now ask instead of just refusing.** `gui-v0.4.20`

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,6 +21,7 @@ from ocforge.build import ssdtgen
 from ocforge.build.plan import BuildPlan
 from ocforge.build.smbios import generate as gen_smbios
 from ocforge.fetch import acpi as fetch_acpi
+from ocforge.fetch import acpidump as fetch_acpidump
 from ocforge.fetch import github as fetch_github
 from ocforge.fetch import kexts as fetch_kexts
 from ocforge.fetch import ocbinary, opencore
@@ -56,33 +58,43 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
     host can't dump its own tables), leaving the precompiled path in charge.
     """
     m = plan.machine
+    # Linux reads its own tables straight from sysfs; Windows can dump too,
+    # but needs acpidump.exe fetched first (see fetch/acpidump.py). macOS has
+    # no automatic path at all -- SSDTTime's own dumper doesn't implement one.
+    host_can_dump = acpi_dump.can_dump() or sys.platform == "win32"
+
     # A laptop's I2C-HID trackpad only gets a real SSDT-GPIO when we can see
     # the DSDT (see gpio.py) — without --dsdt/--dump-dsdt that silently never
     # happens, just a manual-TODO note easy to miss. When this host can dump
-    # its own tables (Linux) and it's a laptop with that kind of trackpad,
-    # auto-dump even without being asked; --dsdt/--dump-dsdt still win if given.
+    # its own tables and it's a laptop with that kind of trackpad, auto-dump
+    # even without being asked; --dsdt/--dump-dsdt still win if given.
     auto_gpio = (dsdt is None and not dump_dsdt and m.is_laptop
-                and m.inputs.touchpad_bus == "i2c-hid" and acpi_dump.can_dump())
+                and m.inputs.touchpad_bus == "i2c-hid" and host_can_dump)
     if auto_gpio:
         log("laptop with an I2C-HID trackpad — auto-dumping ACPI tables for SSDT-GPIO…")
         dump_dsdt = True
+
+    if dsdt is None and not (dump_dsdt and host_can_dump):
+        if dump_dsdt:
+            log("  can't dump ACPI on this host (no automatic path — pass --dsdt instead); "
+                "using precompiled SSDTs")
+        return None
 
     src = work / "acpi-in"
     if dsdt is not None:
         log(f"staging supplied DSDT: {dsdt}")
         acpi_dir = acpi_dump.stage_supplied(dsdt, src)
-    elif dump_dsdt and acpi_dump.can_dump():
+    else:
         log("dumping this host's ACPI tables…")
         try:
-            acpi_dir = acpi_dump.dump_tables(src)
+            acpidump_exe = fetch_acpidump.fetch(work) if sys.platform == "win32" else None
+            acpi_dir = acpi_dump.dump_tables(src, acpidump_exe=acpidump_exe)
         except acpi_dump.DsdtUnavailable as exc:
             extra = " — no SSDT-GPIO, but the build's still fine without it" if auto_gpio else ""
             log(f"  can't dump ACPI ({exc}); using precompiled SSDTs{extra}")
             return None
-    else:
-        return None
 
-    st_dir = fetch_ssdttime.fetch(work)
+    st_dir = fetch_ssdttime.fetch(work)  # for iasl, to decompile/compile
     res = ssdtgen.run(st_dir, acpi_dir, ssdtgen.plan_ops(plan.machine), log=log)
     if not res.ok:
         log(f"  SSDTTime did not produce usable output ({res.error}); "
