@@ -3,6 +3,22 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.20
+
+- **Unsupported GPU-only machines are now refused, not silently built.**
+  NVIDIA (Maxwell and newer) has no macOS driver at all — with an Intel
+  iGPU or an AMD dGPU also present, ocforge already disabled it
+  (`nv_disable=1`) and the other GPU carried the display; that part still
+  works and now also gets a clear warning explaining the NVIDIA card is
+  inert in macOS. What was missing: a machine with **no iGPU** and only an
+  NVIDIA (or no) dGPU has nothing to show a display with once macOS hands
+  off from the boot picker — `ocforge plan`/`build`/`offline-installer` now
+  reject that case outright with a clear reason, instead of handing over an
+  EFI that boots to a black screen. Applies even with `--macos N` forced.
+  This also fixed a pre-existing gap where an AMD build with no dGPU at all
+  was wrongly marked "supported" on Big Sur/Monterey/Ventura (only
+  Sonoma+'s Metal requirement was checked before).
+
 ## gui-v0.4.19
 
 - **Offline installer, via [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged).**

@@ -96,6 +96,17 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
             "the oldest supported target here is Sandy Bridge on Big Sur. Not buildable."
         )
 
+    # No iGPU and no supported (AMD) dGPU -> macOS has nothing to drive a
+    # display with once it hands off from the boot picker. Checked
+    # unconditionally, ahead of --macos N, since forcing a version doesn't
+    # change what the hardware can do.
+    if not macos.has_display_path(m):
+        gpu = f"the {m.dgpu.vendor.value} dGPU ({m.dgpu.name or 'unnamed'})" if m.dgpu else "no GPU"
+        raise ValueError(
+            f"no supported graphics — {gpu} has no macOS driver, and there's no Intel "
+            "iGPU to fall back on. Needs an Intel iGPU or a supported AMD dGPU. Not buildable."
+        )
+
     target = macos.by_major(target_major) if target_major else macos.recommended(m)
     if target is None:
         why = "no supported macOS release for this machine"
@@ -122,6 +133,14 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         if target.major >= 13:
             warnings.append(f"Pentium/Celeron have no AVX2, but macOS {target.major} "
                             "needs it -- this build will not boot; use --macos 12 (Monterey)")
+    if m.dgpu is not None and m.dgpu.vendor is Vendor.NVIDIA:
+        # make() already rejected the no-iGPU case above, so an NVIDIA dGPU
+        # getting this far always has a working iGPU to fall back on.
+        warnings.append(
+            f"{m.dgpu.name or 'the NVIDIA dGPU'} has no macOS driver — it's disabled "
+            "(nv_disable=1); the iGPU drives the display, no GPU acceleration/CUDA "
+            "in macOS from this card"
+        )
     if m.wifi is not None and m.wifi.vendor not in _WIFI_OK:
         warnings.append(
             f"Wi-Fi chip is {m.wifi.vendor.value} — no macOS driver exists "

@@ -181,6 +181,36 @@ def test_plan_forced_macos():
     assert p.target.major == 12
 
 
+def test_nvidia_only_dgpu_with_no_igpu_is_rejected():
+    # RTX 3050 etc: no macOS driver, and nothing else to drive a display.
+    import pytest
+
+    m = intel_laptop()
+    m.igpu = None
+    m.dgpu = Gpu(name="RTX 3050", vendor=Vendor.NVIDIA, discrete=True)
+    with pytest.raises(ValueError, match="no supported graphics"):
+        make(m)
+
+
+def test_nvidia_only_dgpu_with_no_igpu_is_rejected_even_with_macos_forced():
+    # Forcing --macos doesn't change what the hardware can actually show.
+    import pytest
+
+    m = intel_laptop()
+    m.igpu = None
+    m.dgpu = Gpu(name="RTX 3050", vendor=Vendor.NVIDIA, discrete=True)
+    with pytest.raises(ValueError, match="no supported graphics"):
+        make(m, target_major=12)
+
+
+def test_nvidia_dgpu_alongside_a_working_igpu_just_gets_disabled():
+    m = intel_laptop()
+    m.dgpu = Gpu(name="RTX 3050", vendor=Vendor.NVIDIA, discrete=True)
+    p = make(m)
+    assert "nv_disable=1" in p.boot_args
+    assert any("RTX 3050" in w and "no macOS driver" in w for w in p.warnings)
+
+
 def test_amd_gets_mce_reporter_disabler_as_a_codeless_kext():
     plan = make(ryzen_desktop())
     sel = next((s for s in plan.kexts if s.kext.name == "AppleMCEReporterDisabler"), None)

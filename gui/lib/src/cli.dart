@@ -33,7 +33,7 @@ class OcforgeCli {
 
   /// The oldest `ocforge` this GUI build is happy to drive. Bump alongside the
   /// gui-v* tag when a CLI fix needs to reach users.
-  static const String minVersion = '0.4.19';
+  static const String minVersion = '0.4.20';
 
   CliResolution? _resolved;
   String _version = '';

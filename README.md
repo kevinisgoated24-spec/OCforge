@@ -98,6 +98,16 @@ Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
 `BrcmFirmwareData` + `BrcmPatchRAM3`); laptops on macOS 12+ also get
 `BlueToolFixup`.
 
+GPU: an Intel iGPU or an AMD dGPU always drives the display; **NVIDIA has no
+macOS driver at all** (Maxwell and newer — Apple dropped even the old Kepler
+web-driver path after High Sierra). With an iGPU present, an NVIDIA dGPU
+just gets disabled (`nv_disable=1`) and ocforge warns about it — the iGPU
+carries the display, no acceleration/CUDA from the NVIDIA card in macOS. With
+**no** iGPU and only an NVIDIA (or no) dGPU, there's nothing to show a
+display with once macOS hands off from the boot picker — `ocforge plan` /
+`build` refuses outright rather than hand you an unbootable EFI, `--macos N`
+included (forcing a version doesn't change what the hardware can do).
+
 AMD (Ryzen / Threadripper, following the
 [Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html)):
 `AMD_Vanilla` kernel patches spliced to the core count, `SMCAMDProcessor` +

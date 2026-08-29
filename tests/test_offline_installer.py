@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ocforge.build.offline_installer import stage
 from ocforge.build.plan import make
-from ocforge.model import Chassis, Cpu, Machine, Vendor
+from ocforge.model import Chassis, Cpu, Gpu, Machine, Vendor
 
 
 def _machine():
@@ -10,6 +10,7 @@ def _machine():
         chassis=Chassis.DESKTOP,
         cpu=Cpu(brand="i7-8700K", vendor=Vendor.INTEL, family="Coffee Lake", intel_gen=8,
                 cores=6, threads=12, flags=frozenset({"avx2"})),
+        igpu=Gpu(name="UHD 630", vendor=Vendor.INTEL, discrete=False),
     )
 
 

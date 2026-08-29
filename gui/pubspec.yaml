@@ -1,7 +1,7 @@
 name: ocforge_gui
 description: "Material 3 Expressive desktop front-end for the ocforge OpenCore EFI builder."
 publish_to: "none"
-version: 0.4.19+24
+version: 0.4.20+25
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

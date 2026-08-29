@@ -24,18 +24,30 @@ def test_amd_desktop_with_amd_dgpu_runs_everything():
     assert macos.recommended(_amd_desktop()).major == 26
 
 
-def test_amd_desktop_without_supported_dgpu_blocks_metal_releases():
+def test_amd_desktop_without_supported_dgpu_blocks_every_release():
+    # AMD has no iGPU; with no dGPU at all there's nothing to drive a
+    # display on *any* release, not just the Metal-required ones.
     m = _amd_desktop(dgpu_vendor=None)
+    assert not macos.has_display_path(m)
     verdicts = {c.release.major: c for c in macos.evaluate(m)}
-    assert not verdicts[15].supported  # Sonoma/Sequoia dropped the non-Metal path
-    assert not verdicts[14].supported
-    assert verdicts[13].supported      # Ventura still has it
-    assert macos.recommended(m).major == 13
+    assert not any(v.supported for v in verdicts.values())
+    assert macos.recommended(m) is None
 
 
 def test_amd_with_nvidia_dgpu_is_not_metal_ok():
+    # NVIDIA doesn't count as a display path either -- same as no dGPU.
     m = _amd_desktop(dgpu_vendor=Vendor.NVIDIA)
-    assert not {c.release.major: c for c in macos.evaluate(m)}[14].supported
+    assert not macos.has_display_path(m)
+    assert macos.recommended(m) is None
+
+
+def test_intel_igpu_with_nvidia_dgpu_still_works():
+    # The common "gaming laptop" case: NVIDIA dGPU is unsupported, but the
+    # Intel iGPU is right there and drives the display fine.
+    m = _intel_laptop(8)
+    m.dgpu = Gpu(name="RTX 3050", vendor=Vendor.NVIDIA, discrete=True)
+    assert macos.has_display_path(m)
+    assert macos.recommended(m) is not None
 
 
 def test_intel_6th_gen_stops_at_ventura():

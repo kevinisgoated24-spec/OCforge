@@ -8,8 +8,11 @@ build:
   path (0 = no Intel floor, e.g. an AMD build).
 * ``amd_ok`` — bootable on AMD Ryzen with the community kernel patches.
 * ``needs_avx2`` — the OS itself requires AVX2 (Ventura and newer).
-* ``metal_gpu_required`` — no non-Metal fallback; needs a supported dGPU on
-  otherwise-unsupported iGPU hardware.
+
+Every release also requires *some* supported graphics path at all — an Intel
+iGPU or an AMD dGPU (see ``has_display_path``) — regardless of Metal; a
+machine with no iGPU and only an NVIDIA (or absent) dGPU can't drive a
+display on any of them.
 """
 
 from __future__ import annotations
@@ -27,22 +30,35 @@ class MacOSRelease:
     min_intel_gen: int
     amd_ok: bool
     needs_avx2: bool
-    metal_gpu_required: bool
 
 
 # newest first
 RELEASES: tuple[MacOSRelease, ...] = (
-    MacOSRelease("Tahoe", 26, 25, 8, True, True, True),
-    MacOSRelease("Sequoia", 15, 24, 7, True, True, True),
-    MacOSRelease("Sonoma", 14, 23, 7, True, True, True),
-    MacOSRelease("Ventura", 13, 22, 6, True, True, False),
-    MacOSRelease("Monterey", 12, 21, 3, True, False, False),
-    MacOSRelease("Big Sur", 11, 20, 3, True, False, False),
+    MacOSRelease("Tahoe", 26, 25, 8, True, True),
+    MacOSRelease("Sequoia", 15, 24, 7, True, True),
+    MacOSRelease("Sonoma", 14, 23, 7, True, True),
+    MacOSRelease("Ventura", 13, 22, 6, True, True),
+    MacOSRelease("Monterey", 12, 21, 3, True, False),
+    MacOSRelease("Big Sur", 11, 20, 3, True, False),
 )
 
 
 def by_major(major: int) -> MacOSRelease | None:
     return next((r for r in RELEASES if r.major == major), None)
+
+
+def has_display_path(m: Machine) -> bool:
+    """True if something in this machine can plausibly drive a macOS display.
+
+    An Intel iGPU always counts (its generation is checked separately). A
+    dGPU only counts if it's AMD — NVIDIA (Maxwell and newer; Apple never
+    shipped Kepler-or-older drivers past High Sierra either) has no macOS
+    driver at all, on any release, Metal or otherwise. No iGPU and an
+    unsupported/absent dGPU means no display once macOS hands off from the
+    UEFI boot picker — not a build worth producing."""
+    if m.igpu is not None:
+        return True
+    return m.dgpu is not None and m.dgpu.vendor is Vendor.AMD
 
 
 def _release_ok(rel: MacOSRelease, m: Machine) -> tuple[bool, str]:
@@ -57,12 +73,14 @@ def _release_ok(rel: MacOSRelease, m: Machine) -> tuple[bool, str]:
         if cpu.flags and "avx2" not in cpu.flags:
             return False, "needs AVX2"
 
+    if not has_display_path(m):
+        gpu_note = (f" ({m.dgpu.vendor.value} dGPU has no macOS driver)"
+                   if m.dgpu else " (no GPU detected)")
+        return False, f"no supported graphics — needs an Intel iGPU or an AMD dGPU{gpu_note}"
+
     if cpu.vendor is Vendor.AMD:
         if not rel.amd_ok:
             return False, "AMD not supported on this release"
-        # AMD builds have no iGPU; they need a Metal-capable dGPU.
-        if rel.metal_gpu_required and (m.dgpu is None or m.dgpu.vendor is Vendor.NVIDIA):
-            return False, "needs a supported AMD dGPU (no usable iGPU on AMD)"
         return True, ""
 
     if cpu.vendor is Vendor.INTEL:
