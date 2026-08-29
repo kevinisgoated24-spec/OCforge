@@ -11,9 +11,9 @@ make a bootable OpenCore EFI for any laptop/pc you got.
 * assembles a `config.plist`, and writes the whole EFI 
 * written efi optionally straight onto a USB with the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
 
-Changelog: [CHANGELOG.md](CHANGELOG.md) — now with Linux and macOS support.
+Changelog: [CHANGELOG.md](CHANGELOG.md), now with Linux and macOS support.
 
-> made from public OpenCore / Dortania documentation; MIT — see [LICENSE](LICENSE).
+> made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
 
 ## Install
 
@@ -36,7 +36,7 @@ Three commands take you from bare hardware to a bootable EFI.
 ocforge probe --save my-pc.json
 ```
 
-**2. See what it'll build** — macOS version, kexts, SSDTs, each with a reason.
+**2. See what it'll build.** macOS version, kexts, SSDTs, each with a reason.
 
 ```bash
 ocforge plan --spec my-pc.json
@@ -59,7 +59,7 @@ That's the whole flow. Copy the `EFI` folder to your drive's EFI partition and b
 
 Before you boot: re-run `ocvalidate` yourself (see below), map your USB ports
 after first boot, and set a real SMBIOS serial if `macserial` wasn't available
-at build time — the tool tells you when that happens.
+at build time. The tool tells you when that happens.
 
 ### Other commands
 
@@ -88,7 +88,7 @@ PNLF), and fills the rest (XOSI/IMEI/CPUR/…) from the prebuilt set. `--dump-ds
 `/sys/firmware/acpi/tables` (Linux only,
 usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
 dumped. For an I2C-HID trackpad, ocforge also decompiles the DSDT and
-best-effort generates **SSDT-GPIO** — the interrupt pin and GPIO controller
+best-effort generates **SSDT-GPIO**: the interrupt pin and GPIO controller
 read straight from the touchpad's `_CRS`. Verify the trackpad after first boot;
 if it's dead, that pin was wrong and needs doing by hand.
 
@@ -101,49 +101,49 @@ AMD (Ryzen / Threadripper, following the
 [Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html)):
 `AMD_Vanilla` kernel patches spliced to the core count, `SMCAMDProcessor` +
 `AMDRyzenCPUPowerManagement`, `ForgedInvariant` for TSC sync, and
-`AppleMCEReporterDisabler` (a plist-only kext — `AppleMCEReporter` panics on
+`AppleMCEReporterDisabler` (a plist-only kext; `AppleMCEReporter` panics on
 AMD). Quirks: `DummyPowerManagement`, `ProvideCurrentCpuInfo`,
 `AppleXcpmCfgLock` off, `DisableIoMapper` off (no VT-d), `SetupVirtualMap` off;
 Threadripper (TRX40/TRX50/WRX80) also gets `DevirtualiseMmio`.
 
 Pentium Gold / Celeron desktop parts are detected by their `G`-series SKU
-(macOS doesn't whitelist their CPUID — without a spoof you get a *Thread 0
+(macOS doesn't whitelist their CPUID; without a spoof you get a *Thread 0
 crashed* panic once `SSDT-PLUG` loads), and ocforge injects the matching
 `Emulate → Cpuid1Data/Cpuid1Mask` spoof to the same-generation i3. They also
-have **no AVX2** (Intel fuses it off), so the target is capped at **Monterey**
-— Ventura and newer require AVX2 and will not boot.
+have **no AVX2** (Intel fuses it off), so the target is capped at **Monterey**;
+Ventura and newer require AVX2 and will not boot.
 
 `ocforge bios` (also folded into `ocforge plan`) prints the BIOS/UEFI settings
-to change — AHCI, Secure Boot / CSM off, CFG-Lock, Above-4G — with per-vendor
+to change (AHCI, Secure Boot / CSM off, CFG-Lock, Above-4G) with per-vendor
 notes for Dell / HP / Lenovo / the DIY board makers.
 
-Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek — ocforge
+Not yet: Wi-Fi chips with no macOS driver at all (Atheros/MediaTek; ocforge
 warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
-message), and HEDT (X79/X99/X299) — the SSDTs are selected but the MacPro
+message), and HEDT (X79/X99/X299), where the SSDTs are selected but the MacPro
 SMBIOS and HEDT-specific quirks aren't fully modelled, so cross-check the
 Dortania HEDT guide.
 
 ## Reporting a problem
 
 `ocforge report` (also a bug icon in the GUI's nav rail) opens a GitHub "New
-issue" pre-filled with your ocforge version and hardware — you just describe
+issue" pre-filled with your ocforge version and hardware; you just describe
 what happened and hit submit. It's not a bot with write access to the repo:
 there's no shared credential to leak or abuse, it fills in
 [the bug-report form](.github/ISSUE_TEMPLATE/bug_report.yml) client-side and
 you submit it yourself under your own (free) GitHub account, same as filing
-one by hand. Attach whatever you have — a panic photo, the `opencore-*.txt`
+one by hand. Attach whatever you have: a panic photo, the `opencore-*.txt`
 from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
 Running a Discord server for this? [`discordbot/`](discordbot/) is a
 self-hosted `/report` slash command that opens the same kind of form and
 *does* file the issue directly, via a GitHub token scoped to just
 `Issues: write` on this repo. That's a real (if narrow) credential, so it's
-opt-in and self-hosted — see [`discordbot/README.md`](discordbot/README.md)
+opt-in and self-hosted; see [`discordbot/README.md`](discordbot/README.md)
 for the trade-off and setup.
 
 ## Desktop GUI
 
-[`gui/`](gui/) is a Flutter front-end (Windows / macOS / Linux) — Material 3
+[`gui/`](gui/) is a Flutter front-end (Windows / macOS / Linux): Material 3
 Expressive, light/dark + seven accent themes, tabs for Detect / Plan / Config
 (the `explain` view) / Forge. It drives this CLI; on first run it offers to
 install Python + `ocforge` for you, and falls back to a demo mode otherwise.
