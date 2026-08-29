@@ -3,6 +3,13 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.12
+
+- **iGPU-only Coffee Lake desktops now use `Macmini8,1`** instead of
+  `iMac19,1`. The iMac SMBIOS assumes a discrete GPU; the 2018 Mac mini runs
+  UHD 630 as its only GPU, which matches an iGPU-only build's power
+  management and board-id expectations.
+
 ## gui-v0.4.11
 
 - **Pentium/Celeron are capped at Monterey.** They have no AVX2 (Intel fuses

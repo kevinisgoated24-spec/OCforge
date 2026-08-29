@@ -1,3 +1,3 @@
 """ocforge — build a bootable OpenCore EFI for a machine you can describe."""
 
-__version__ = "0.4.11"
+__version__ = "0.4.12"

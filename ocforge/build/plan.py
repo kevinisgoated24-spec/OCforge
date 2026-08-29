@@ -18,6 +18,7 @@ _SMBIOS = {
     "amd_desktop_navi": "MacPro7,1",
     "intel_desktop": "iMac20,1",
     "intel_desktop_old": "iMac19,1",
+    "intel_desktop_igpu": "Macmini8,1",   # Coffee Lake, UHD 630 as the only GPU
     "intel_laptop": "MacBookPro16,1",
     "intel_laptop_old": "MacBookPro15,1",
 }
@@ -29,6 +30,9 @@ def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
         return _SMBIOS["amd_desktop_navi"] if navi else _SMBIOS["amd_desktop"]
     if m.is_laptop:
         return _SMBIOS["intel_laptop"] if m.cpu.intel_gen >= 8 else _SMBIOS["intel_laptop_old"]
+    # iGPU-only Coffee Lake desktop -> Mac mini (the iMac models assume a dGPU)
+    if m.igpu is not None and m.dgpu is None and 8 <= m.cpu.intel_gen <= 9:
+        return _SMBIOS["intel_desktop_igpu"]
     if m.cpu.intel_gen >= 9:
         return _SMBIOS["intel_desktop"]
     return _SMBIOS["intel_desktop_old"]
