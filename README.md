@@ -2,18 +2,18 @@
 
 <img src="docs/icon.webp" alt="OCforge icon" width="80" align="right">
 
-make a bootable OpenCore EFI for any laptop/pc you got.
+Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 
-## heres how it works
+## Heres how it works
 
-* point it at the machine (or a saved spec of one)
-* it works out which macOS release is compatible with your hardware, resolves OpenCore + the right kexts + SSDTs, 
-* assembles a `config.plist`, and writes the whole EFI 
-* written efi optionally straight onto a USB with the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
+* Point it at the machine (or a saved spec of one)
+* It works out which macOS release is compatible with your hardware, resolves OpenCore + the right kexts + SSDTs, 
+* Assembles a `config.plist`, and writes the whole EFI 
+* Written efi optionally straight onto a USB with the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
 
 Changelog: [CHANGELOG.md](CHANGELOG.md), now with Linux and macOS support.
 
-> made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
+> Made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
 
 ## Install
 
