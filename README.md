@@ -185,11 +185,7 @@ you submit it yourself under your own (free) GitHub account, same as filing
 one by hand. Attach whatever you have: a panic photo, the `opencore-*.txt`
 from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
-Running a Discord server for this? [`discordbot/`](discordbot/) is a
-self-hosted `/report` slash command that opens the same kind of form and
-hands back the same pre-filled link — no GitHub credential in the bot
-either, same trust model as above, just reached from Discord. See
-[`discordbot/README.md`](discordbot/README.md) for setup.
+Are you In the discord server? type /report to automatically submit a report!
 
 ## Desktop GUI
 
