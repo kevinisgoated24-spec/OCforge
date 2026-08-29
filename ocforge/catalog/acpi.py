@@ -191,8 +191,9 @@ def patches(m: Machine) -> list[dict]:
 def needs_generation(m: Machine) -> list[str]:
     todo = []
     if m.is_laptop and m.inputs.touchpad_bus == "i2c-hid":
-        todo.append("SSDT-GPIO (I2C-HID trackpad): auto-generated from the DSDT when you pass "
-                    "--dsdt / --dump-dsdt (verify the trackpad after); otherwise a manual step")
+        todo.append("SSDT-GPIO (I2C-HID trackpad): auto-generated on a Linux or Windows host "
+                    "(no flag needed -- verify the trackpad after); on macOS, or if the DSDT "
+                    "scan finds no single clear candidate, pass --dsdt yourself instead")
     if hedt_family(m):
         todo.append(f"HEDT ({hedt_family(m)}): SSDTs are selected but HEDT SMBIOS/quirks "
                     "aren't fully modelled -- cross-check against the Dortania HEDT guide")

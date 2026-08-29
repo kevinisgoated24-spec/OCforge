@@ -3,6 +3,13 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.24
+
+- **Fixed stale wording in `ocforge plan`'s SSDT-GPIO note.** It still said
+  "auto-generated ... when you pass --dsdt / --dump-dsdt" — true before
+  gui-v0.4.21, misleading since (Linux/Windows laptops with an I2C-HID
+  trackpad auto-generate it with no flag needed now). Reworded to say so.
+
 ## gui-v0.4.23
 
 - **Fixed missing I2C-HID trackpad detection on Windows** — a real Device
