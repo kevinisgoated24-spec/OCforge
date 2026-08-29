@@ -1,50 +1,38 @@
 # OCforgeReporter (Discord bot)
 
 A `/report` slash command for a Discord server: it opens a form (version, OS,
-hardware, what happened, repro steps) and files a GitHub issue on
-[OCforge](https://github.com/kevinisgoated24-spec/OCforge) directly.
+hardware) and hands back a pre-filled GitHub "New issue" link for
+[OCforge](https://github.com/kevinisgoated24-spec/OCforge) — you review it,
+add what happened, and click **Submit new issue** yourself.
 
-This is a different trust model from `ocforge report` (CLI) or the GUI's bug
-icon — those never hold a credential, they just open a prefilled
-`github.com/.../issues/new` and *you* click submit under your own GitHub
-account. This bot files the issue **on your behalf**, using a token *it*
-holds. That token is scoped as narrowly as GitHub allows (issues on this one
-repo, nothing else) and the bot rate-limits itself — see **Security** below
-— but it's still a real credential sitting on whatever machine runs the bot.
-If that's not a trade-off you want, use `ocforge report` / the GUI instead;
-nothing here replaces those.
+Same trust model as `ocforge report` (CLI) and the GUI's bug icon: this bot
+holds **no GitHub credential**. It never talks to the GitHub API — it just
+builds the link client-side, the same way those do. The only secret it needs
+is its own Discord bot token.
 
 There's no hosted instance of this — you run your own copy, in your own
-server, with your own tokens.
+server.
 
 ## 1. Create the Discord bot
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) → **New Application** → name it (e.g. "OCforgeReporter").
 2. **Bot** tab (left sidebar) → **Reset Token** → copy it. This is `DISCORD_TOKEN`. Treat it like a password — anyone with it can control the bot.
-3. Leave **Privileged Gateway Intents** all off — `/report` only needs slash commands and modals, not message content or member lists.
-4. **OAuth2 → URL Generator**:
-   - Scopes: `bot`, `applications.commands`
-   - Bot Permissions: just **Send Messages** (that's all it needs)
-5. Open the generated URL, pick your server, authorize. The bot joins but does nothing yet.
+3. Leave **Privileged Gateway Intents** all off, and **"Requires OAuth2 Code Grant"** off — `/report` only needs slash commands and modals.
+4. **Installation** tab → under **Installation Contexts**, keep only **Guild Install** checked.
+5. Build an invite link by hand (the Portal's URL Generator sometimes insists on a redirect URL you don't need for this):
+   ```
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2048
+   ```
+   (`YOUR_CLIENT_ID` is on the **OAuth2 → General** page; `permissions=2048` = Send Messages.)
+6. Open that URL, pick your server, Authorize.
 
-## 2. Create a scoped GitHub token
-
-Use a **fine-grained personal access token**, not a classic one — a classic
-token's scopes are all-or-nothing across every repo you can see; fine-grained
-lets you lock it to exactly this.
-
-1. [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new)
-2. **Repository access** → **Only select repositories** → `kevinisgoated24-spec/OCforge`
-3. **Permissions → Repository permissions → Issues** → **Read and write**. Leave every other permission at **No access**.
-4. Generate, copy it. This is `GITHUB_TOKEN`. If you don't own the repo, whoever does needs to approve the fine-grained token request (or grant you issue-write access) before it works.
-
-## 3. Configure and run
+## 2. Configure and run
 
 ```bash
 cd discordbot
 python -m venv .venv && . .venv/bin/activate   # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
-cp .env.example .env   # fill in DISCORD_TOKEN and GITHUB_TOKEN
+cp .env.example .env   # fill in DISCORD_TOKEN
 ```
 
 Load `.env` however you prefer (`python-dotenv`, your shell, your process
@@ -54,9 +42,9 @@ manager) and run:
 python bot.py
 ```
 
-`/report` should appear in the server within a minute or two (instant if you
-set `DISCORD_GUILD_ID` — global command registration is slow to propagate,
-per-guild is not).
+Set `DISCORD_GUILD_ID` in `.env` to your server's ID for instant command
+registration; leave it unset and the command still works, it just takes
+Discord up to ~an hour to propagate a global command the first time.
 
 ## Keeping it running
 
@@ -67,26 +55,20 @@ that runs once and exits. Options, cheapest first:
   `pm2`, or just a `screen`/`tmux` session that survives logout.
 - **A small VPS** (same as above, just not at home).
 - **A free-tier PaaS** (Railway, Fly.io, Render, etc.): push this folder,
-  set `DISCORD_TOKEN`/`GITHUB_TOKEN` as its secret env vars, set the start
-  command to `python bot.py`. Any of them work; none are configured here
-  since which one makes sense depends on what you already use.
+  set `DISCORD_TOKEN` as its secret env var, set the start command to
+  `python bot.py`. Any of them work; none are configured here since which
+  one makes sense depends on what you already use.
 
 ## Security
 
-- **Token scope.** `GITHUB_TOKEN` must be a fine-grained PAT limited to
-  *Issues: Read and write* on this one repo (step 2 above). Never use a
-  classic PAT or one with `repo` (full control) scope here — if this bot's
-  host is ever compromised, the blast radius should be "spam issues," not
-  "push code" or "delete the repo."
-- **Rate limits** in `bot.py`: `PER_USER_COOLDOWN_SECONDS` (default 300s —
-  one report per person per 5 min) and `MAX_ISSUES_PER_HOUR` (default 20,
-  shared across everyone). Both are in-memory, so they reset on restart;
-  tune them for your server's size.
-- **`DISCORD_GUILD_ID`** restricts `/report` to one server. Set it unless
-  you deliberately want the bot usable from anywhere it's invited.
-- Every filed issue records the reporter's Discord username + ID in the
-  body, and is labeled `bug` — same label `ocforge report`/the GUI use — so
-  it's traceable and shows up alongside issues filed the normal way.
-- This bot has **no other commands and no other GitHub scope** — it cannot
-  read private data, close issues, touch code, or do anything besides open
-  an issue with the fields the modal collected.
+- The only secret is `DISCORD_TOKEN`, kept in `discordbot/.env`
+  (git-ignored — never commit it). No GitHub token, no write access to the
+  repo, anywhere in this bot.
+- `/report` never files anything itself — it hands the reporter a link and
+  they submit it under their own GitHub account, so every issue is
+  attributed to whoever actually filed it, same as filing one by hand.
+- `DISCORD_GUILD_ID` restricts `/report` to one server. Set it unless you
+  deliberately want the bot usable from anywhere it's invited.
+- A light per-user cooldown (`PER_USER_COOLDOWN_SECONDS` in `bot.py`, default
+  30s) just keeps someone from spam-opening the modal — there's no
+  credential-abuse risk to rate-limit against here.

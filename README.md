@@ -136,10 +136,9 @@ from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
 Running a Discord server for this? [`discordbot/`](discordbot/) is a
 self-hosted `/report` slash command that opens the same kind of form and
-*does* file the issue directly, via a GitHub token scoped to just
-`Issues: write` on this repo. That's a real (if narrow) credential, so it's
-opt-in and self-hosted; see [`discordbot/README.md`](discordbot/README.md)
-for the trade-off and setup.
+hands back the same pre-filled link — no GitHub credential in the bot
+either, same trust model as above, just reached from Discord. See
+[`discordbot/README.md`](discordbot/README.md) for setup.
 
 ## Desktop GUI
 
