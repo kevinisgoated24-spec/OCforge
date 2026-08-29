@@ -1,3 +1,5 @@
 ## Supported And Tested Device
 
 - Dell Insperion 15-3567
+
+- Desktop PC With 9060 XT GPU Status: Booted To MacOS Recovery
