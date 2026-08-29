@@ -2,4 +2,4 @@
 
 - Dell Insperion 15-3567
 
-- Desktop PC With 9060 XT GPU Status: Booted To MacOS Recovery
+- Asus B550 Plus TUF Gaming With 9060 XT GPU Status: Booted To MacOS Recovery
