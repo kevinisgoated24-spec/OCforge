@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from ocforge.catalog.macos import MacOSRelease
 from ocforge.model import Machine, Vendor
+from ocforge.probe.base import is_legacy_amd
 
 
 @dataclass(frozen=True)
@@ -175,9 +176,14 @@ def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
         picks["SMCSuperIO"] = ""
 
     if m.cpu.vendor is Vendor.AMD:
-        picks["AMDRyzenCPUPowerManagement"] = ""
-        picks["SMCAMDProcessor"] = ""
-        picks["ForgedInvariant"] = "TSC sync for AMD"
+        if not is_legacy_amd(m):
+            # Zen (Ryzen/Threadripper) only -- Dortania's Bulldozer/Jaguar
+            # guide doesn't call for any of these three; DummyPowerManagement
+            # (build/config.py's Kernel -> Emulate) is that generation's
+            # whole power-management story, no kext needed for it.
+            picks["AMDRyzenCPUPowerManagement"] = ""
+            picks["SMCAMDProcessor"] = ""
+            picks["ForgedInvariant"] = "TSC sync for AMD"
         picks["AppleMCEReporterDisabler"] = "block AppleMCEReporter (panics on AMD)"
     elif m.cpu.vendor is Vendor.INTEL and m.cpu.intel_gen >= 12:
         picks["CpuTopologyRebuild"] = "E-core topology (Alder Lake+)"

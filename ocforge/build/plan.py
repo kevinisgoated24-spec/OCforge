@@ -112,7 +112,9 @@ class BuildPlan:
         if self.smbios_model not in ("iMac20,1", "iMac19,1", "MacBookPro16,1"):
             args.append("-no_compat_check")
         if self.is_amd:
-            args.append("npci=0x2000")
+            # Dortania Ryzen/Threadripper: alternative to enabling Above 4G
+            # Decoding in firmware, for early [PCI configuration begin] hangs.
+            args.append("npci=0x3000")
         if self.machine.dgpu and self.machine.dgpu.vendor is Vendor.NVIDIA:
             args.append("nv_disable=1")
         dg = self.machine.dgpu

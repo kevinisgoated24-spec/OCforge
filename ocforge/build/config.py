@@ -14,6 +14,7 @@ from typing import Any
 from ocforge.build.plan import BuildPlan
 from ocforge.build.smbios import SmbiosData
 from ocforge.model import Vendor
+from ocforge.probe.base import is_legacy_amd
 
 # Intel iGPU framebuffer ids (AAPL,ig-platform-id), little-endian bytes.
 # Each generation's own guide often lists several values by exact screen
@@ -129,6 +130,7 @@ def _booter(plan: BuildPlan, *, legacy_mmap: bool = False) -> dict[str, Any]:
     m = plan.machine
     gen = m.cpu.intel_gen
     intel = m.cpu.vendor is Vendor.INTEL
+    legacy_amd = is_legacy_amd(m)
     board = m.firmware.board_name.lower()
     z390 = any(x in board for x in ("z390", "z490"))
     # Threadripper (TRX40/TRX50/WRX80/WRX90) needs DevirtualiseMmio per the AMD guide
@@ -136,10 +138,17 @@ def _booter(plan: BuildPlan, *, legacy_mmap: bool = False) -> dict[str, Any]:
         "threadripper" in (m.cpu.brand or "").lower()
         or any(x in board for x in ("trx40", "trx50", "wrx80", "wrx90"))
     )
+    # X570/B550/A520/TRx40 specifically want SetupVirtualMap off (Dortania
+    # Ryzen/Threadripper); every other board -- older AM4 chipsets, and all
+    # of Bulldozer/Jaguar, neither of which this ever matches -- wants it on,
+    # same as pre-11th-gen Intel.
+    newer_amd_board = plan.is_amd and any(x in board for x in ("x570", "b550", "a520", "trx40"))
     # modern (MAT-based) map vs the legacy WriteUnprotector path. OEM firmware
-    # (Dell/HP/Lenovo) is often too old for the MAT table -> --legacy-mmap.
+    # (Dell/HP/Lenovo) is often too old for the MAT table -> --legacy-mmap;
+    # Bulldozer/Jaguar-era AMD boards are old enough that legacy is the
+    # Dortania-documented default there too, not just an OEM-firmware fallback.
     modern_mmap = not legacy_mmap and (
-        plan.is_amd or (intel and gen >= 8))
+        (plan.is_amd and not legacy_amd) or (intel and gen >= 8))
     return {
         "MmioWhitelist": [],
         "Patch": [],
@@ -166,7 +175,7 @@ def _booter(plan: BuildPlan, *, legacy_mmap: bool = False) -> dict[str, Any]:
             "ProvideMaxSlide": 0,
             "RebuildAppleMemoryMap": modern_mmap,
             "ResizeAppleGpuBars": -1,
-            "SetupVirtualMap": not (plan.is_amd or gen >= 11 or z390),
+            "SetupVirtualMap": not (newer_amd_board or gen >= 11 or z390),
             "SignalAppleOS": False,
             "SyncRuntimePermissions": modern_mmap,
         },

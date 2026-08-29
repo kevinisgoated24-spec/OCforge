@@ -163,8 +163,29 @@ AMD (Ryzen / Threadripper, following the
 `AMDRyzenCPUPowerManagement`, `ForgedInvariant` for TSC sync, and
 `AppleMCEReporterDisabler` (a plist-only kext; `AppleMCEReporter` panics on
 AMD). Quirks: `DummyPowerManagement`, `ProvideCurrentCpuInfo`,
-`AppleXcpmCfgLock` off, `DisableIoMapper` off (no VT-d), `SetupVirtualMap` off;
-Threadripper (TRX40/TRX50/WRX80) also gets `DevirtualiseMmio`.
+`AppleXcpmCfgLock` off, `DisableIoMapper` off (no VT-d), modern memory map
+(`RebuildAppleMemoryMap`/`SyncRuntimePermissions`); `SetupVirtualMap` is on by
+default and only turned off on X570/B550/A520/TRx40 boards, per the guide's
+own exception list. Threadripper (TRX40/TRX50/WRX80/WRX90) also gets
+`DevirtualiseMmio`. The `npci=0x3000` boot-arg is the guide's fallback for
+"Above 4G Decoding" unavailable in firmware — not `npci=0x2000`, which does
+something different (skips PCI enumeration past config space).
+
+Pre-Zen AMD — Bulldozer/Piledriver/Steamroller/Excavator (Family 15h) and
+Jaguar/Puma (Family 16h), following the
+[Dortania Bulldozer/Jaguar guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/bulldozer-jaguar.html) —
+is also supported: same `AMD_Vanilla` kernel-patch source (spliced to core
+count, no CPUID spoof), but none of the three Ryzen-only kexts
+(`AMDRyzenCPUPowerManagement`/`SMCAMDProcessor`/`ForgedInvariant`) since
+`DummyPowerManagement` is that generation's entire power-management story;
+`AppleMCEReporterDisabler` still applies. It also gets the legacy memory map
+(`EnableWriteUnprotector` on, `RebuildAppleMemoryMap`/`SyncRuntimePermissions`
+off) by default, not the modern-mmap default Ryzen/Threadripper gets — this
+is the guide's own default for that era, not the `--legacy-mmap` OEM-firmware
+fallback. ocforge can't reliably name every FX-/A-series/E-series/GX- SKU
+across that decade of reused branding, so it detects this family as the
+inverse of the reliable signal: genuinely-AMD hardware whose brand string
+`amd_family()` didn't recognize as some Zen generation.
 
 Pentium Gold / Celeron desktop parts are detected by their `G`-series SKU
 (macOS doesn't whitelist their CPUID; without a spoof you get a *Thread 0

@@ -3,6 +3,39 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.28
+
+- **New: Bulldozer(15h)/Jaguar(16h) AMD support** — cross-checked against
+  Dortania's own [Bulldozer/Jaguar guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/bulldozer-jaguar.html)
+  after the desktop/laptop Intel guide pass. Pre-Zen AMD (Bulldozer,
+  Piledriver, Steamroller, Excavator, Jaguar, Puma) shares the same
+  `AMD_Vanilla` kernel-patch source as Ryzen but is a meaningfully different
+  build otherwise:
+  - No `AMDRyzenCPUPowerManagement`/`SMCAMDProcessor`/`ForgedInvariant` —
+    `DummyPowerManagement` is that generation's whole power-management
+    story, not a kext. `AppleMCEReporterDisabler` still applies.
+  - **Legacy memory map by default** (`EnableWriteUnprotector` on,
+    `RebuildAppleMemoryMap`/`SyncRuntimePermissions` off) — the guide's own
+    default for that era, not just the `--legacy-mmap` OEM-firmware
+    fallback modern boards use.
+  - Detected as `is_legacy_amd()`: genuinely-AMD hardware whose brand
+    string doesn't match any known Zen generation — deliberately the
+    inverse of the reliable signal, since ocforge can't reliably name every
+    FX-/A-series/E-series/GX- SKU across a decade of reused branding.
+- **Fixed `SetupVirtualMap`**: it was unconditionally off for every AMD
+  build. Both AMD guides actually say it's on by default — Ryzen/
+  Threadripper's own guide only turns it off on X570/B550/A520/TRx40
+  boards, and Bulldozer/Jaguar's guide lists no exception at all. It now
+  follows the board name, matching pre-11th-gen Intel's existing "on unless
+  the firmware is known to need it off" default instead of an AMD-wide
+  blanket toggle.
+- **Fixed `npci=0x2000` → `npci=0x3000`**: cross-checking the AMD
+  Ryzen/Threadripper guide against ocforge's own boot-args turned up the
+  wrong hex value — `0x3000` is Dortania's documented fallback for "Above
+  4G Decoding" unavailable in firmware; `0x2000` does something unrelated
+  (skips PCI enumeration past config space) and was never what the guide
+  called for.
+
 ## gui-v0.4.27
 
 - **Laptops now get the same per-generation treatment desktop got in

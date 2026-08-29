@@ -56,7 +56,7 @@ def test_amd_decisions_match_the_config():
     assert _find(decs, "Kernel", "AMD_Vanilla")[0].value == "spliced to 6 cores"
 
     bootargs = {d.setting for d in decs if d.section == "boot-args"}
-    assert {"npci=0x2000", "agdpmod=pikera", "-no_compat_check"} <= bootargs
+    assert {"npci=0x3000", "agdpmod=pikera", "-no_compat_check"} <= bootargs
 
     # AMD build -> config-section docs point at the Dortania AMD guide
     assert _find(decs, "Kernel", "AppleXcpmCfgLock")[0].doc.endswith("/AMD/")
@@ -80,6 +80,29 @@ def test_amd_vanilla_patch_list_is_expanded_when_supplied():
     assert all(d.doc == "https://github.com/AMD-OSX/AMD_Vanilla" for d in av)
 
 
+def _legacy_amd_desktop():
+    return Machine(
+        chassis=Chassis.DESKTOP,
+        cpu=Cpu(brand="AMD FX-8350 Eight-Core Processor", vendor=Vendor.AMD, cores=8, threads=8),
+        dgpu=Gpu(name="RX 570", vendor=Vendor.AMD, pci=PciId("1002", "67df"), discrete=True),
+        net=[NetIf(name="RTL8111", vendor=Vendor.REALTEK, pci=PciId("10ec", "8168"))],
+    )
+
+
+def test_legacy_amd_decisions_match_the_config():
+    # Bulldozer/Jaguar (Family 15h/16h) -- no recognized Zen family string --
+    # gets the legacy memory map and SetupVirtualMap=YES by default, unlike
+    # Ryzen/Threadripper's modern-mmap/SetupVirtualMap=NO default.
+    decs = explain(make(_legacy_amd_desktop()))
+
+    assert _find(decs, "Booter", "EnableWriteUnprotector")[0].value == "True"
+    assert not _find(decs, "Booter", "RebuildAppleMemoryMap")
+    assert _find(decs, "Booter", "SetupVirtualMap")[0].value == "True"
+
+    bootargs = {d.setting for d in decs if d.section == "boot-args"}
+    assert "npci=0x3000" in bootargs
+
+
 def test_intel_laptop_decisions_match_the_config():
     decs = explain(make(_intel_laptop()))
 
@@ -95,6 +118,6 @@ def test_intel_laptop_decisions_match_the_config():
 
     bootargs = {d.setting for d in decs if d.section == "boot-args"}
     assert "igfxonln=1" in bootargs
-    assert "npci=0x2000" not in bootargs
+    assert "npci=0x3000" not in bootargs
 
     assert any(d.section == "ACPI" and d.setting == "SSDT-PNLF" for d in decs)

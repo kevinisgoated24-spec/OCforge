@@ -199,3 +199,20 @@ def amd_family(brand: str) -> str:
     if series >= 3000:
         return "Zen 2"
     return "Zen+"
+
+
+def is_legacy_amd(m) -> bool:
+    """True for pre-Zen AMD -- Bulldozer/Piledriver/Steamroller/Excavator
+    (Family 15h) and Jaguar/Puma (Family 16h). ocforge can't reliably name
+    every FX-/A-series/E-series/GX- SKU across that decade of confusingly
+    reused branding, so this is the inverse of the reliable signal instead:
+    genuinely-AMD hardware that amd_family() didn't recognize as Zen.
+
+    Matters because the config is meaningfully different (Dortania
+    Bulldozer/Jaguar vs Ryzen/Threadripper): no AMDRyzenCPUPowerManagement/
+    SMCAMDProcessor/ForgedInvariant (catalog/kexts.py), and the legacy
+    memory map by default, not the modern MAT-based one (build/config.py).
+    """
+    from ocforge.model import Vendor
+
+    return m.cpu.vendor is Vendor.AMD and not m.cpu.family

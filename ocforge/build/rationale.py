@@ -53,7 +53,7 @@ _BOOT_ARG_WHY = {
     "-v": "verbose boot - shows the log instead of the Apple logo; drop it once stable",
     "debug=0x100": "don't reboot on a kernel panic - keep the panic screen up to read it",
     "keepsyms=1": "print symbol names in panic backtraces",
-    "npci=0x2000": "skip PCI enumeration past the config stage - avoids early hangs on AMD",
+    "npci=0x3000": "alternative to Above 4G Decoding in firmware - avoids early PCI-config hangs on AMD",
     "nv_disable=1": "no macOS driver for this NVIDIA card - disable it so the desktop loads",
     "agdpmod=pikera": "patch the board-id check that black-screens Navi (RX 5000+) GPUs",
     "igfxonln=1": "force Intel laptop display connectors online (fixes a black internal panel)",
@@ -120,14 +120,18 @@ def _amd_vanilla_decisions(patches: list[dict[str, Any]], cores: int) -> list[De
 
 
 def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None) -> list[Decision]:
+    from ocforge.probe.base import is_legacy_amd
+
     m = plan.machine
     cpu = m.cpu
     gen = cpu.intel_gen
     amd = plan.is_amd
+    legacy_amd = is_legacy_amd(m)
     intel = cpu.vendor is Vendor.INTEL
     board = m.firmware.board_name.lower()
     z390 = any(x in board for x in ("z390", "z490"))
-    modern_mmap = amd or (intel and gen >= 8)
+    newer_amd_board = amd and any(x in board for x in ("x570", "b550", "a520", "trx40"))
+    modern_mmap = (amd and not legacy_amd) or (intel and gen >= 8)
 
     out: list[Decision] = []
 
@@ -150,7 +154,7 @@ def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None)
 
     # --- Booter quirks (the hardware-driven ones) -------------------------
     if modern_mmap:
-        src = "AMD" if amd else f"Intel {gen}th-gen"
+        src = "AMD (Ryzen/Threadripper)" if amd else f"Intel {gen}th-gen"
         out.append(Decision("Booter", "Quirks > RebuildAppleMemoryMap", "True",
                             f"{src} firmware hands over a clean memory map"))
         out.append(Decision("Booter", "Quirks > EnableWriteUnprotector", "False",
@@ -158,14 +162,17 @@ def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None)
         out.append(Decision("Booter", "Quirks > SyncRuntimePermissions", "True",
                             "realign runtime page permissions after the rebuild"))
     else:
-        out.append(Decision("Booter", "Quirks > EnableWriteUnprotector", "True",
-                            "older firmware - unlock the memory map the legacy way"))
-    if not (amd or gen >= 11 or z390):
-        out.append(Decision("Booter", "Quirks > SetupVirtualMap", "True",
-                            "pre-300-series Intel - sandbox the virtual address map"))
-    else:
+        why = ("Bulldozer/Jaguar-era AMD - Dortania's own guide default, not just an "
+               "OEM-firmware fallback" if legacy_amd else
+               "older firmware - unlock the memory map the legacy way")
+        out.append(Decision("Booter", "Quirks > EnableWriteUnprotector", "True", why))
+    if newer_amd_board or gen >= 11 or z390:
         out.append(Decision("Booter", "Quirks > SetupVirtualMap", "False",
-                            "AMD / Z390 / 11th-gen+ firmware maps runtime services correctly"))
+                            "X570/B550/A520/TRx40 / Z390 / 11th-gen+ firmware maps runtime services correctly"))
+    else:
+        why = ("Bulldozer/Jaguar and older AM4 boards both want this on - no exception listed"
+               if amd else "pre-300-series Intel - sandbox the virtual address map")
+        out.append(Decision("Booter", "Quirks > SetupVirtualMap", "True", why))
     if z390 or gen >= 11:
         out.append(Decision("Booter", "Quirks > ProtectUefiServices", "True",
                             "Z390 / 11th-gen+ firmware relocates UEFI services at boot"))

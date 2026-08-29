@@ -171,7 +171,7 @@ def test_plan_amd():
     p = make(ryzen_desktop())
     assert p.is_amd
     assert p.smbios_model == "MacPro7,1"       # AMD + Navi dGPU
-    assert "npci=0x2000" in p.boot_args
+    assert "npci=0x3000" in p.boot_args
     assert "-no_compat_check" in p.boot_args
     assert any("core count" in w for w in p.warnings)
 
@@ -272,6 +272,65 @@ def test_two_core_coffee_lake_desktop_is_spoofed_even_without_a_pentium_brand():
     assert cfg["Kernel"]["Emulate"]["Cpuid1Data"] == bytes.fromhex("ea060900" + "00" * 12)
 
 
+def test_is_legacy_amd_is_the_inverse_of_a_recognized_zen_family():
+    from ocforge.probe.base import is_legacy_amd
+
+    fx = Cpu(brand="AMD FX-8350 Eight-Core Processor", vendor=Vendor.AMD, cores=8, threads=8)
+    ryzen = Cpu(brand="AMD Ryzen 5 5600X", vendor=Vendor.AMD, family="Zen 3", cores=6, threads=12)
+    intel = Cpu(brand="i7-8650U", vendor=Vendor.INTEL, family="Coffee Lake", intel_gen=8)
+    assert is_legacy_amd(Machine(chassis=Chassis.DESKTOP, cpu=fx)) is True
+    assert is_legacy_amd(Machine(chassis=Chassis.DESKTOP, cpu=ryzen)) is False
+    assert is_legacy_amd(Machine(chassis=Chassis.DESKTOP, cpu=intel)) is False
+
+
+def test_legacy_amd_skips_the_ryzen_specific_kexts_but_keeps_mce_disabler():
+    fx = _amd_on("990FXA-UD3", "AMD FX-8350 Eight-Core Processor")   # Bulldozer, no Zen family
+    names = {s.kext.name for s in make(fx).kexts}
+    assert "AMDRyzenCPUPowerManagement" not in names
+    assert "SMCAMDProcessor" not in names
+    assert "ForgedInvariant" not in names
+    assert "AppleMCEReporterDisabler" in names
+
+    ryzen = ryzen_desktop()
+    ryzen_names = {s.kext.name for s in make(ryzen).kexts}
+    assert {"AMDRyzenCPUPowerManagement", "SMCAMDProcessor", "ForgedInvariant"} <= ryzen_names
+
+
+def test_legacy_amd_gets_the_legacy_memory_map_by_default_without_the_flag():
+    # Dortania's Bulldozer/Jaguar guide wants EnableWriteUnprotector/legacy
+    # map as the default -- not just an OEM-firmware --legacy-mmap fallback
+    # like it is for modern Intel/Ryzen boards.
+    fx = _amd_on("990FXA-UD3", "AMD FX-8350 Eight-Core Processor")
+    quirks = cfgmod.assemble(make(fx), generate("MacPro7,1", None))["Booter"]["Quirks"]
+    assert quirks["RebuildAppleMemoryMap"] is False
+    assert quirks["EnableWriteUnprotector"] is True
+    assert quirks["SyncRuntimePermissions"] is False
+
+    ryzen = ryzen_desktop()
+    modern = cfgmod.assemble(make(ryzen), generate("MacPro7,1", None))["Booter"]["Quirks"]
+    assert modern["RebuildAppleMemoryMap"] is True
+    assert modern["EnableWriteUnprotector"] is False
+
+
+def test_setup_virtual_map_is_on_by_default_off_only_for_newer_amd_chipsets():
+    # Both the Ryzen/Threadripper guide (X570/B550/A520/TRx40 exception) and
+    # the Bulldozer/Jaguar guide (no exception listed at all -- YES) agree:
+    # SetupVirtualMap is on by default, not off for AMD as a whole.
+    fx = _amd_on("990FXA-UD3", "AMD FX-8350 Eight-Core Processor")
+    assert cfgmod.assemble(make(fx), generate("MacPro7,1", None)) \
+        ["Booter"]["Quirks"]["SetupVirtualMap"] is True
+
+    older_am4 = _amd_on("B450 TOMAHAWK MAX")
+    older_am4.cpu.family = "Zen 3"
+    assert cfgmod.assemble(make(older_am4), generate("MacPro7,1", None)) \
+        ["Booter"]["Quirks"]["SetupVirtualMap"] is True
+
+    x570 = _amd_on("X570 AORUS ELITE")
+    x570.cpu.family = "Zen 3"
+    assert cfgmod.assemble(make(x570), generate("MacPro7,1", None)) \
+        ["Booter"]["Quirks"]["SetupVirtualMap"] is False
+
+
 def test_threadripper_enables_devirtualise_mmio():
     tr = _amd_on("ROG ZENITH II EXTREME", "AMD Ryzen Threadripper 3970X")
     b450 = _amd_on("B450 TOMAHAWK")
@@ -295,7 +354,7 @@ def test_config_is_valid_plist_and_shaped_right():
     assert reparsed["PlatformInfo"]["Generic"]["SystemProductName"] == "MacPro7,1"
     assert reparsed["PlatformInfo"]["Generic"]["ROM"] == sm.rom
     ba = reparsed["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
-    assert "npci=0x2000" in ba
+    assert "npci=0x3000" in ba
     assert reparsed["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] is True   # AMD
     assert reparsed["Kernel"]["Quirks"]["AppleXcpmCfgLock"] is False       # AMD
     assert [e["Path"] for e in reparsed["ACPI"]["Add"]] == ["SSDT-EC-USBX.aml"]
