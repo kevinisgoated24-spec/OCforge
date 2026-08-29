@@ -102,6 +102,12 @@ def _release_ok(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False) -> t
             if ignore_gpu:
                 return True, "iGPU unsupported and forced through anyway — expect no display"
             return False, "11th gen+ Intel Xe graphics has no macOS driver"
+        if gen == 3 and rel.major > 11 and not (m.dgpu is not None and m.dgpu.vendor is Vendor.AMD):
+            # Ivy Bridge iGPU has no driver past Big Sur (Dortania Ivy Bridge) --
+            # Monterey+ needs a Metal AMD dGPU driving the display instead.
+            if ignore_gpu:
+                return True, "Ivy Bridge iGPU unsupported past Big Sur, forced through anyway"
+            return False, "Ivy Bridge iGPU has no driver past Big Sur (11) — needs an AMD dGPU"
         if gen < rel.min_intel_gen:
             return False, f"needs Intel {rel.min_intel_gen}th gen or newer"
         return True, ""

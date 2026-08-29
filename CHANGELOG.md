@@ -3,6 +3,43 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.25
+
+- **Sandy Bridge through Kaby Lake desktop: cross-checked against
+  Dortania's own guide for each generation, several real bugs fixed.**
+  Every Intel desktop gen 2-7 was previously falling back to a single
+  generic SMBIOS/quirk profile meant for Coffee Lake — genuinely wrong for
+  that much older hardware. Fixed:
+  - **SMBIOS is now per-generation and per-target**, bumped to a newer
+    sibling once a generation's own model is dropped for a later macOS
+    (Skylake's iMac17,1 → Kaby Lake's iMac18,1 for Ventura+), or to a
+    dGPU-driven MacPro6,1 once a generation's iGPU driver support ends
+    entirely (Ivy Bridge past Big Sur; Sandy Bridge everywhere ocforge
+    targets). Also fixed a regression-in-place: Coffee Lake Refresh (9th
+    gen) with a dGPU was getting Comet Lake's iMac20,1 instead of Coffee
+    Lake's own iMac19,1.
+  - **`AppleCpuPmCfgLock` instead of `AppleXcpmCfgLock` before Haswell** —
+    XCPM doesn't exist that far back; using its CFG-Lock quirk on Sandy/Ivy
+    Bridge did nothing, so a board that can't disable CFG-Lock in BIOS
+    would panic on boot regardless.
+  - **`IgnoreInvalidFlexRatio`** was hardcoded off; now on for every
+    pre-Skylake system, per Dortania.
+  - **`AAPL,ig-platform-id` DeviceProperties extended to Ivy
+    Bridge/Haswell/Broadwell** (previously only Skylake+ got any iGPU
+    DeviceProperties at all) — plus `framebuffer-fbmem`, which Haswell/
+    Broadwell/Skylake specifically need alongside the stolen-mem fix.
+    Also fixed Skylake's own headless (dGPU-driven) platform-id, which was
+    wrong (had Kaby Lake's value instead of Skylake's).
+  - **Sandy/Ivy Bridge**: the stock `CpuPm`/`Cpu0Ist` ACPI tables are now
+    dropped (`ACPI → Delete`), the other half of Dortania's fix for XCPM
+    panicking on those CPUs. The replacement, SSDT-PM, needs Pike's
+    separate `ssdtPRGen.sh` and isn't automated — flagged as a manual step
+    instead (same treatment as the existing HEDT caveat).
+  - Verified end-to-end: a real Ivy Bridge build (`i5-3570`, targeting Big
+    Sur) produced a `config.plist` that passes `ocvalidate` clean, with
+    every value above confirmed correct in the actual output, not just
+    tested in isolation.
+
 ## gui-v0.4.24
 
 - **Fixed stale wording in `ocforge plan`'s SSDT-GPIO note.** It still said

@@ -16,12 +16,34 @@ from ocforge.model import Chassis, Machine, Vendor
 _SMBIOS = {
     "amd_desktop": "iMacPro1,1",
     "amd_desktop_navi": "MacPro7,1",
-    "intel_desktop": "iMac20,1",
-    "intel_desktop_old": "iMac19,1",
     "intel_desktop_igpu": "Macmini8,1",   # Coffee Lake, UHD 630 as the only GPU
     "intel_laptop": "MacBookPro16,1",
     "intel_laptop_old": "MacBookPro15,1",
 }
+
+# Desktop Intel SMBIOS per generation: (iGPU drives the display, dGPU drives
+# it instead). Per Dortania's desktop guides — a generation's own models get
+# bumped to a newer sibling once Apple drops them for a later macOS; ocforge
+# never targets anything older than Big Sur (11), so the pre-Big-Sur options
+# each guide also lists aren't reachable here and are skipped.
+def _intel_desktop_smbios(gen: int, target_major: int) -> tuple[str, str]:
+    if gen <= 2:  # Sandy Bridge: iGPU has no driver past 10.13 (unreachable
+        # here already, see catalog.macos) -- MacPro6,1 either way.
+        return "MacPro6,1", "MacPro6,1"
+    if gen == 3:  # Ivy Bridge: iGPU capped at Big Sur (see catalog.macos);
+        # Monterey+ needs the dGPU driving it through MacPro6,1.
+        return "iMac14,4", ("iMac15,1" if target_major <= 11 else "MacPro6,1")
+    if gen == 4:  # Haswell: own models dropped in Monterey, bump to Broadwell's.
+        return (("iMac14,4", "iMac15,1") if target_major <= 11
+                else ("iMac16,2", "iMac17,1"))
+    if gen == 5:  # Broadwell: same models cover Big Sur and Monterey.
+        return "iMac16,2", "iMac17,1"
+    if gen == 6:  # Skylake: dropped in Ventura, bump to Kaby Lake's.
+        return (("iMac17,1", "iMac17,1") if target_major <= 12
+                else ("iMac18,1", "iMac18,3"))
+    if gen == 7:  # Kaby Lake
+        return "iMac18,1", "iMac18,3"
+    return "iMac19,1", "iMac19,1"  # Coffee Lake (8/9): one model either way
 
 
 def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
@@ -33,9 +55,10 @@ def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
     # iGPU-only Coffee Lake desktop -> Mac mini (the iMac models assume a dGPU)
     if m.igpu is not None and m.dgpu is None and 8 <= m.cpu.intel_gen <= 9:
         return _SMBIOS["intel_desktop_igpu"]
-    if m.cpu.intel_gen >= 9:
-        return _SMBIOS["intel_desktop"]
-    return _SMBIOS["intel_desktop_old"]
+    if m.cpu.intel_gen >= 10:
+        return "iMac20,1"  # Comet Lake
+    igpu_model, dgpu_model = _intel_desktop_smbios(m.cpu.intel_gen, target.major)
+    return dgpu_model if m.dgpu is not None else igpu_model
 
 
 @dataclass

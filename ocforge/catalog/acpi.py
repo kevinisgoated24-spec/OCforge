@@ -190,6 +190,11 @@ def patches(m: Machine) -> list[dict]:
 
 def needs_generation(m: Machine) -> list[str]:
     todo = []
+    if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 4:
+        todo.append("SSDT-PM (CPU power management, Sandy/Ivy Bridge): the stock ACPI PM "
+                    "tables are already dropped (ACPI -> Delete) but the replacement needs "
+                    "Pike's ssdtPRGen.sh -- not automated here, see the Dortania guide's "
+                    "Post-Install page")
     if m.is_laptop and m.inputs.touchpad_bus == "i2c-hid":
         todo.append("SSDT-GPIO (I2C-HID trackpad): auto-generated on a Linux or Windows host "
                     "(no flag needed -- verify the trackpad after); on macOS, or if the DSDT "

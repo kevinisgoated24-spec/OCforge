@@ -123,6 +123,23 @@ version doesn't change what the hardware can do. Not at a terminal (the
 GUI shows its own dialog with the same choice) or scripting this? Pass
 `--force-unsupported-gpu` to skip straight to yes.
 
+Older Intel desktops (Sandy Bridge through Kaby Lake, cross-checked against
+Dortania's own guide for each) get generation-correct treatment, not one
+generic profile: the right SMBIOS per generation and macOS target — bumped
+to a newer sibling once a generation's own model is dropped (e.g. Skylake's
+iMac17,1 → Kaby Lake's iMac18,1 for Ventura+), or a dGPU-driven MacPro6,1
+once a generation's iGPU driver is gone entirely (Ivy Bridge past Big Sur,
+Sandy Bridge everywhere ocforge targets); `AppleCpuPmCfgLock` instead of
+`AppleXcpmCfgLock` before Haswell (no XCPM that far back); `IgnoreInvalidFlexRatio`
+before Skylake; the right `AAPL,ig-platform-id` (+ `framebuffer-fbmem` on
+Haswell/Broadwell/Skylake specifically) for each generation's iGPU; and the
+stock `CpuPm`/`Cpu0Ist` ACPI tables dropped before Haswell, the other half of
+Dortania's fix for XCPM panicking on those CPUs (the replacement, SSDT-PM,
+needs Pike's separate `ssdtPRGen.sh` — flagged as a manual step, not
+automated here). Sandy Bridge/Ivy Bridge CPU power management is still
+rougher than Haswell+ as a result; cross-check the Dortania guide for your
+board if you hit `AppleIntelCPUPowerManagement` panics.
+
 AMD (Ryzen / Threadripper, following the
 [Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html)):
 `AMD_Vanilla` kernel patches spliced to the core count, `SMCAMDProcessor` +

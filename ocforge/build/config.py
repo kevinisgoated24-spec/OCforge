@@ -16,14 +16,24 @@ from ocforge.build.smbios import SmbiosData
 from ocforge.model import Vendor
 
 # Intel iGPU framebuffer ids (AAPL,ig-platform-id), little-endian bytes.
+# `None` means Dortania's desktop guide doesn't give a value for that slot
+# (no laptop guide in this batch for 3-5; no confirmed Broadwell headless
+# id) -- DeviceProperties are skipped rather than guessed for those.
 _IG_PLATFORM = {
     # gen: (laptop, desktop-with-display, desktop-connectorless)
-    6: ("00001619", "00001219", "03001219"),
+    3: (None, "0A006601", "07006201"),        # Ivy Bridge
+    4: (None, "0300220D", "04001204"),        # Haswell
+    5: (None, "07002216", None),              # Broadwell
+    6: ("00001619", "00001219", "01001219"),  # Skylake
     7: ("00001659", "00001259", "03001259"),
     8: ("0000C087", "07009B3E", "0300913E"),
     9: ("0000C087", "07009B3E", "0300913E"),
     10: ("0000528A", "07009B3E", "0300C89B"),
 }
+
+# Haswell/Broadwell/Skylake desktops also want framebuffer-fbmem alongside
+# -patch-enable/-stolenmem; Kaby Lake and newer dropped the need for it.
+_NEEDS_FBMEM = {4, 5, 6}
 
 
 def _b(hex_le: str) -> bytes:
@@ -67,6 +77,21 @@ def _cpu_spoof(m) -> tuple[bytes, bytes]:
     return bytes.fromhex(eax) + b"\x00" * 12, bytes.fromhex("ffffffff") + b"\x00" * 12
 
 
+# Sandy/Ivy Bridge: Apple's XCPM doesn't support these well and can panic on
+# AppleIntelCPUPowerManagement; drop the firmware's own PM tables the same
+# way Dortania's Sandy/Ivy Bridge guides do (ACPI -> Delete). This is only
+# half the guide's fix -- the other half, SSDT-PM, needs Pike's separate
+# ssdtPRGen.sh and isn't automated here; see catalog.acpi.needs_generation.
+_PRE_HASWELL_ACPI_DELETE = [
+    {"All": True, "Comment": "Delete CpuPm", "Enabled": True,
+     "OemTableId": bytes.fromhex("437075506d000000"), "TableLength": 0,
+     "TableSignature": bytes.fromhex("53534454")},
+    {"All": True, "Comment": "Delete Cpu0Ist", "Enabled": True,
+     "OemTableId": bytes.fromhex("4370753049737400"), "TableLength": 0,
+     "TableSignature": bytes.fromhex("53534454")},
+]
+
+
 def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
          patch: list[dict[str, Any]] | None = None,
          delete: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -74,9 +99,13 @@ def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
         add = [
             {"Comment": s.name, "Enabled": True, "Path": f"{s.name}.aml"} for s in plan.ssdts
         ]
+    delete = list(delete or [])
+    m = plan.machine
+    if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 4:
+        delete += _PRE_HASWELL_ACPI_DELETE
     return {
         "Add": add,
-        "Delete": delete or [],
+        "Delete": delete,
         "Patch": patch or [],
         "Quirks": {
             "FadtEnableReset": False,
@@ -146,23 +175,27 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
     add: dict[str, dict[str, Any]] = {}
     m = plan.machine
     ig = m.igpu
-    if ig and ig.vendor is Vendor.INTEL and 6 <= m.cpu.intel_gen <= 10:
-        laptop, desktop, headless = _IG_PLATFORM[m.cpu.intel_gen]
+    gen = m.cpu.intel_gen
+    if ig and ig.vendor is Vendor.INTEL and gen in _IG_PLATFORM:
+        laptop, desktop, headless = _IG_PLATFORM[gen]
         drives_display = not (m.dgpu and m.dgpu.vendor is Vendor.AMD and not m.is_laptop)
         pid = laptop if m.is_laptop else (desktop if drives_display else headless)
-        props: dict[str, Any] = {"AAPL,ig-platform-id": _b(pid)}
-        if not drives_display:
-            props["framebuffer-unifiedmem"] = _b("00000080")
-        elif not m.is_laptop:
-            # desktop iGPU driving the display: WhateverGreen patching + a 19MB
-            # stolen-mem floor, for boards with DVMT locked in firmware (most
-            # OEM boxes). Dortania Coffee Lake -> DeviceProperties.
-            props["framebuffer-patch-enable"] = _b("01000000")
-            props["framebuffer-stolenmem"] = _b("00003001")
-            dev = (ig.pci.device or "").lower()
-            if 8 <= m.cpu.intel_gen and dev and dev not in _CFL_OK_IGPU:
-                props["device-id"] = _b("9b3e0000")  # -> 0x3E9B (UHD 630 desktop)
-        add["PciRoot(0x0)/Pci(0x2,0x0)"] = props
+        if pid is not None:  # None = no confirmed id for this gen/chassis combo
+            props: dict[str, Any] = {"AAPL,ig-platform-id": _b(pid)}
+            if not drives_display:
+                props["framebuffer-unifiedmem"] = _b("00000080")
+            elif not m.is_laptop:
+                # desktop iGPU driving the display: WhateverGreen patching + a 19MB
+                # stolen-mem floor, for boards with DVMT locked in firmware (most
+                # OEM boxes). Dortania Coffee Lake -> DeviceProperties.
+                props["framebuffer-patch-enable"] = _b("01000000")
+                props["framebuffer-stolenmem"] = _b("00003001")
+                if gen in _NEEDS_FBMEM:
+                    props["framebuffer-fbmem"] = _b("00009000")
+                dev = (ig.pci.device or "").lower()
+                if 8 <= gen and dev and dev not in _CFL_OK_IGPU:
+                    props["device-id"] = _b("9b3e0000")  # -> 0x3E9B (UHD 630 desktop)
+            add["PciRoot(0x0)/Pci(0x2,0x0)"] = props
     # onboard audio: AppleALC layout-id 1 is the safest generic starting point
     add["PciRoot(0x0)/Pci(0x1f,0x3)"] = {"layout-id": _b("01000000")}
     return {"Add": add, "Delete": {}}
@@ -185,9 +218,13 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[s
         }
         adds.append(entry)
 
+    # XCPM (and its CFG-Lock quirk) only exists from Haswell on; Sandy/Ivy
+    # Bridge use the older pm-timer-based power management instead and need
+    # the other CFG-Lock quirk. Dortania Sandy/Ivy Bridge -> Kernel Quirks.
+    pre_haswell = plan.machine.cpu.vendor is Vendor.INTEL and 0 < plan.machine.cpu.intel_gen < 4
     quirks = {
-        "AppleCpuPmCfgLock": False,
-        "AppleXcpmCfgLock": True,
+        "AppleCpuPmCfgLock": pre_haswell,
+        "AppleXcpmCfgLock": not plan.is_amd and not pre_haswell,
         "AppleXcpmExtraMsrs": False,
         "AppleXcpmForceBoost": False,
         "CustomPciSerialDevice": False,
@@ -210,8 +247,6 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[s
         "ThirdPartyDrives": False,
         "XhciPortLimit": False,
     }
-    if plan.is_amd:
-        quirks["AppleXcpmCfgLock"] = False
 
     spoof_data, spoof_mask = _cpu_spoof(plan.machine)
     emulate = {
@@ -438,7 +473,11 @@ def _uefi(plan: BuildPlan) -> dict[str, Any]:
             "ExitBootServicesDelay": 0,
             "ForceOcWriteFlash": False,
             "ForgeUefiSupport": False,
-            "IgnoreInvalidFlexRatio": False,
+            # Fix for MSR_FLEX_RATIO (0x194) that can't be disabled in the
+            # BIOS -- required on every pre-Skylake system. Dortania Sandy/
+            # Ivy Bridge/Haswell/Broadwell -> UEFI Quirks.
+            "IgnoreInvalidFlexRatio": (plan.machine.cpu.vendor is Vendor.INTEL
+                                      and 0 < plan.machine.cpu.intel_gen < 6),
             "ReleaseUsbOwnership": True,
             "ReloadOptionRoms": False,
             "RequestBootVarRouting": True,
