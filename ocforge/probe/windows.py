@@ -36,7 +36,7 @@ $bios = Get-CimInstance Win32_BIOS | Select-Object -First 1
   gpus  = @(Get-CimInstance Win32_VideoController | ForEach-Object { @{ name = $_.Name; pnp = $_.PNPDeviceID } })
   nics  = @(Get-CimInstance Win32_NetworkAdapter | Where-Object { $_.PNPDeviceID -like 'PCI\*' } | ForEach-Object { @{ name = $_.Name; pnp = $_.PNPDeviceID } })
   nvme  = @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.PNPClass -eq 'SCSIAdapter' -and $_.Name -match 'NVM' } | ForEach-Object { $_.PNPDeviceID })
-  i2chid = [bool](Get-CimInstance Win32_PnPEntity | Where-Object { ($_.HardwareID -join ' ') -match 'PNP0C50|ACPI0C50' })
+  i2chid = [bool](Get-CimInstance Win32_PnPEntity | Where-Object { (@($_.HardwareID) + @($_.CompatibleID) -join ' ') -match 'PNP0C50|ACPI0C50' })
 } | ConvertTo-Json -Depth 5 -Compress
 """
 

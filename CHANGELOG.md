@@ -3,6 +3,20 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.23
+
+- **Fixed missing I2C-HID trackpad detection on Windows** — a real Device
+  Manager check on an actual affected laptop (a Synaptics I2C-HID trackpad
+  showing plainly as its own "I2C HID Device" entry) confirmed the probe's
+  `PNP0C50`/`ACPI0C50` match only looked at `Win32_PnPEntity.HardwareID`.
+  For a device Windows shows under a *generic* name (no vendor-specific
+  driver installed) — exactly what "I2C HID Device" means — that class ID
+  usually only appears in the separate `CompatibleID` property, which
+  wasn't checked at all. The probe now checks both. This is what was
+  silently blocking the gui-v0.4.21/0.4.22 SSDT-GPIO auto-dump on some
+  Windows laptops — `has_touchpad`/`touchpad_bus` came back empty even
+  though a real I2C-HID device existed.
+
 ## gui-v0.4.22
 
 - **`--dump-dsdt` (and the auto SSDT-GPIO from gui-v0.4.21) now works on
