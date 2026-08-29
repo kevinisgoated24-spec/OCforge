@@ -3,6 +3,35 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.27
+
+- **Laptops now get the same per-generation treatment desktop got in
+  0.4.25** — cross-checked against Dortania's own laptop guide, Sandy
+  Bridge through Comet/Ice Lake. Every gen 2-10 laptop was falling back to
+  one of two generic SMBIOS/`ig-platform-id` profiles, both wrong for most
+  generations:
+  - **SMBIOS is now per-generation**, bumped to a newer sibling once a
+    generation's own models are dropped (Haswell's MacBookPro11,1 →
+    11,4/11,5 for Monterey; Skylake → Kaby Lake for Ventura+).
+  - **Fixed `AAPL,ig-platform-id` for gen 7-10**: Kaby Lake was using the
+    guide's NUC-oriented fallback value instead of its primary laptop
+    recommendation; Coffee/Whiskey Lake and Coffee Lake Refresh were
+    getting Amber Lake/Kaby Lake-R's value (wrong generation entirely);
+    Comet Lake was getting Ice Lake's value. Also added it for gen 3-5
+    (Ivy Bridge/Haswell/Broadwell laptop), which had none before.
+  - **Ice Lake and Comet Lake are both "10th Gen" in Intel's own
+    marketing but are different silicon** needing different SMBIOS and
+    DeviceProperties — `intel_generation()` now tells them apart by CPU
+    model number (Ice Lake's `1065G7`-style naming vs Comet Lake's plain
+    `10510U`), so both get their own correct treatment instead of Comet
+    Lake's fix being silently applied to Ice Lake hardware too.
+  - **The UHD 620/630 device-id fake now applies to laptops too**, not
+    just desktop — Dortania's Coffee/Whiskey/Comet Lake laptop guides call
+    for the same fix.
+  - Verified end-to-end: a real Ice Lake laptop build produced a
+    `config.plist` that passes `ocvalidate` clean, with the correct SMBIOS
+    (MacBookAir9,1) and platform-id confirmed in the actual output.
+
 ## gui-v0.4.26
 
 - **The GUI now checks for its own updates.** On launch it quietly checks

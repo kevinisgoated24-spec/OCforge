@@ -322,7 +322,10 @@ def test_config_intel_sets_ig_platform_id():
     sm = generate(plan.smbios_model, macserial=None)
     cfg = cfgmod.assemble(plan, sm)
     props = cfg["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x2,0x0)"]
-    assert props["AAPL,ig-platform-id"] == bytes.fromhex("0000C087")   # gen 8 laptop
+    # gen 8 (Coffee Lake) laptop -- was 0000C087 (Kaby Lake-R/Amber Lake's
+    # value, wrong generation entirely) until cross-checked against Dortania's
+    # own Coffee Lake/Whiskey Lake laptop guide.
+    assert props["AAPL,ig-platform-id"] == bytes.fromhex("00009B3E")
     assert cfg["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] is False
 
 

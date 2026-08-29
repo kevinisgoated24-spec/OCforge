@@ -16,20 +16,27 @@ from ocforge.build.smbios import SmbiosData
 from ocforge.model import Vendor
 
 # Intel iGPU framebuffer ids (AAPL,ig-platform-id), little-endian bytes.
-# `None` means Dortania's desktop guide doesn't give a value for that slot
-# (no laptop guide in this batch for 3-5; no confirmed Broadwell headless
-# id) -- DeviceProperties are skipped rather than guessed for those.
+# Each generation's own guide often lists several values by exact screen
+# resolution / iGPU model / NUC-vs-laptop -- ocforge doesn't probe that level
+# of detail, so the laptop slot is the guide's own "start here, normally
+# enough" pick, not an exhaustive per-panel match. `None` means no confirmed
+# value at all for that slot (no confirmed Broadwell desktop-headless id).
 _IG_PLATFORM = {
     # gen: (laptop, desktop-with-display, desktop-connectorless)
-    3: (None, "0A006601", "07006201"),        # Ivy Bridge
-    4: (None, "0300220D", "04001204"),        # Haswell
-    5: (None, "07002216", None),              # Broadwell
+    3: ("03006601", "0A006601", "07006201"),  # Ivy Bridge
+    4: ("0500260A", "0300220D", "04001204"),  # Haswell
+    5: ("06002616", "07002216", None),        # Broadwell
     6: ("00001619", "00001219", "01001219"),  # Skylake
-    7: ("00001659", "00001259", "03001259"),
-    8: ("0000C087", "07009B3E", "0300913E"),
-    9: ("0000C087", "07009B3E", "0300913E"),
-    10: ("0000528A", "07009B3E", "0300C89B"),
+    7: ("00001B59", "00001259", "03001259"),  # Kaby Lake
+    8: ("00009B3E", "07009B3E", "0300913E"),  # Coffee Lake / Whiskey Lake
+    9: ("00009B3E", "07009B3E", "0300913E"),  # Coffee Lake Refresh
+    10: ("00009B3E", "07009B3E", "0300C89B"),  # Comet Lake -- Ice Lake overridden below
 }
+
+# Ice Lake is also "10th gen" in Intel's marketing but different silicon
+# entirely (see probe/base.py's _INTEL_GEN_RULES) -- laptop-only, its own
+# platform-id, no desktop counterpart.
+_ICE_LAKE_LAPTOP_PLATFORM_ID = "0000528A"
 
 # Haswell/Broadwell/Skylake desktops also want framebuffer-fbmem alongside
 # -patch-enable/-stolenmem; Kaby Lake and newer dropped the need for it.
@@ -176,25 +183,34 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
     m = plan.machine
     ig = m.igpu
     gen = m.cpu.intel_gen
+    is_ice_lake = gen == 10 and m.cpu.family == "Ice Lake"
     if ig and ig.vendor is Vendor.INTEL and gen in _IG_PLATFORM:
         laptop, desktop, headless = _IG_PLATFORM[gen]
+        if is_ice_lake and m.is_laptop:
+            laptop = _ICE_LAKE_LAPTOP_PLATFORM_ID
         drives_display = not (m.dgpu and m.dgpu.vendor is Vendor.AMD and not m.is_laptop)
         pid = laptop if m.is_laptop else (desktop if drives_display else headless)
         if pid is not None:  # None = no confirmed id for this gen/chassis combo
             props: dict[str, Any] = {"AAPL,ig-platform-id": _b(pid)}
             if not drives_display:
                 props["framebuffer-unifiedmem"] = _b("00000080")
-            elif not m.is_laptop:
-                # desktop iGPU driving the display: WhateverGreen patching + a 19MB
-                # stolen-mem floor, for boards with DVMT locked in firmware (most
-                # OEM boxes). Dortania Coffee Lake -> DeviceProperties.
-                props["framebuffer-patch-enable"] = _b("01000000")
-                props["framebuffer-stolenmem"] = _b("00003001")
-                if gen in _NEEDS_FBMEM:
-                    props["framebuffer-fbmem"] = _b("00009000")
+            else:
+                if not m.is_laptop:
+                    # desktop iGPU driving the display: WhateverGreen patching + a
+                    # 19MB stolen-mem floor, for boards with DVMT locked in
+                    # firmware (most OEM boxes). Dortania Coffee Lake -> DeviceProperties.
+                    props["framebuffer-patch-enable"] = _b("01000000")
+                    props["framebuffer-stolenmem"] = _b("00003001")
+                    if gen in _NEEDS_FBMEM:
+                        props["framebuffer-fbmem"] = _b("00009000")
+                # A UHD 620/630 that isn't already one of the ids the Apple
+                # framebuffer matches directly needs faking to 0x3E9B -- true
+                # for laptop and desktop alike (Dortania Coffee/Whiskey/Comet
+                # Lake laptop guides). Ice Lake is a different chip entirely;
+                # this fake would be wrong for it.
                 dev = (ig.pci.device or "").lower()
-                if 8 <= gen and dev and dev not in _CFL_OK_IGPU:
-                    props["device-id"] = _b("9b3e0000")  # -> 0x3E9B (UHD 630 desktop)
+                if 8 <= gen and not is_ice_lake and dev and dev not in _CFL_OK_IGPU:
+                    props["device-id"] = _b("9b3e0000")  # -> 0x3E9B (UHD 630)
             add["PciRoot(0x0)/Pci(0x2,0x0)"] = props
     # onboard audio: AppleALC layout-id 1 is the safest generic starting point
     add["PciRoot(0x0)/Pci(0x1f,0x3)"] = {"layout-id": _b("01000000")}

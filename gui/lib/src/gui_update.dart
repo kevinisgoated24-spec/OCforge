@@ -4,7 +4,7 @@ import 'dart:io';
 /// The GUI's own version — kept in sync by hand with pubspec.yaml's
 /// `version:` and [OcforgeCli.minVersion] (cli.dart), same manual-bump
 /// convention already used for every gui-v* tag.
-const String appVersion = '0.4.26';
+const String appVersion = '0.4.27';
 
 const String _latestReleaseApi =
     'https://api.github.com/repos/kevinisgoated24-spec/OCforge/releases/latest';

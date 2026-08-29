@@ -91,7 +91,14 @@ _INTEL_GEN_RULES: tuple[tuple[re.Pattern[str], int, str], ...] = (
     (re.compile(r"\bi[3579]-13\d\d\d"), 13, "Raptor Lake"),
     (re.compile(r"\bi[3579]-12\d\d\d"), 12, "Alder Lake"),
     (re.compile(r"\bi[3579]-11\d\d\d"), 11, "Rocket/Tiger Lake"),
-    (re.compile(r"\bi[3579]-10\d\d\d"), 10, "Comet/Ice Lake"),
+    # Both "10th gen" in Intel's own marketing, but different silicon needing
+    # different SMBIOS/DeviceProperties (build/config.py, build/plan.py) --
+    # distinguished by the model-number shape: Ice Lake is 4 digits + a
+    # graphics-tier suffix (1065G7, 1035G1, 1038NG7); Comet Lake is a plain
+    # 5-digit number (10510U) with no such suffix, so it's never matched by
+    # the Ice Lake pattern below.
+    (re.compile(r"\bi[3579]-10\d\dn?g[147]\b"), 10, "Ice Lake"),
+    (re.compile(r"\bi[3579]-10\d\d\d"), 10, "Comet Lake"),
     (re.compile(r"\bi[3579]-9\d\d\d"), 9, "Coffee Lake Refresh"),
     (re.compile(r"\bi[3579]-8\d\d\d"), 8, "Coffee Lake"),
     (re.compile(r"\bi[3579]-7\d\d\d"), 7, "Kaby Lake"),

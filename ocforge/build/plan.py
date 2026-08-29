@@ -17,8 +17,6 @@ _SMBIOS = {
     "amd_desktop": "iMacPro1,1",
     "amd_desktop_navi": "MacPro7,1",
     "intel_desktop_igpu": "Macmini8,1",   # Coffee Lake, UHD 630 as the only GPU
-    "intel_laptop": "MacBookPro16,1",
-    "intel_laptop_old": "MacBookPro15,1",
 }
 
 # Desktop Intel SMBIOS per generation: (iGPU drives the display, dGPU drives
@@ -46,12 +44,43 @@ def _intel_desktop_smbios(gen: int, target_major: int) -> tuple[str, str]:
     return "iMac19,1", "iMac19,1"  # Coffee Lake (8/9): one model either way
 
 
+# Laptop Intel SMBIOS per generation: (no dGPU, dGPU present). Per Dortania's
+# laptop guides -- same "bump to a newer sibling once dropped" pattern as
+# desktop. Real laptops split far more finely by exact CPU/GPU/chassis SKU
+# than ocforge tracks; these are each guide's own representative pick, not
+# an exhaustive per-model match.
+def _intel_laptop_smbios(gen: int, target_major: int, *, ice_lake: bool) -> tuple[str, str]:
+    if ice_lake:  # gen 10, but different silicon entirely -- see config.py
+        return "MacBookAir9,1", "MacBookAir9,1"
+    if gen <= 2:  # Sandy Bridge: no ocforge target reaches it (see catalog.macos)
+        return "MacBookPro8,1", "MacBookPro8,1"
+    if gen == 3:  # Ivy Bridge: own models are Catalina-only; ocforge's floor
+        # is Big Sur, so always borrow Haswell's Big-Sur-era models.
+        return "MacBookAir6,2", "MacBookPro11,3"
+    if gen == 4:  # Haswell: only 11,4/11,5 survive to Monterey.
+        return (("MacBookAir6,2", "MacBookPro11,3") if target_major <= 11
+                else ("MacBookPro11,4", "MacBookPro11,5"))
+    if gen == 5:  # Broadwell: whole table (bar MacBook8,1, which ocforge
+        # doesn't pick anyway) survives Big Sur through Monterey.
+        return "MacBookPro12,1", "MacBookPro11,5"
+    if gen == 6:  # Skylake: dropped in Ventura, bump to Kaby Lake's.
+        return (("MacBookPro13,1", "MacBookPro13,3") if target_major <= 12
+                else ("MacBookPro14,1", "MacBookPro14,3"))
+    if gen == 7:  # Kaby Lake / Amber Lake Y
+        return "MacBookPro14,1", "MacBookPro14,3"
+    if gen in (8, 9):  # Coffee Lake / Whiskey Lake, Coffee Lake Refresh
+        return "MacBookPro15,2", "MacBookPro15,1"
+    return "MacBookPro16,3", "MacBookPro16,1"  # Comet Lake (10)
+
+
 def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
     if m.cpu.vendor is Vendor.AMD:
         navi = m.dgpu is not None and m.dgpu.vendor is Vendor.AMD
         return _SMBIOS["amd_desktop_navi"] if navi else _SMBIOS["amd_desktop"]
     if m.is_laptop:
-        return _SMBIOS["intel_laptop"] if m.cpu.intel_gen >= 8 else _SMBIOS["intel_laptop_old"]
+        ice_lake = m.cpu.intel_gen == 10 and m.cpu.family == "Ice Lake"
+        no_dgpu, dgpu = _intel_laptop_smbios(m.cpu.intel_gen, target.major, ice_lake=ice_lake)
+        return dgpu if m.dgpu is not None else no_dgpu
     # iGPU-only Coffee Lake desktop -> Mac mini (the iMac models assume a dGPU)
     if m.igpu is not None and m.dgpu is None and 8 <= m.cpu.intel_gen <= 9:
         return _SMBIOS["intel_desktop_igpu"]

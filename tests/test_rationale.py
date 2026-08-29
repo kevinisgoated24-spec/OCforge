@@ -83,12 +83,15 @@ def test_amd_vanilla_patch_list_is_expanded_when_supplied():
 def test_intel_laptop_decisions_match_the_config():
     decs = explain(make(_intel_laptop()))
 
-    assert _find(decs, "SMBIOS", "SystemProductName")[0].value == "MacBookPro16,1"
+    # gen 8 (Coffee Lake), no dGPU -- was flatly MacBookPro16,1 (Comet Lake's
+    # model, "any gen>=8 laptop") until cross-checked against Dortania's own
+    # per-generation laptop SMBIOS tables.
+    assert _find(decs, "SMBIOS", "SystemProductName")[0].value == "MacBookPro15,2"
     assert _find(decs, "Kernel", "ProvideCurrentCpuInfo")[0].value == "False"
     assert _find(decs, "Kernel", "AppleXcpmCfgLock")[0].value == "True"
 
     ig = _find(decs, "DeviceProperties", "ig-platform-id")
-    assert ig and ig[0].value == "0x0000C087"   # gen 8 laptop framebuffer
+    assert ig and ig[0].value == "0x00009B3E"   # gen 8 (Coffee Lake) laptop framebuffer
 
     bootargs = {d.setting for d in decs if d.section == "boot-args"}
     assert "igfxonln=1" in bootargs

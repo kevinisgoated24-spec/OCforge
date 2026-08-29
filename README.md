@@ -140,6 +140,23 @@ automated here). Sandy Bridge/Ivy Bridge CPU power management is still
 rougher than Haswell+ as a result; cross-check the Dortania guide for your
 board if you hit `AppleIntelCPUPowerManagement` panics.
 
+Laptops get the same generation-by-generation treatment (Sandy Bridge
+through Comet/Ice Lake, again cross-checked against Dortania's own guide for
+each) — MacBook/MacBookAir/MacBookPro SMBIOS per generation instead of one
+flat pick, bumped the same way desktop's is once a generation's own models
+are dropped (e.g. Haswell's MacBookPro11,1 → 11,4/11,5 for Monterey), and
+the right laptop `AAPL,ig-platform-id` per generation. **Ice Lake and Comet
+Lake are both "10th Gen" in Intel's own marketing but need completely
+different SMBIOS/DeviceProperties** — ocforge tells them apart by CPU model
+number (Ice Lake's `1065G7`-style 4-digit-plus-graphics-tier naming vs Comet
+Lake's plain 5-digit `10510U`), or by iGPU PCI id as a fallback. A real
+laptop panel/GPU/chassis splits far more finely than ocforge tracks (exact
+screen resolution, precise iGPU sub-model) — each generation's value here is
+that guide's own "start here, normally enough" pick, not an exhaustive
+per-SKU match; if you get a black screen or 7&nbsp;MB VRAM with no
+acceleration, check that generation's Dortania page for the alternate
+`ig-platform-id` values it lists.
+
 AMD (Ryzen / Threadripper, following the
 [Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html)):
 `AMD_Vanilla` kernel patches spliced to the core count, `SMCAMDProcessor` +
