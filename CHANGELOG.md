@@ -3,6 +3,16 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.18
+
+- **Fixed the GUI's first-run setup on Debian/Ubuntu (PEP 668).** Newer
+  Debian/Ubuntu ship a "externally managed" system Python that refuses
+  `pip install --user` outside a venv — the setup gate's ocforge-CLI
+  install would fail with that error and stop there. It now retries with
+  `--break-system-packages` when that specific error is seen. (Reported via
+  OCforgeReporter/Discord, our first bug filed through it — thanks
+  @gam1ngn0t.)
+
 ## gui-v0.4.17
 
 - **Added Support For Offline Installer** New Option To Make A Offline Installer With gibMacOS Inside Of OCForge How Does It Work?

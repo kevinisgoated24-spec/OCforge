@@ -33,7 +33,7 @@ class OcforgeCli {
 
   /// The oldest `ocforge` this GUI build is happy to drive. Bump alongside the
   /// gui-v* tag when a CLI fix needs to reach users.
-  static const String minVersion = '0.4.16';
+  static const String minVersion = '0.4.18';
 
   CliResolution? _resolved;
   String _version = '';
@@ -148,22 +148,40 @@ class OcforgeCli {
   /// `pip install --user` the ocforge zipball with the given interpreter.
   /// Streams output through [log]; returns the process exit code.
   static Future<int> installOcforge(PythonInfo py, void Function(String) log) async {
-    Future<int> pip() async {
+    Future<(int, bool)> pip(List<String> extraArgs) async {
       final List<String> args = py.cmd(<String>[
         '-m', 'pip', 'install', '--user', '--upgrade', '--disable-pip-version-check',
+        ...extraArgs,
         zipballUrl,
       ]);
       log('\$ ${py.executable} ${args.join(' ')}');
       final Process proc = await Process.start(py.executable, args,
           runInShell: true, environment: _env, includeParentEnvironment: true);
       const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
-      proc.stdout.transform(dec).transform(const LineSplitter()).listen(log);
-      proc.stderr.transform(dec).transform(const LineSplitter()).listen(log);
-      return proc.exitCode;
+      bool externallyManaged = false;
+      void handle(String line) {
+        if (line.contains('externally-managed-environment')) externallyManaged = true;
+        log(line);
+      }
+      final Future<void> outDone =
+          proc.stdout.transform(dec).transform(const LineSplitter()).forEach(handle);
+      final Future<void> errDone =
+          proc.stderr.transform(dec).transform(const LineSplitter()).forEach(handle);
+      final int code = await proc.exitCode;
+      // exitCode can resolve before the piped streams finish draining —
+      // wait for both so `externallyManaged` is settled before we read it.
+      await Future.wait(<Future<void>>[outDone, errDone]);
+      return (code, externallyManaged);
     }
 
-    int code = await pip();
-    if (code != 0) {
+    var (int code, bool managed) = await pip(const <String>[]);
+    if (managed) {
+      // Debian/Ubuntu and other PEP 668 distros: the system pip refuses
+      // `--user` installs outside a venv unless told this is deliberate.
+      log('System Python is externally managed — retrying with --break-system-packages …');
+      (code, managed) = await pip(const <String>['--break-system-packages']);
+    }
+    if (code != 0 && !managed) {
       // Old/edge Pythons without pip wired up.
       log('pip unavailable — bootstrapping it with ensurepip …');
       final ProcessResult ep = await Process.run(
@@ -172,7 +190,12 @@ class OcforgeCli {
         runInShell: true,
       );
       log('${ep.stdout}${ep.stderr}'.trim());
-      if (ep.exitCode == 0) code = await pip();
+      if (ep.exitCode == 0) {
+        (code, managed) = await pip(const <String>[]);
+        if (managed) {
+          (code, managed) = await pip(const <String>['--break-system-packages']);
+        }
+      }
     }
     return code;
   }
