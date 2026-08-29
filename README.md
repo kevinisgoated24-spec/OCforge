@@ -73,6 +73,7 @@ at build time. The tool tells you when that happens.
 | `ocforge build --spec my-pc.json --out ./EFI --dsdt ./my-pc-acpi` | compile SSDTs from the target's own ACPI |
 | `ocforge build --out ./EFI --dump-dsdt` | dump this host's ACPI tables (Linux) |
 | `ocforge report --spec my-pc.json` | file a bug with version + hardware pre-filled |
+| `ocforge offline-installer --spec my-pc.json --out ./offline` | stage a [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged) offline installer |
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
 hotpatch set, following the [prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
@@ -122,6 +123,46 @@ warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
 message), and HEDT (X79/X99/X299), where the SSDTs are selected but the MacPro
 SMBIOS and HEDT-specific quirks aren't fully modelled, so cross-check the
 Dortania HEDT guide.
+
+## Offline installer
+
+```bash
+ocforge offline-installer --spec my-pc.json --out ./offline-installer
+```
+
+For installing where the *target* machine shouldn't (or can't) touch the
+internet mid-install. Downloads the full macOS installer via
+[gibMacOS](https://github.com/corpnewt/gibMacOS) and stages
+[corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged) alongside your
+EFI — both large, this is the slow part, and it needs *your* internet, once,
+on the machine running ocforge.
+
+UnPlugged itself has to run from inside a booted macOS Recovery — that's a
+bash script using APIs (`diskutil`, `installer`, `asr`) nothing outside a
+real macOS environment has, so ocforge can't run it for you. What it does
+handle is getting everything into the two-partition layout UnPlugged
+expects:
+
+```
+./offline-installer/EFI/                        — your usual EFI, unchanged
+./offline-installer/com.apple.recovery.boot/     — the boot environment
+./offline-installer/ExFAT/InstallAssistant.pkg   — the actual installer
+./offline-installer/ExFAT/UnPlugged.command
+```
+
+Format your USB with a FAT32 partition (~1 GB — `EFI/` +
+`com.apple.recovery.boot/`) and an ExFAT partition (the rest — everything
+under `ExFAT/`), boot it, open Terminal in Recovery, `cd` to the ExFAT
+volume, and run `./UnPlugged.command` — it walks you through picking the
+target disk from there. Or skip the manual formatting and pass `--usb
+/dev/sdX` to have ocforge partition + write both for you (destructive, asks
+to confirm first; needs `exfatprogs` on Linux — `sudo apt install
+exfatprogs` — macOS and Windows format ExFAT natively).
+
+On macOS Sonoma (14) and newer, Recovery can't mount FAT32/ExFAT itself, so
+the *boot* environment deliberately uses an older BaseSystem (Monterey) even
+when the *install payload* targets something newer — ocforge does this
+automatically and says so; it's expected, not a bug.
 
 ## Reporting a problem
 

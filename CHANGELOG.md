@@ -3,6 +3,22 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.19
+
+- **Offline installer, via [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged).**
+  New `ocforge offline-installer` (CLI) / "Offline installer (UnPlugged)"
+  toggle on the Forge tab (GUI): downloads the full macOS installer with
+  [gibMacOS](https://github.com/corpnewt/gibMacOS) and stages
+  `InstallAssistant.pkg` + `UnPlugged.command` next to your EFI, laid out
+  for the FAT32+ExFAT USB split UnPlugged expects — for installing macOS
+  where the target machine shouldn't touch the internet mid-install.
+  `--usb DEVICE` partitions and writes both partitions for you (needs
+  `exfatprogs` on Linux). On Sonoma+ the boot environment automatically
+  uses an older (Monterey) BaseSystem, since Sonoma+ Recovery can't mount
+  FAT32/ExFAT itself — ocforge handles that split and says so. Actually
+  running the installer is still done by hand in Recovery Terminal
+  (`./UnPlugged.command`) — see the README for why.
+
 ## gui-v0.4.18
 
 - **Fixed the GUI's first-run setup on Debian/Ubuntu (PEP 668).** Newer
@@ -17,6 +33,9 @@ desktop GUI bundles; each entry also covers the CLI changes that shipped with it
 
 - **Added Support For Offline Installer** New Option To Make A Offline Installer With gibMacOS Inside Of OCForge How Does It Work?
 First Your Going To Selected What Build Of MacOS Your Going To Get OCForge Will Installed It Get The installassistant.pkg Place It Inside Of The USB With Unplugged (tuto will show on the guide that is in progress)
+
+  (This was a plan, never actually built/tagged. It shipped for real in
+  **gui-v0.4.19** below.)
 
 ## gui-v0.4.16
 

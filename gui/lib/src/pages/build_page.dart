@@ -25,6 +25,7 @@ class _BuildPageState extends State<BuildPage> {
   bool _dumpDsdt = false;
   bool _debug = false;
   bool _legacyMmap = false;
+  bool _offlineInstaller = false;
   int? _lastExit;
   Process? _proc;
 
@@ -63,15 +64,17 @@ class _BuildPageState extends State<BuildPage> {
     }
 
     final List<String> args = <String>[
-      'build',
+      _offlineInstaller ? 'offline-installer' : 'build',
       '--spec',
       c.specPath!,
       '--out',
       out,
       if (c.macosOverride != null) ...<String>['--macos', '${c.macosOverride}'],
-      if (_recovery) '--recovery',
-      if (_dumpDsdt) '--dump-dsdt',
-      if (_debug) '--debug',
+      // offline-installer always stages its own recovery boot image (with
+      // the Sonoma+ older-BaseSystem split) and doesn't take these flags.
+      if (!_offlineInstaller && _recovery) '--recovery',
+      if (!_offlineInstaller && _dumpDsdt) '--dump-dsdt',
+      if (!_offlineInstaller && _debug) '--debug',
       if (_legacyMmap) '--legacy-mmap',
     ];
     _append('\$ ocforge ${args.join(' ')}\n');
@@ -98,11 +101,16 @@ class _BuildPageState extends State<BuildPage> {
   }
 
   Future<void> _demoRun(String out) async {
-    _append('\$ ocforge build --spec (demo) --out $out'
-        '${_recovery ? ' --recovery' : ''}\n');
+    final String cmd = _offlineInstaller ? 'offline-installer' : 'build';
+    _append('\$ ocforge $cmd --spec (demo) --out $out'
+        '${!_offlineInstaller && _recovery ? ' --recovery' : ''}\n');
     final List<String> lines = <String>[
       ...demoBuildLog,
-      if (_recovery) ...<String>[
+      if (_offlineInstaller) ...<String>[
+        '',
+        'downloading the macOS installer via gibMacOS (this is the slow part) …',
+        '  ExFAT payload staged at $out/ExFAT',
+      ] else if (_recovery) ...<String>[
         '',
         'downloading macOS 15 recovery (this is the slow part) …',
         '  recovery staged at $out/com.apple.recovery.boot',
@@ -208,12 +216,26 @@ class _BuildPageState extends State<BuildPage> {
                 const SizedBox(height: 16),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
+                  title: const Text('Offline installer (UnPlugged)'),
+                  subtitle: const Text(
+                      'Also downloads the full macOS installer via gibMacOS and stages '
+                      'corpnewt/UnPlugged \u2014 huge and slow, but the target machine needs '
+                      'no internet during the actual install. Replaces the recovery-image '
+                      'option below with its own \u2014 ocforge offline-installer'),
+                  value: _offlineInstaller,
+                  onChanged: _running
+                      ? null
+                      : (bool v) => setState(() => _offlineInstaller = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
                   title: const Text('Stage a macOS recovery image'),
                   subtitle: const Text(
                       'com.apple.recovery.boot next to EFI/ \u2014 downloads from Apple, slow \u2014 --recovery'),
                   value: _recovery,
-                  onChanged:
-                      _running ? null : (bool v) => setState(() => _recovery = v),
+                  onChanged: (_running || _offlineInstaller)
+                      ? null
+                      : (bool v) => setState(() => _recovery = v),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -221,14 +243,18 @@ class _BuildPageState extends State<BuildPage> {
                   subtitle: const Text(
                       'Runs SSDTTime against the live ACPI tables (Linux host) \u2014 --dump-dsdt'),
                   value: _dumpDsdt,
-                  onChanged: _running ? null : (bool v) => setState(() => _dumpDsdt = v),
+                  onChanged: (_running || _offlineInstaller)
+                      ? null
+                      : (bool v) => setState(() => _dumpDsdt = v),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('OpenCore DEBUG build'),
                   subtitle: const Text('Verbose logging to the EFI \u2014 --debug'),
                   value: _debug,
-                  onChanged: _running ? null : (bool v) => setState(() => _debug = v),
+                  onChanged: (_running || _offlineInstaller)
+                      ? null
+                      : (bool v) => setState(() => _debug = v),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

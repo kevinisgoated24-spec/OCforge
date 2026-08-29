@@ -14,6 +14,14 @@ Four tabs, matching the CLI:
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
 | **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
 
+The Forge tab's **"Offline installer (UnPlugged)"** toggle swaps in
+`ocforge offline-installer` instead of `build` — downloads the full macOS
+installer + stages [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged)
+next to the EFI, for installing without the target machine touching the
+internet. Big and slow (Apple's full installer is 10+ GB); see the main
+[README's "Offline installer" section](../README.md#offline-installer) for
+the two-partition USB layout it expects.
+
 The bug icon at the bottom of the nav rail is **OCforgeReporter**: it opens a
 GitHub "New issue" with your ocforge version and hardware already filled in —
 no bot, no server, no shared credential; you review and submit it yourself.

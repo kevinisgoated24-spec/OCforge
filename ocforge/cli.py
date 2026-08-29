@@ -11,6 +11,8 @@
     ocforge build   [--spec FILE] [--macos N] \\
                     [--out DIR | --usb DEV] [--recovery] \\
                     [--dsdt PATH | --dump-dsdt]
+    ocforge offline-installer [--spec FILE] [--macos N] [--out DIR | --usb DEV]
+                    stage a corpnewt/UnPlugged offline installer
 """
 
 from __future__ import annotations
@@ -301,6 +303,60 @@ def cmd_build(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def cmd_offline_installer(args: argparse.Namespace) -> int:
+    from ocforge.build.offline_installer import stage
+    from ocforge.build.pipeline import build_efi
+    from ocforge.build.plan import make
+
+    m = _load_machine(args.spec)
+    try:
+        plan = make(m, target_major=args.macos)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    _print_machine(m)
+    _print_plan(plan)
+    print("\noffline installer: downloads the full macOS installer via gibMacOS and a "
+          "recovery boot image — both large, this is the slow part.")
+
+    work = Path(args.work or "ocforge-work").resolve()
+
+    if args.usb:
+        if input(f"\nERASE {args.usb} and write a bootable offline-installer USB "
+                 f"(FAT32 + ExFAT)? [y/N] ").strip().lower() != "y":
+            return 130
+        out = work / "offline-staging"
+    else:
+        out = Path(args.out or "offline-installer").resolve()
+
+    efi_report = build_efi(plan, work, out, log=print, legacy_mmap=args.legacy_mmap)
+    oi_report = stage(plan, work, out, log=print)
+
+    if args.usb:
+        from ocforge.media import write as media
+
+        fat32_mount, exfat_mount = media.format_and_mount_dual(args.usb)
+        try:
+            media.write_offline_payload(
+                fat32_mount, exfat_mount,
+                efi_dir=efi_report.efi_dir,
+                recovery_boot=oi_report.recovery_boot,
+                exfat_dir=oi_report.exfat_dir,
+            )
+        finally:
+            media.unmount_dual(args.usb)
+        print(f"\ndone — USB is ready. Boot it, open Terminal in Recovery, cd to the "
+              f"{media.LABEL_EXFAT} volume, and run ./UnPlugged.command.")
+    else:
+        print(f"\nEFI folder: {efi_report.efi_dir}")
+        print(f"offline installer payload: {oi_report.exfat_dir}")
+
+    for n in oi_report.notes:
+        print(f"\n! {n}")
+    _print_build_report(efi_report)
+    return 0 if efi_report.ok else 1
+
+
 def _print_build_report(r) -> None:
     src = {"ssdttime": "SSDTTime (from the target's DSDT)",
            "precompiled": "Dortania precompiled hotpatches"}.get(r.ssdt_source, r.ssdt_source)
@@ -401,6 +457,23 @@ def build_parser() -> argparse.ArgumentParser:
                     help="use EnableWriteUnprotector instead of RebuildAppleMemoryMap "
                          "(OEM firmware — Dell/HP/Lenovo — that lacks the MAT table)")
     pb.set_defaults(func=cmd_build)
+
+    poi = sub.add_parser("offline-installer",
+                         help="stage a corpnewt/UnPlugged offline installer — the full macOS "
+                              "installer + a bootable EFI, so the target machine needs no "
+                              "internet during the actual install")
+    poi.add_argument("--spec", metavar="FILE")
+    poi.add_argument("--macos", type=int, metavar="N")
+    poi.add_argument("--out", metavar="DIR",
+                     help="write EFI/, com.apple.recovery.boot/ and ExFAT/ here "
+                          "(default: ./offline-installer)")
+    poi.add_argument("--usb", metavar="DEVICE",
+                     help="ERASE this disk and write a bootable FAT32+ExFAT USB")
+    poi.add_argument("--work", metavar="DIR", help="download/scratch dir (default: ./ocforge-work)")
+    poi.add_argument("--legacy-mmap", action="store_true",
+                     help="use EnableWriteUnprotector instead of RebuildAppleMemoryMap "
+                          "(OEM firmware — Dell/HP/Lenovo — that lacks the MAT table)")
+    poi.set_defaults(func=cmd_offline_installer)
     return p
 
 
