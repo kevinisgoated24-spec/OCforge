@@ -24,6 +24,42 @@ from pathlib import Path
 from ocforge import __version__
 from ocforge.model import Machine
 
+# Exit code when make() hit an unsupported-GPU machine and there was no TTY
+# to ask "continue anyway?" on (e.g. driven by the GUI) — a distinct code so
+# a non-interactive caller can tell this apart from an ordinary failure and
+# offer its own confirm UI, then retry with --force-unsupported-gpu.
+UNSUPPORTED_GPU_EXIT = 3
+
+
+def _resolve_plan(m: Machine, target_major: int | None, *, force_unsupported_gpu: bool):
+    """make() a BuildPlan, handling UnsupportedGpuError:
+
+    - already forced (--force-unsupported-gpu) -> just pass it through.
+    - a real terminal -> ask "continue anyway?" right here.
+    - no terminal (e.g. the GUI's subprocess) -> exit UNSUPPORTED_GPU_EXIT so
+      the caller can show its own prompt and retry with the flag set.
+
+    Returns None if asked and declined (caller should exit 130, matching the
+    --usb ERASE-confirm convention)."""
+    from ocforge.build.plan import make
+    from ocforge.catalog.macos import UnsupportedGpuError
+
+    try:
+        return make(m, target_major=target_major, allow_unsupported_gpu=force_unsupported_gpu)
+    except UnsupportedGpuError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        if not sys.stdin.isatty():
+            sys.exit(UNSUPPORTED_GPU_EXIT)
+        try:
+            answer = input("Would you still like to continue? [y/N] ")
+        except EOFError:
+            # isatty() can lie (seen under some Windows/MSYS shells) — don't
+            # let a genuinely-absent stdin crash with a raw traceback.
+            sys.exit(UNSUPPORTED_GPU_EXIT)
+        if answer.strip().lower() != "y":
+            return None
+        return make(m, target_major=target_major, allow_unsupported_gpu=True)
+
 
 def _load_machine(spec: str | None) -> Machine:
     if spec:
@@ -115,15 +151,15 @@ def cmd_probe(args: argparse.Namespace) -> int:
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
-    from ocforge.build.plan import make
-
     m = _load_machine(args.spec)
     _print_machine(m)
     try:
-        plan = make(m, target_major=args.macos)
+        plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu)
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
+    if plan is None:
+        return 130
     _print_plan(plan)
     return 0
 
@@ -132,15 +168,16 @@ def cmd_explain(args: argparse.Namespace) -> int:
     import json
     from dataclasses import asdict
 
-    from ocforge.build.plan import make
     from ocforge.build.rationale import explain
 
     m = _load_machine(args.spec)
     try:
-        plan = make(m, target_major=args.macos)
+        plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu)
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
+    if plan is None:
+        return 130
 
     amd_patches = None
     if plan.is_amd and not args.offline:
@@ -264,7 +301,6 @@ def cmd_plist(args: argparse.Namespace) -> int:
 
 def cmd_build(args: argparse.Namespace) -> int:
     from ocforge.build.pipeline import build_efi, build_usb
-    from ocforge.build.plan import make
 
     if not args.out and not args.usb:
         print("give --out DIR (assemble an EFI folder) or --usb DEVICE (write a USB)", file=sys.stderr)
@@ -272,10 +308,12 @@ def cmd_build(args: argparse.Namespace) -> int:
 
     m = _load_machine(args.spec)
     try:
-        plan = make(m, target_major=args.macos)
+        plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
+    if plan is None:
+        return 130
     _print_machine(m)
     _print_plan(plan)
     print()
@@ -306,14 +344,15 @@ def cmd_build(args: argparse.Namespace) -> int:
 def cmd_offline_installer(args: argparse.Namespace) -> int:
     from ocforge.build.offline_installer import stage
     from ocforge.build.pipeline import build_efi
-    from ocforge.build.plan import make
 
     m = _load_machine(args.spec)
     try:
-        plan = make(m, target_major=args.macos)
+        plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
+    if plan is None:
+        return 130
     _print_machine(m)
     _print_plan(plan)
     print("\noffline installer: downloads the full macOS installer via gibMacOS and a "
@@ -400,6 +439,9 @@ def build_parser() -> argparse.ArgumentParser:
     pl = sub.add_parser("plan", help="compatibility + build plan")
     pl.add_argument("--spec", metavar="FILE")
     pl.add_argument("--macos", type=int, metavar="N", help="force a macOS major (e.g. 14)")
+    pl.add_argument("--force-unsupported-gpu", action="store_true",
+                    help="skip the 'continue anyway?' prompt when there's no supported "
+                         "display path (no interactive terminal — e.g. the GUI — must pass this)")
     pl.set_defaults(func=cmd_plan)
 
     pe = sub.add_parser("explain",
@@ -410,6 +452,9 @@ def build_parser() -> argparse.ArgumentParser:
     pe.add_argument("--json", action="store_true", help="machine-readable output")
     pe.add_argument("--offline", action="store_true",
                     help="don't fetch the live AMD_Vanilla patch list")
+    pe.add_argument("--force-unsupported-gpu", action="store_true",
+                    help="skip the 'continue anyway?' prompt when there's no supported "
+                         "display path (no interactive terminal — e.g. the GUI — must pass this)")
     pe.set_defaults(func=cmd_explain)
 
     prep = sub.add_parser("report",
@@ -456,6 +501,9 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--legacy-mmap", action="store_true",
                     help="use EnableWriteUnprotector instead of RebuildAppleMemoryMap "
                          "(OEM firmware — Dell/HP/Lenovo — that lacks the MAT table)")
+    pb.add_argument("--force-unsupported-gpu", action="store_true",
+                    help="skip the 'continue anyway?' prompt when there's no supported "
+                         "display path (no interactive terminal — e.g. the GUI — must pass this)")
     pb.set_defaults(func=cmd_build)
 
     poi = sub.add_parser("offline-installer",
@@ -473,6 +521,9 @@ def build_parser() -> argparse.ArgumentParser:
     poi.add_argument("--legacy-mmap", action="store_true",
                      help="use EnableWriteUnprotector instead of RebuildAppleMemoryMap "
                           "(OEM firmware — Dell/HP/Lenovo — that lacks the MAT table)")
+    poi.add_argument("--force-unsupported-gpu", action="store_true",
+                     help="skip the 'continue anyway?' prompt when there's no supported "
+                          "display path (no interactive terminal — e.g. the GUI — must pass this)")
     poi.set_defaults(func=cmd_offline_installer)
     return p
 

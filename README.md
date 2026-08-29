@@ -90,8 +90,11 @@ PNLF), and fills the rest (XOSI/IMEI/CPUR/…) from the prebuilt set. `--dump-ds
 usually no root); on Windows/macOS pass `--dsdt` with a folder of tables you
 dumped. For an I2C-HID trackpad, ocforge also decompiles the DSDT and
 best-effort generates **SSDT-GPIO**: the interrupt pin and GPIO controller
-read straight from the touchpad's `_CRS`. Verify the trackpad after first boot;
-if it's dead, that pin was wrong and needs doing by hand.
+read straight from the touchpad's `_CRS`. **On a Linux host that can dump its
+own tables, a laptop with an I2C-HID trackpad triggers this automatically** —
+no `--dsdt`/`--dump-dsdt` needed; without it, SSDT-GPIO silently never gets
+generated (a manual-TODO note is easy to miss). Verify the trackpad after
+first boot; if it's dead, that pin was wrong and needs doing by hand.
 
 Networking: Intel/Realtek/Atheros(Killer)/I225-6 Ethernet, Intel Wi-Fi
 (`AirportItlwm`) and Broadcom Wi-Fi + Bluetooth (`AirportBrcmFixup`,
@@ -104,9 +107,14 @@ web-driver path after High Sierra). With an iGPU present, an NVIDIA dGPU
 just gets disabled (`nv_disable=1`) and ocforge warns about it — the iGPU
 carries the display, no acceleration/CUDA from the NVIDIA card in macOS. With
 **no** iGPU and only an NVIDIA (or no) dGPU, there's nothing to show a
-display with once macOS hands off from the boot picker — `ocforge plan` /
-`build` refuses outright rather than hand you an unbootable EFI, `--macos N`
-included (forcing a version doesn't change what the hardware can do).
+display with once macOS hands off from the boot picker. `ocforge plan` /
+`explain` / `build` / `offline-installer` catch this and ask **"Sorry, this
+build is unsupported. Would you still like to continue?"** — `y` proceeds
+(with a loud warning that the target has no display path), anything else
+backs out; `--macos N` doesn't skip the question either, since forcing a
+version doesn't change what the hardware can do. Not at a terminal (the
+GUI shows its own dialog with the same choice) or scripting this? Pass
+`--force-unsupported-gpu` to skip straight to yes.
 
 AMD (Ryzen / Threadripper, following the
 [Dortania Zen guide](https://dortania.github.io/OpenCore-Install-Guide/AMD/zen.html)):

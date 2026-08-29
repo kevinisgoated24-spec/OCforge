@@ -211,6 +211,14 @@ def test_nvidia_dgpu_alongside_a_working_igpu_just_gets_disabled():
     assert any("RTX 3050" in w and "no macOS driver" in w for w in p.warnings)
 
 
+def test_unsupported_gpu_can_be_forced_through():
+    m = intel_laptop()
+    m.igpu = None
+    m.dgpu = Gpu(name="RTX 3050", vendor=Vendor.NVIDIA, discrete=True)
+    p = make(m, allow_unsupported_gpu=True)  # doesn't raise
+    assert any("UNSUPPORTED BUILD" in w for w in p.warnings)
+
+
 def test_amd_gets_mce_reporter_disabler_as_a_codeless_kext():
     plan = make(ryzen_desktop())
     sel = next((s for s in plan.kexts if s.kext.name == "AppleMCEReporterDisabler"), None)

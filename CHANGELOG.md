@@ -3,6 +3,26 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.21
+
+- **Unsupported-GPU builds now ask instead of just refusing.** `gui-v0.4.20`
+  made `ocforge plan`/`build` hard-fail when there's no supported display
+  path; that was too blunt for the rare case someone really does want to
+  proceed anyway (an eGPU, a card arriving later, testing). Now it's a
+  prompt — *"Sorry, this build is unsupported. Would you still like to
+  continue?"* — `y` proceeds with a loud warning attached to the plan,
+  anything else backs out. `--macos N` still doesn't skip the question. New
+  `--force-unsupported-gpu` flag jumps straight to yes (also fixed a crash:
+  an EOFError from `input()` when a shell reports a tty that isn't really
+  attached to anything no longer produces a raw traceback). The GUI shows
+  its own "Continue anyway" dialog for the same case and retries with the
+  flag on Continue.
+- **Laptops with an I2C-HID trackpad now auto-generate SSDT-GPIO** on a
+  Linux host that can dump its own ACPI tables — no `--dsdt`/`--dump-dsdt`
+  needed. Without a DSDT to read, SSDT-GPIO silently never got built before
+  (just an easy-to-miss manual-TODO note); ocforge now dumps automatically
+  for exactly this case, same as if you'd passed `--dump-dsdt` yourself.
+
 ## gui-v0.4.20
 
 - **Unsupported GPU-only machines are now refused, not silently built.**

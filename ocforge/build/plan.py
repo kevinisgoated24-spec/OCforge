@@ -81,7 +81,8 @@ class BuildPlan:
 _WIFI_OK = (Vendor.INTEL, Vendor.BROADCOM, Vendor.APPLE, Vendor.UNKNOWN)
 
 
-def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
+def make(m: Machine, *, target_major: int | None = None,
+        allow_unsupported_gpu: bool = False) -> BuildPlan:
     # An old spec (or an unparseable CPU brand) can leave intel_gen at 0; if
     # there's an Intel iGPU, recover the generation from its device id.
     from ocforge.probe.base import backfill_intel_gen
@@ -99,15 +100,18 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
     # No iGPU and no supported (AMD) dGPU -> macOS has nothing to drive a
     # display with once it hands off from the boot picker. Checked
     # unconditionally, ahead of --macos N, since forcing a version doesn't
-    # change what the hardware can do.
-    if not macos.has_display_path(m):
+    # change what the hardware can do. A caller can pass
+    # allow_unsupported_gpu=True to proceed anyway (after asking the user).
+    gpu_unsupported = not macos.has_display_path(m)
+    if gpu_unsupported and not allow_unsupported_gpu:
         gpu = f"the {m.dgpu.vendor.value} dGPU ({m.dgpu.name or 'unnamed'})" if m.dgpu else "no GPU"
-        raise ValueError(
+        raise macos.UnsupportedGpuError(
             f"no supported graphics — {gpu} has no macOS driver, and there's no Intel "
-            "iGPU to fall back on. Needs an Intel iGPU or a supported AMD dGPU. Not buildable."
+            "iGPU to fall back on. Needs an Intel iGPU or a supported AMD dGPU."
         )
 
-    target = macos.by_major(target_major) if target_major else macos.recommended(m)
+    target = (macos.by_major(target_major) if target_major
+             else macos.recommended(m, ignore_gpu=gpu_unsupported))
     if target is None:
         why = "no supported macOS release for this machine"
         if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 3:
@@ -115,6 +119,14 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         raise ValueError(why)
 
     warnings: list[str] = []
+    if gpu_unsupported:
+        warnings.append(
+            "UNSUPPORTED BUILD — no working display path was detected (needs an Intel "
+            "iGPU or an AMD dGPU) and this build was forced through anyway. macOS will "
+            "very likely show nothing once it hands off from the boot picker. Proceed "
+            "only if you know something ocforge doesn't (an eGPU, a card you're adding "
+            "later, etc.)."
+        )
     if m.chassis is Chassis.UNKNOWN:
         warnings.append("chassis type unknown — assuming desktop for ACPI/SMBIOS")
     if m.cpu.vendor is Vendor.UNKNOWN:
@@ -133,9 +145,11 @@ def make(m: Machine, *, target_major: int | None = None) -> BuildPlan:
         if target.major >= 13:
             warnings.append(f"Pentium/Celeron have no AVX2, but macOS {target.major} "
                             "needs it -- this build will not boot; use --macos 12 (Monterey)")
-    if m.dgpu is not None and m.dgpu.vendor is Vendor.NVIDIA:
-        # make() already rejected the no-iGPU case above, so an NVIDIA dGPU
-        # getting this far always has a working iGPU to fall back on.
+    if m.dgpu is not None and m.dgpu.vendor is Vendor.NVIDIA and m.igpu is not None:
+        # A no-iGPU machine with only this NVIDIA card already got the
+        # UNSUPPORTED BUILD warning above (or was rejected outright); this
+        # one's for the common case where the iGPU is quietly picking up
+        # the slack and it's easy not to notice the dGPU is dead weight.
         warnings.append(
             f"{m.dgpu.name or 'the NVIDIA dGPU'} has no macOS driver — it's disabled "
             "(nv_disable=1); the iGPU drives the display, no GPU acceleration/CUDA "

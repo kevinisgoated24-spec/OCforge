@@ -349,6 +349,43 @@ class PageScroller extends StatelessWidget {
   }
 }
 
+/// The exit code `_resolve_plan` (ocforge/cli.py) uses when a build has no
+/// supported display path and there was no terminal to ask "continue
+/// anyway?" on — i.e. every time the GUI runs the CLI. Show
+/// [confirmUnsupportedGpu] and, if the answer is yes, re-run the same
+/// command with `--force-unsupported-gpu` appended.
+const int unsupportedGpuExitCode = 3;
+
+/// "Sorry, this build is unsupported. Would you still like to continue?" —
+/// [detail] is the reason from the CLI's stderr. Returns true if the user
+/// wants to proceed anyway (retry with `--force-unsupported-gpu`).
+Future<bool> confirmUnsupportedGpu(BuildContext context, String detail) async {
+  final ColorScheme s = Theme.of(context).colorScheme;
+  final bool? proceed = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      icon: Icon(Icons.warning_amber_rounded, color: s.error),
+      title: const Text('Sorry, this build is unsupported'),
+      content: Text(
+        'Would you still like to continue?\n\n$detail',
+        style: TextStyle(color: s.onSurfaceVariant, fontSize: 13),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.tonal(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Continue anyway'),
+        ),
+      ],
+    ),
+  );
+  return proceed ?? false;
+}
+
 class DemoBanner extends StatelessWidget {
   const DemoBanner({super.key});
 

@@ -55,6 +55,18 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
     Returns ``None`` when there is nothing to work from (no ``--dsdt`` and the
     host can't dump its own tables), leaving the precompiled path in charge.
     """
+    m = plan.machine
+    # A laptop's I2C-HID trackpad only gets a real SSDT-GPIO when we can see
+    # the DSDT (see gpio.py) — without --dsdt/--dump-dsdt that silently never
+    # happens, just a manual-TODO note easy to miss. When this host can dump
+    # its own tables (Linux) and it's a laptop with that kind of trackpad,
+    # auto-dump even without being asked; --dsdt/--dump-dsdt still win if given.
+    auto_gpio = (dsdt is None and not dump_dsdt and m.is_laptop
+                and m.inputs.touchpad_bus == "i2c-hid" and acpi_dump.can_dump())
+    if auto_gpio:
+        log("laptop with an I2C-HID trackpad — auto-dumping ACPI tables for SSDT-GPIO…")
+        dump_dsdt = True
+
     src = work / "acpi-in"
     if dsdt is not None:
         log(f"staging supplied DSDT: {dsdt}")
@@ -64,7 +76,8 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
         try:
             acpi_dir = acpi_dump.dump_tables(src)
         except acpi_dump.DsdtUnavailable as exc:
-            log(f"  can't dump ACPI ({exc}); using precompiled SSDTs")
+            extra = " — no SSDT-GPIO, but the build's still fine without it" if auto_gpio else ""
+            log(f"  can't dump ACPI ({exc}); using precompiled SSDTs{extra}")
             return None
     else:
         return None

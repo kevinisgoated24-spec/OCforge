@@ -49,7 +49,15 @@ class _PlanPageState extends State<PlanPage> {
         if (c.macosOverride != null) {
           args.addAll(<String>['--macos', '${c.macosOverride}']);
         }
-        final r = await c.cli.run(args);
+        var r = await c.cli.run(args);
+        if (r.exitCode == unsupportedGpuExitCode) {
+          final String detail = '${r.stderr}'.trim();
+          if (!await confirmUnsupportedGpu(context, detail)) {
+            setState(() => _busy = false);
+            return;
+          }
+          r = await c.cli.run(<String>[...args, '--force-unsupported-gpu']);
+        }
         final String out = '${r.stdout}'.trim();
         final String err = '${r.stderr}'.trim();
         if (r.exitCode != 0) {

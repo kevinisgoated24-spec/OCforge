@@ -53,7 +53,15 @@ class _ConfigPageState extends State<ConfigPage> {
         if (c.macosOverride != null) {
           args.addAll(<String>['--macos', '${c.macosOverride}']);
         }
-        final r = await c.cli.run(args);
+        var r = await c.cli.run(args);
+        if (r.exitCode == unsupportedGpuExitCode) {
+          final String detail = '${r.stderr}'.trim();
+          if (!await confirmUnsupportedGpu(context, detail)) {
+            setState(() => _busy = false);
+            return;
+          }
+          r = await c.cli.run(<String>[...args, '--force-unsupported-gpu']);
+        }
         if (r.exitCode != 0) {
           final String e = '${r.stderr}'.trim();
           throw Exception(e.isEmpty ? 'explain exited ${r.exitCode}' : e);

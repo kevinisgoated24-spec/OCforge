@@ -22,6 +22,13 @@ from dataclasses import dataclass
 from ocforge.model import Machine, Vendor
 
 
+class UnsupportedGpuError(ValueError):
+    """No supported display path (see ``has_display_path``). Distinct from a
+    plain ``ValueError`` so a caller can offer "continue anyway?" instead of
+    just failing — pass ``allow_unsupported_gpu=True`` to
+    :func:`ocforge.build.plan.make` to do so."""
+
+
 @dataclass(frozen=True)
 class MacOSRelease:
     name: str
@@ -61,7 +68,7 @@ def has_display_path(m: Machine) -> bool:
     return m.dgpu is not None and m.dgpu.vendor is Vendor.AMD
 
 
-def _release_ok(rel: MacOSRelease, m: Machine) -> tuple[bool, str]:
+def _release_ok(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False) -> tuple[bool, str]:
     cpu = m.cpu
     if rel.needs_avx2 and cpu.vendor is Vendor.INTEL:
         brand = (cpu.brand or "").lower()
@@ -73,7 +80,7 @@ def _release_ok(rel: MacOSRelease, m: Machine) -> tuple[bool, str]:
         if cpu.flags and "avx2" not in cpu.flags:
             return False, "needs AVX2"
 
-    if not has_display_path(m):
+    if not ignore_gpu and not has_display_path(m):
         gpu_note = (f" ({m.dgpu.vendor.value} dGPU has no macOS driver)"
                    if m.dgpu else " (no GPU detected)")
         return False, f"no supported graphics — needs an Intel iGPU or an AMD dGPU{gpu_note}"
@@ -92,6 +99,8 @@ def _release_ok(rel: MacOSRelease, m: Machine) -> tuple[bool, str]:
             # laptop is usually a dead end.
             if m.dgpu is not None and m.dgpu.vendor is Vendor.AMD:
                 return True, "iGPU unsupported — driving display from the AMD dGPU"
+            if ignore_gpu:
+                return True, "iGPU unsupported and forced through anyway — expect no display"
             return False, "11th gen+ Intel Xe graphics has no macOS driver"
         if gen < rel.min_intel_gen:
             return False, f"needs Intel {rel.min_intel_gen}th gen or newer"
@@ -107,17 +116,22 @@ class Compatibility:
     note: str
 
 
-def evaluate(m: Machine) -> list[Compatibility]:
-    """Every known release with a verdict, newest first."""
-    return [Compatibility(r, *_release_ok(r, m)) for r in RELEASES]
+def evaluate(m: Machine, *, ignore_gpu: bool = False) -> list[Compatibility]:
+    """Every known release with a verdict, newest first.
+
+    ``ignore_gpu`` skips the display-path gate — for a caller that already
+    asked "this build is unsupported, continue anyway?" and got a yes; every
+    *other* constraint (AVX2, Intel generation, AMD support) still applies.
+    """
+    return [Compatibility(r, *_release_ok(r, m, ignore_gpu=ignore_gpu)) for r in RELEASES]
 
 
-def recommended(m: Machine) -> MacOSRelease | None:
+def recommended(m: Machine, *, ignore_gpu: bool = False) -> MacOSRelease | None:
     """Newest release that comes out clean (no note)."""
-    for c in evaluate(m):
+    for c in evaluate(m, ignore_gpu=ignore_gpu):
         if c.supported and not c.note:
             return c.release
-    for c in evaluate(m):
+    for c in evaluate(m, ignore_gpu=ignore_gpu):
         if c.supported:
             return c.release
     return None

@@ -77,27 +77,38 @@ class _BuildPageState extends State<BuildPage> {
       if (!_offlineInstaller && _debug) '--debug',
       if (_legacyMmap) '--legacy-mmap',
     ];
-    _append('\$ ocforge ${args.join(' ')}\n');
     try {
-      final Process proc = await c.cli.start(args);
-      _proc = proc;
-      const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
-      final StreamSubscription<String> s1 = proc.stdout
-          .transform(dec)
-          .transform(const LineSplitter())
-          .listen(_append);
-      final StreamSubscription<String> s2 = proc.stderr
-          .transform(dec)
-          .transform(const LineSplitter())
-          .listen(_append);
-      final int code = await proc.exitCode;
-      await s1.cancel();
-      await s2.cancel();
+      int code = await _runStreamed(c, args);
+      if (code == unsupportedGpuExitCode) {
+        final String detail = _log.join('\n');
+        if (!await confirmUnsupportedGpu(context, detail)) {
+          _finish(130, out);
+          return;
+        }
+        code = await _runStreamed(c, <String>[...args, '--force-unsupported-gpu']);
+      }
       _finish(code, out);
     } catch (e) {
       _append('\n$e');
       _finish(-1, out);
     }
+  }
+
+  /// Starts `ocforge <args>`, streams its output into [_log], and returns
+  /// the exit code once it finishes.
+  Future<int> _runStreamed(OcforgeController c, List<String> args) async {
+    _append('\$ ocforge ${args.join(' ')}\n');
+    final Process proc = await c.cli.start(args);
+    _proc = proc;
+    const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
+    final StreamSubscription<String> s1 =
+        proc.stdout.transform(dec).transform(const LineSplitter()).listen(_append);
+    final StreamSubscription<String> s2 =
+        proc.stderr.transform(dec).transform(const LineSplitter()).listen(_append);
+    final int code = await proc.exitCode;
+    await s1.cancel();
+    await s2.cancel();
+    return code;
   }
 
   Future<void> _demoRun(String out) async {
