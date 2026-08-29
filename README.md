@@ -13,6 +13,7 @@ Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 
 Changelog: [CHANGELOG.md](CHANGELOG.md), now with Linux and macOS support.
 
+Supported Device Or Tested Devices Here's The List [SupportedDevice.md](https://github.com/kevinisgoated24-spec/OCforge/blob/master/SupportedDevice.md)
 > Made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
 
 ## Install
