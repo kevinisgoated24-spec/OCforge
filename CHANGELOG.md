@@ -3,6 +3,28 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.29
+
+- **The GUI now actually self-updates**, both halves. The update banner's
+  button changed from "Download" to "Update": confirming it runs
+  `pip install --upgrade` for the `ocforge` CLI (same mechanism as the
+  setup screen's existing "Update & continue"), then downloads this
+  platform's GUI release asset and swaps it into the running app's own
+  install directory before relaunching.
+  - A running executable can't overwrite itself, so the swap is done by a
+    small platform-native relauncher (PowerShell on Windows, `sh` on
+    macOS/Linux) launched detached, which waits for the GUI to actually
+    exit, renames the current install dir aside, moves the new one into
+    its place, and starts the new executable — restoring the old install
+    instead if the swap doesn't fully complete, so a failed update can't
+    leave the app unable to launch. See `gui/lib/src/self_update.dart`.
+  - If the automatic swap can't complete for any reason (missing
+    `unzip`/`tar`, a permissions error, offline mid-download, …), it falls
+    back to opening the release page — the previous behavior — and leaves
+    the current install untouched.
+  - The CLI half is independent of the GUI half: a `pip` failure is logged
+    but doesn't block the GUI update.
+
 ## gui-v0.4.28
 
 - **New: Bulldozer(15h)/Jaguar(16h) AMD support** — cross-checked against

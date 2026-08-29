@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
+import 'cli.dart';
 import 'gui_update.dart';
+import 'self_update.dart';
 
 /// A soft entrance: fade + rise, with an optional per-item [delay] for stagger.
 class FadeInUp extends StatefulWidget {
@@ -388,12 +392,12 @@ Future<bool> confirmUnsupportedGpu(BuildContext context, String detail) async {
   return proceed ?? false;
 }
 
-/// "A newer OCForge GUI is out — Download" — shown whenever
+/// "A newer OCForge GUI is out — Update" — shown whenever
 /// [OcforgeController.guiUpdate] finds a newer `gui-v*` release than this
-/// build's [appVersion]. Only opens the release page in the browser; it
-/// never downloads or replaces the running app itself (self-updating a
-/// native desktop app safely is a much bigger, riskier feature — see
-/// gui/README.md).
+/// build's [appVersion]. "Update" opens [showGuiUpdateDialog], which updates
+/// both the CLI and the GUI and relaunches; if the self-update can't
+/// complete for any reason it falls back to just opening the release page,
+/// same as this banner always did before.
 class GuiUpdateBanner extends StatelessWidget {
   const GuiUpdateBanner({super.key, required this.version, required this.url});
 
@@ -418,12 +422,114 @@ class GuiUpdateBanner extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () => openInBrowser(url),
-              child: const Text('Download'),
+              onPressed: () => showGuiUpdateDialog(context, version: version, url: url),
+              child: const Text('Update'),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Confirms, then updates the `ocforge` CLI (`pip install --upgrade`) and
+/// this GUI app (download + swap + relaunch — [GuiSelfUpdate]) in sequence.
+/// The CLI half is independent of the GUI half: a CLI failure is logged but
+/// doesn't stop the GUI update. If the GUI half can't complete, falls back
+/// to opening the release page — same as the old banner-only behaviour —
+/// and the dialog stays open on the current (unmodified) install so the user
+/// can keep using it.
+Future<void> showGuiUpdateDialog(BuildContext context, {required String version, required String url}) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext ctx) => _GuiUpdateDialog(version: version, url: url),
+  );
+}
+
+enum _UpdatePhase { confirm, working, failed, done }
+
+class _GuiUpdateDialog extends StatefulWidget {
+  const _GuiUpdateDialog({required this.version, required this.url});
+
+  final String version;
+  final String url;
+
+  @override
+  State<_GuiUpdateDialog> createState() => _GuiUpdateDialogState();
+}
+
+class _GuiUpdateDialogState extends State<_GuiUpdateDialog> {
+  _UpdatePhase _phase = _UpdatePhase.confirm;
+  final List<String> _log = <String>[];
+
+  void _say(String s) {
+    if (mounted) setState(() => _log.add(s));
+  }
+
+  Future<void> _start() async {
+    setState(() {
+      _phase = _UpdatePhase.working;
+      _log.clear();
+    });
+
+    _say('Updating the ocforge CLI…');
+    final PythonInfo? py = await OcforgeCli.findPython();
+    if (py == null) {
+      _say('  no Python found on this machine — skipping the CLI update.');
+    } else {
+      final int code = await OcforgeCli.installOcforge(py, (String l) => _say('  $l'));
+      _say(code == 0
+          ? '  CLI updated.'
+          : '  CLI update failed (exit $code) — continuing with the GUI update anyway.');
+    }
+
+    _say('');
+    _say('Updating the GUI app…');
+    final bool ok = await GuiSelfUpdate.apply(
+      tag: 'gui-v${widget.version}',
+      log: (String l) => _say('  $l'),
+    );
+    if (!ok) {
+      _say('  could not self-update — opening the release page instead.');
+      await openInBrowser(widget.url);
+      if (!mounted) return;
+      setState(() => _phase = _UpdatePhase.failed);
+      return;
+    }
+
+    _say('  relaunching…');
+    if (!mounted) return;
+    setState(() => _phase = _UpdatePhase.done);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    exit(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool closable = _phase == _UpdatePhase.confirm || _phase == _UpdatePhase.failed;
+    return AlertDialog(
+      title: Text(_phase == _UpdatePhase.confirm
+          ? 'Update to ${widget.version}?'
+          : 'Updating OCForge'),
+      content: SizedBox(
+        width: 520,
+        child: _phase == _UpdatePhase.confirm
+            ? const Text('This updates both the ocforge CLI and this app, then '
+                'relaunches. If the automatic swap can\'t complete on this '
+                'machine, it falls back to opening the release page instead.')
+            : LogConsole(lines: _log, minHeight: 180),
+      ),
+      actions: <Widget>[
+        if (_phase == _UpdatePhase.confirm) ...<Widget>[
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Later')),
+          FilledButton(onPressed: _start, child: const Text('Update now')),
+        ] else
+          TextButton(
+            onPressed: closable ? () => Navigator.pop(context) : null,
+            child: const Text('Close'),
+          ),
+      ],
     );
   }
 }

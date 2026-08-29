@@ -40,17 +40,29 @@ platform config dir):
 ## Checking for updates
 
 Every launch, the app quietly checks GitHub for a newer `gui-v*` release
-than the one you're running. If one exists, a banner appears with a
-**Download** button that opens that release's page in your browser — same
-as checking manually. It does **not** download or replace the running app
-for you: on Windows the running `.exe` can't overwrite itself, and a
-half-swapped install on any platform is worse than just clicking the link.
-The check fails silently (offline, rate-limited, etc.) and never blocks
-startup either way.
+than the one you're running. If one exists, a banner appears with an
+**Update** button. Confirming it updates *both* halves in one go:
 
-The **"Update & continue"** button on the setup screen is a different
-thing — that updates the `ocforge` **CLI** (the Python package this app
-drives), not the GUI app itself.
+1. **CLI** — `pip install --upgrade` against the repo, same mechanism as
+   the setup screen's "Update & continue" (`cli.dart`'s `installOcforge`).
+   A failure here is logged but doesn't block the GUI half — the two are
+   independent.
+2. **GUI** — downloads this platform's release asset, extracts it into a
+   temp dir, and hands off to a small platform-native relauncher script
+   (PowerShell on Windows, `sh` on macOS/Linux) launched detached. The app
+   then exits; the relauncher waits for that exit, renames the current
+   install dir aside, moves the new one into its place, and starts the new
+   executable — restoring the old install instead if the swap doesn't fully
+   complete, so a failed update never leaves the app unable to launch
+   (`self_update.dart`).
+
+A **running `.exe` can't overwrite itself** — that's exactly why this needs
+the detached relauncher-plus-exit dance rather than doing the swap in
+process. If the self-update can't complete for any reason (no `unzip`/`tar`
+found, a permissions error, offline mid-download, …), it falls back to just
+opening the release page, same as the old behaviour. The version check
+itself still fails silently (offline, rate-limited, etc.) and never blocks
+startup either way.
 
 ## First-run setup
 
