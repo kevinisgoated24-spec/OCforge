@@ -3,6 +3,15 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.16
+
+- **OCforgeReporter.** `ocforge report` (CLI) and a bug icon in the GUI's nav
+  rail open a GitHub "New issue" pre-filled with your ocforge version and
+  detected hardware, using the new bug-report issue form
+  (`.github/ISSUE_TEMPLATE/bug_report.yml`). No bot account, no server, no
+  shared write-access credential — the fields are filled client-side and you
+  submit the issue yourself under your own GitHub account.
+
 ## gui-v0.4.15
 
 - The GUI now **cleans up the temp spec file** it writes on "Detect this PC"

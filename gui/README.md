@@ -14,6 +14,11 @@ Four tabs, matching the CLI:
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
 | **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
 
+The bug icon at the bottom of the nav rail is **OCforgeReporter**: it opens a
+GitHub "New issue" with your ocforge version and hardware already filled in —
+no bot, no server, no shared credential; you review and submit it yourself.
+Same as `ocforge report` on the CLI.
+
 ## Look
 
 The nav rail carries two controls, both persisted (a small `prefs.json` in the

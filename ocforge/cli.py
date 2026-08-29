@@ -4,6 +4,7 @@
     ocforge plan    [--spec FILE] [--macos N]      compatibility + full build plan
     ocforge explain [--spec FILE] [--macos N]      config.plist decisions, with reasons
     ocforge bios   [--spec FILE]                   BIOS/UEFI settings to change
+    ocforge report [--spec FILE]                   OCforgeReporter: file a pre-filled bug report
     ocforge validate [--efi DIR | --config FILE]   run ocvalidate on a config.plist
     ocforge plist  show|save FILE                  config.plist <-> JSON (GUI editor)
     ocforge usb                                    list writable USB disks
@@ -191,6 +192,20 @@ def cmd_bios(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from ocforge.report import build_url
+
+    url = build_url(spec_path=args.spec, title=args.title or "")
+    print("OCforgeReporter: opening a pre-filled bug report in your browser.")
+    print("Review it, then click \"Submit new issue\" (needs a free GitHub account):\n")
+    print(f"  {url}\n")
+    if not args.no_browser:
+        import webbrowser
+
+        webbrowser.open(url)
+    return 0
+
+
 def _find_config(args: argparse.Namespace) -> Path | None:
     if args.config:
         return Path(args.config)
@@ -340,6 +355,14 @@ def build_parser() -> argparse.ArgumentParser:
     pe.add_argument("--offline", action="store_true",
                     help="don't fetch the live AMD_Vanilla patch list")
     pe.set_defaults(func=cmd_explain)
+
+    prep = sub.add_parser("report",
+                          help="OCforgeReporter: file a bug report with your version + "
+                               "hardware pre-filled")
+    prep.add_argument("--spec", metavar="FILE", help="use this spec instead of re-probing")
+    prep.add_argument("--title", metavar="TEXT")
+    prep.add_argument("--no-browser", action="store_true", help="print the URL, don't open it")
+    prep.set_defaults(func=cmd_report)
 
     pbios = sub.add_parser("bios", help="BIOS / UEFI settings to change for this machine")
     pbios.add_argument("--spec", metavar="FILE")

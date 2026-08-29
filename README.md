@@ -56,6 +56,9 @@ ocforge build --spec my-pc.json --usb /dev/sdX --recovery
 ocforge validate --efi ./EFI                       # OpenCore's ocvalidate on the config
 ocforge plist show ./EFI/OC/config.plist           # config.plist -> JSON (hex data sentinels)
 ocforge plist save ./EFI/OC/config.plist < edited.json
+
+# 5. hit a wall? file a bug with your version + hardware already filled in
+ocforge report --spec my-pc.json
 ```
 
 The assembled `config.plist` validates clean against `ocvalidate` for the
@@ -111,6 +114,17 @@ warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
 message), and HEDT (X79/X99/X299) — the SSDTs are selected but the MacPro
 SMBIOS and HEDT-specific quirks aren't fully modelled, so cross-check the
 Dortania HEDT guide.
+
+## Reporting a problem
+
+`ocforge report` (also a bug icon in the GUI's nav rail) opens a GitHub "New
+issue" pre-filled with your ocforge version and hardware — you just describe
+what happened and hit submit. It's not a bot with write access to the repo:
+there's no shared credential to leak or abuse, it fills in
+[the bug-report form](.github/ISSUE_TEMPLATE/bug_report.yml) client-side and
+you submit it yourself under your own (free) GitHub account, same as filing
+one by hand. Attach whatever you have — a panic photo, the `opencore-*.txt`
+from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
 ## Desktop GUI
 

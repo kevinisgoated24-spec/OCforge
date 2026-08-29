@@ -1,0 +1,61 @@
+name: "OCforgeReporter: Bug report"
+description: Report a build/boot problem with ocforge (CLI or GUI).
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Run **`ocforge report`** (or the GUI's bug icon) and most of this fills itself in —
+        just describe what happened and attach whatever you have (panic photo,
+        `opencore-*.txt` from the EFI partition, your `spec.json`, `config.plist`).
+  - type: input
+    id: ocforge-version
+    attributes:
+      label: ocforge version
+      description: "`ocforge --version`"
+      placeholder: "0.4.15"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Host OS (the machine running the GUI/CLI, not the macOS target)
+      options: ["Windows", "macOS", "Linux"]
+    validations:
+      required: true
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface
+      options: ["GUI", "CLI"]
+    validations:
+      required: false
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware
+      description: CPU / GPU / NIC / board — the `ocforge probe` summary or your `spec.json`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected vs. what happened. Panic text, black screen, build error, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: config.plist snippet, BIOS settings, USB port used, opencore-*.txt, screenshots.
+    validations:
+      required: false

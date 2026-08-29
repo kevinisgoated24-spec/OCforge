@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'controller.dart';
@@ -140,6 +142,12 @@ class _ShellState extends State<_Shell> {
                           ThemeMode.system => Icons.brightness_auto_outlined,
                         }),
                       ),
+                      const SizedBox(height: 4),
+                      IconButton(
+                        tooltip: 'Report a bug (OCforgeReporter)',
+                        onPressed: () => _reportBug(c),
+                        icon: const Icon(Icons.bug_report_outlined),
+                      ),
                     ],
                   ),
                 ),
@@ -202,4 +210,77 @@ class _ShellState extends State<_Shell> {
       ),
     );
   }
+}
+
+/// OCforgeReporter: no bot, no server, no shared credentials — this just
+/// pre-fills the repo's bug-report issue form and opens it in the browser.
+/// The user reviews it and submits under their own GitHub account, same as
+/// `ocforge report` on the CLI.
+Future<void> _reportBug(OcforgeController c) async {
+  final String hardware = c.machine != null
+      ? _formatMachineForReport(c.machine!)
+      : "(run Detect first, or paste your spec.json / `ocforge probe` output here)";
+  final Uri uri = Uri.https(
+    'github.com',
+    '/kevinisgoated24-spec/OCforge/issues/new',
+    <String, String>{
+      'template': 'bug_report.yml',
+      'title': '[Bug]: ',
+      'labels': 'bug',
+      'ocforge-version': c.cli.version.isEmpty ? 'unknown (CLI not detected)' : c.cli.version,
+      'os': Platform.isWindows ? 'Windows' : (Platform.isMacOS ? 'macOS' : 'Linux'),
+      'interface': 'GUI',
+      'hardware': hardware,
+    },
+  );
+  try {
+    if (Platform.isWindows) {
+      await Process.run('explorer', <String>[uri.toString()], runInShell: true);
+    } else if (Platform.isMacOS) {
+      await Process.run('open', <String>[uri.toString()]);
+    } else {
+      await Process.run('xdg-open', <String>[uri.toString()]);
+    }
+  } on ProcessException {
+    // best effort — worst case the user copies the URL from the terminal
+  }
+}
+
+String _formatMachineForReport(Map<String, dynamic> m) {
+  final StringBuffer b = StringBuffer();
+  b.writeln('chassis   ${m['chassis'] ?? '?'}');
+
+  final Map<String, dynamic> cpu = (m['cpu'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+  final String fam = (cpu['family'] as String?) ?? '';
+  final int gen = (cpu['intel_gen'] as num?)?.toInt() ?? 0;
+  b.writeln('cpu       ${cpu['brand'] ?? '?'}  '
+      '[${cpu['vendor'] ?? '?'}${fam.isNotEmpty ? ' / $fam' : ''}'
+      '${gen > 0 ? ' (Intel gen $gen)' : ''}]  '
+      '${cpu['cores'] ?? '?'}c/${cpu['threads'] ?? '?'}t');
+
+  for (final String key in <String>['igpu', 'dgpu']) {
+    final Map<String, dynamic>? g = (m[key] as Map?)?.cast<String, dynamic>();
+    if (g == null) continue;
+    final Map<String, dynamic>? pci = (g['pci'] as Map?)?.cast<String, dynamic>();
+    final String pciStr = pci != null && (pci['vendor'] ?? '').toString().isNotEmpty
+        ? '  [${pci['vendor']}:${pci['device']}]'
+        : '';
+    b.writeln('gpu       ${key == 'igpu' ? 'iGPU' : 'dGPU'}: ${g['name']} (${g['vendor']})$pciStr');
+  }
+
+  for (final dynamic raw in (m['net'] as List?) ?? const <dynamic>[]) {
+    final Map<String, dynamic> n = (raw as Map).cast<String, dynamic>();
+    final bool wireless = n['wireless'] == true;
+    b.writeln('${wireless ? 'wifi' : 'eth '}      ${n['name'] ?? '?'} (${n['vendor'] ?? '?'})');
+  }
+
+  final Map<String, dynamic> storage = (m['storage'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+  b.writeln('storage   nvme=${storage['has_nvme'] == true ? 'yes' : 'no'}');
+
+  final Map<String, dynamic> fw = (m['firmware'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+  if ((fw['board_name'] ?? '').toString().isNotEmpty) {
+    b.writeln('board     ${fw['board_vendor'] ?? ''} ${fw['board_name'] ?? ''}'.trim());
+  }
+
+  return b.toString().trim();
 }
