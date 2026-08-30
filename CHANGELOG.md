@@ -26,7 +26,7 @@ desktop GUI bundles; each entry also covers the CLI changes that shipped with it
 ## gui-v0.4.34
 
 - **The Assistant tab can now be unlocked in any build, including a public
-  release** — not just a local debug build. Typing `ocforgedev123` anywhere
+  release** — not just a local debug build. Typing not telling you ` anywhere
   in the app (a global, non-consuming key listener in `app.dart`'s
   `_ShellState`) adds the tab for the rest of that session, with a snackbar
   confirming it; typing normally elsewhere (the API-key field, any other
