@@ -17,7 +17,6 @@ jobs:
         include:
           - { os: windows-latest, target: windows, name: OCForge-GUI-windows-x64, ext: zip }
           - { os: macos-latest,   target: macos,   name: OCForge-GUI-macos,       ext: zip }
-          - { os: ubuntu-latest,  target: linux,   name: OCForge-GUI-linux-x64,   ext: tar.gz }
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -27,13 +26,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Linux build deps
-        if: matrix.target == 'linux'
-        working-directory: .
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
 
       - uses: subosito/flutter-action@v2
         with:
@@ -81,10 +73,6 @@ jobs:
               echo "app: $APP"
               ditto -c -k --keepParent --sequesterRsrc "$APP" "$OUT"
               ;;
-            linux)
-              ls -la build/linux/x64/release/bundle
-              tar czf "$OUT" -C build/linux/x64/release/bundle .
-              ;;
           esac
           ls -la "$OUT"
 
@@ -94,8 +82,84 @@ jobs:
           path: ${{ github.workspace }}/${{ matrix.name }}.${{ matrix.ext }}
           if-no-files-found: error
 
+  # Separate job, not a matrix entry alongside windows/macos: this one needs
+  # a `container:` (see below), which only applies at the job level -- kept
+  # apart so nothing about it can affect the windows/macos build's job config.
+  build-linux:
+    runs-on: ubuntu-latest
+    # Built inside an old Debian container, not directly on the ubuntu-latest
+    # host -- ubuntu-latest is Ubuntu 24.04 (glibc 2.39), and a binary linked
+    # against that glibc refuses to even start on Debian 12 Bookworm (glibc
+    # 2.36) with a "GLIBC_2.38 not found" error -- exactly the "GUI Flutter
+    # won't open" report (issue #2): no window, no visible error if launched
+    # by double-clicking rather than from a terminal. glibc is backwards-
+    # compatible, so building on the OLDEST reasonably-current distro
+    # maximizes how far forward the binary still runs; bookworm is that
+    # floor here, matching the actual reporter's OS exactly.
+    container: debian:bookworm
+    defaults:
+      run:
+        working-directory: gui
+        shell: bash
+
+    steps:
+      # Ahead of checkout: a bare debian:bookworm container has neither git
+      # nor sudo. actions/checkout and the Flutter SDK's own tooling both
+      # shell out to git, and this job runs as root in-container already.
+      - name: Container deps
+        run: |
+          apt-get update
+          apt-get install -y git ca-certificates curl unzip xz-utils \
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Toolchain
+        run: flutter --version
+
+      # Only pubspec + lib/ are tracked — regenerate the platform scaffold.
+      - name: Generate linux/ scaffold
+        run: |
+          set -e
+          mkdir -p .stash
+          mv lib pubspec.yaml analysis_options.yaml .stash/
+          flutter create --platforms=linux --project-name ocforge_gui --org com.ocforge --overwrite .
+          rm -rf lib pubspec.yaml analysis_options.yaml test
+          mv .stash/lib .stash/pubspec.yaml .stash/analysis_options.yaml .
+          rmdir .stash
+
+      - name: Deps
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build
+        run: flutter build linux --release
+
+      - name: Package
+        run: |
+          set -e
+          OUT="$GITHUB_WORKSPACE/OCForge-GUI-linux-x64.tar.gz"
+          ls -la build/linux/x64/release/bundle
+          tar czf "$OUT" -C build/linux/x64/release/bundle .
+          ls -la "$OUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OCForge-GUI-linux-x64
+          path: ${{ github.workspace }}/OCForge-GUI-linux-x64.tar.gz
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, build-linux]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
