@@ -112,6 +112,11 @@ jobs:
           apt-get update
           apt-get install -y git ca-certificates curl unzip xz-utils jq \
             clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+          # The runner's cache-restore leaves the Flutter SDK checkout owned
+          # by a different uid than the container runs as; git's ownership
+          # check then refuses to touch it ("dubious ownership") wherever
+          # Flutter's own tooling shells out to git internally.
+          git config --global --add safe.directory '*'
 
       - uses: actions/checkout@v4
 
