@@ -3,6 +3,18 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.34
+
+- **The Assistant tab can now be unlocked in any build, including a public
+  release** — not just a local debug build. Typing `ocforgedev123` anywhere
+  in the app (a global, non-consuming key listener in `app.dart`'s
+  `_ShellState`) adds the tab for the rest of that session, with a snackbar
+  confirming it; typing normally elsewhere (the API-key field, any other
+  text box) is completely unaffected since the listener never consumes the
+  keystrokes. Still shows up automatically in a `flutter run` debug build
+  too (`kDebugMode`). This is a visibility toggle, not real access control —
+  the source is public either way.
+
 ## gui-v0.4.33
 
 - **The Assistant tab is now dev-only.** Gated behind `kDebugMode` in

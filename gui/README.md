@@ -14,17 +14,21 @@ Five tabs:
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
 | **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
 
-Plus a sixth, **Assistant**, that only shows up in a local `flutter run` debug
-build — see below.
+Plus a sixth, **Assistant**, that's hidden by default — see below.
 
-### Assistant (dev-only)
+### Assistant (hidden by default)
 
-Gated behind `kDebugMode` (`if (kDebugMode) ...` around both the nav
-destination and the page in `app.dart`) — Flutter sets that `false` for
-every `flutter build --release`, which is what CI packages for every
-download, so this tab is compiled out of shipped builds entirely, not just
-hidden behind a flag someone could flip. Run `flutter run -d <platform>`
-from source to see it.
+Not shown until unlocked, two ways (`app.dart`'s `_ShellState`):
+
+* Automatically in a local `flutter run` debug build (`kDebugMode`).
+* In **any** build — including a public release — by typing
+  `ocforgedev123` anywhere in the app. A global (non-consuming) key
+  listener watches for it; typing normally in a text field elsewhere is
+  completely unaffected. This is a visibility toggle, not real access
+  control — the source is public either way, so the phrase is trivially
+  findable by anyone who looks; it just keeps the tab out of the way for
+  everyone else by default. A snackbar confirms when it unlocks, and it
+  stays unlocked for the rest of that session.
 
 A plain question-and-answer helper, not a running agent — each message is one
 independent request, using the current machine spec and plan text as context.
