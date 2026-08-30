@@ -3,6 +3,14 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.33
+
+- **The Assistant tab is now dev-only.** Gated behind `kDebugMode` in
+  `app.dart` (both the nav destination and the page), which Flutter sets
+  `false` for every `flutter build --release` — the tab is compiled out of
+  every shipped build entirely, not just hidden behind a flag. Only visible
+  running from source via `flutter run`.
+
 ## gui-v0.4.32
 
 - **New: an Assistant tab in the GUI.** A plain question-and-answer helper,

@@ -4,7 +4,7 @@ A Material 3 Expressive desktop front-end for the [`ocforge`](../) OpenCore EFI
 builder — vivid dynamic-colour theme, fully-rounded components, springy page
 transitions. Runs on **Windows, macOS and Linux**.
 
-Six tabs:
+Five tabs:
 
 | tab | runs | shows |
 |-----|------|-------|
@@ -13,9 +13,18 @@ Six tabs:
 | **Config** | `ocforge explain --spec … [--macos N] --json` | every hardware-driven config.plist edit, grouped, each with a reason and a Dortania link; on AMD, the live AMD_Vanilla patch list too |
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
 | **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
-| **Assistant** | nothing from `ocforge` itself | a chat panel for general questions, with the current Detect/Plan data sent along as context |
 
-### Assistant
+Plus a sixth, **Assistant**, that only shows up in a local `flutter run` debug
+build — see below.
+
+### Assistant (dev-only)
+
+Gated behind `kDebugMode` (`if (kDebugMode) ...` around both the nav
+destination and the page in `app.dart`) — Flutter sets that `false` for
+every `flutter build --release`, which is what CI packages for every
+download, so this tab is compiled out of shipped builds entirely, not just
+hidden behind a flag someone could flip. Run `flutter run -d <platform>`
+from source to see it.
 
 A plain question-and-answer helper, not a running agent — each message is one
 independent request, using the current machine spec and plan text as context.

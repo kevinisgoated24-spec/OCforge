@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import 'controller.dart';
@@ -75,13 +76,17 @@ class _Shell extends StatefulWidget {
 class _ShellState extends State<_Shell> {
   int _index = 0;
 
+  // Assistant is dev-only for now: kDebugMode is only ever true in a local
+  // `flutter run` debug build, never in `flutter build --release` (what CI
+  // packages for every download) -- so it's simply absent from every
+  // shipped build, not just hidden behind a flag someone could flip.
   static const List<Widget> _pages = <Widget>[
     DetectPage(),
     PlanPage(),
     ConfigPage(),
     BuildPage(),
     EditorPage(),
-    AssistantPage(),
+    if (kDebugMode) AssistantPage(),
   ];
 
   @override
@@ -176,10 +181,11 @@ class _ShellState extends State<_Shell> {
                 icon: Icon(Icons.edit_note_rounded),
                 label: Text('Editor'),
               ),
-              NavigationRailDestination(
-                icon: Icon(Icons.auto_awesome_rounded),
-                label: Text('Assistant'),
-              ),
+              if (kDebugMode)
+                NavigationRailDestination(
+                  icon: Icon(Icons.auto_awesome_rounded),
+                  label: Text('Assistant'),
+                ),
             ],
           ),
           const VerticalDivider(width: 1),
