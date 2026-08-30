@@ -107,6 +107,7 @@ jobs:
       # nor sudo. actions/checkout and the Flutter SDK's own tooling both
       # shell out to git, and this job runs as root in-container already.
       - name: Container deps
+        working-directory: .
         run: |
           apt-get update
           apt-get install -y git ca-certificates curl unzip xz-utils \
