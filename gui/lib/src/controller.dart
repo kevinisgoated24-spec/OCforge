@@ -29,6 +29,13 @@ class OcforgeController extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.system;
   AccentTheme accent = AccentTheme.violet;
 
+  /// Anthropic API key for the in-GUI assistant (assistant.dart), used only
+  /// when no local Claude Code CLI is found. Stored in the same plaintext
+  /// prefs.json as theme/accent -- this app has no OS-keychain integration
+  /// (no native plugins at all, by design), so this is a known simplification,
+  /// not a securely-stored secret.
+  String? aiApiKey;
+
   bool _prefsLoaded = false;
   bool _disposed = false;
 
@@ -47,6 +54,7 @@ class OcforgeController extends ChangeNotifier {
         orElse: () => ThemeMode.system,
       );
       accent = AccentTheme.byName(p['accent'] is String ? p['accent'] as String : null);
+      aiApiKey = p['aiApiKey'] is String ? p['aiApiKey'] as String : null;
     }
     cliReady = await cli.resolve();
     notifyListeners();
@@ -61,7 +69,11 @@ class OcforgeController extends ChangeNotifier {
   }
 
   void _persist() {
-    Prefs.save(<String, dynamic>{'themeMode': themeMode.name, 'accent': accent.name});
+    Prefs.save(<String, dynamic>{
+      'themeMode': themeMode.name,
+      'accent': accent.name,
+      if (aiApiKey != null && aiApiKey!.isNotEmpty) 'aiApiKey': aiApiKey,
+    });
   }
 
   void cycleTheme() {
@@ -72,6 +84,12 @@ class OcforgeController extends ChangeNotifier {
 
   void setAccent(AccentTheme a) {
     accent = a;
+    _persist();
+    notifyListeners();
+  }
+
+  void setAiApiKey(String? key) {
+    aiApiKey = (key == null || key.isEmpty) ? null : key;
     _persist();
     notifyListeners();
   }

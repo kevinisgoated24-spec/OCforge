@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'controller.dart';
+import 'pages/assistant_page.dart';
 import 'pages/build_page.dart';
 import 'pages/config_page.dart';
 import 'pages/detect_page.dart';
@@ -80,6 +81,7 @@ class _ShellState extends State<_Shell> {
     ConfigPage(),
     BuildPage(),
     EditorPage(),
+    AssistantPage(),
   ];
 
   @override
@@ -173,6 +175,10 @@ class _ShellState extends State<_Shell> {
               NavigationRailDestination(
                 icon: Icon(Icons.edit_note_rounded),
                 label: Text('Editor'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.auto_awesome_rounded),
+                label: Text('Assistant'),
               ),
             ],
           ),

@@ -198,3 +198,7 @@ jobs:
           body_path: ${{ runner.temp }}/notes.md
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # Not public yet -- flagged pre-release so it doesn't read as a
+          # finished, generally-available build. Only applies going forward;
+          # existing gui-v0.4.18..0.4.31 releases are left as they are.
+          prerelease: true

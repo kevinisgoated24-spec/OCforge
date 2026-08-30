@@ -4,7 +4,7 @@ A Material 3 Expressive desktop front-end for the [`ocforge`](../) OpenCore EFI
 builder — vivid dynamic-colour theme, fully-rounded components, springy page
 transitions. Runs on **Windows, macOS and Linux**.
 
-Four tabs, matching the CLI:
+Six tabs:
 
 | tab | runs | shows |
 |-----|------|-------|
@@ -13,6 +13,24 @@ Four tabs, matching the CLI:
 | **Config** | `ocforge explain --spec … [--macos N] --json` | every hardware-driven config.plist edit, grouped, each with a reason and a Dortania link; on AMD, the live AMD_Vanilla patch list too |
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
 | **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
+| **Assistant** | nothing from `ocforge` itself | a chat panel for general questions, with the current Detect/Plan data sent along as context |
+
+### Assistant
+
+A plain question-and-answer helper, not a running agent — each message is one
+independent request, using the current machine spec and plan text as context.
+It has no tool access: it can't run commands, edit files, or touch your build,
+only suggest what to try. Two backends, auto-detected on open (`assistant.dart`):
+
+1. **A local Claude Code CLI**, if `claude` is on `PATH` — no key needed,
+   billed to whatever account you're already signed into there. Verified
+   against a real `claude -p "<prompt>"` call (prompt as a plain argument,
+   plain stdout, clean exit code).
+2. **The Anthropic API directly**, if no CLI is found — paste a key into the
+   gear icon on the Assistant tab. It's saved in the same plaintext
+   `prefs.json` as your theme/accent; this app has no OS-keychain
+   integration (no native plugins at all, by design), so treat that file
+   accordingly if you use this path.
 
 The Forge tab's **"Offline installer (UnPlugged)"** toggle swaps in
 `ocforge offline-installer` instead of `build` — downloads the full macOS

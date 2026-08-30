@@ -3,6 +3,31 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.32
+
+- **New: an Assistant tab in the GUI.** A plain question-and-answer helper,
+  not a running agent — each message is one independent request, with the
+  current Detect/Plan data sent along as context. No tool access: it can't
+  run commands, edit files, or touch your build, only suggest what to try.
+  - Prefers a local Claude Code CLI if `claude` is on `PATH` (no API key
+    needed, billed to whatever account you're already signed into) —
+    verified against a real `claude -p "<prompt>"` call. Falls back to a
+    direct Anthropic API call using a key pasted into the tab's gear icon.
+  - The key is stored in the same plaintext `prefs.json` as theme/accent —
+    this app has no OS-keychain integration (no native plugins at all, by
+    design), so that's a known simplification, documented in `gui/README.md`,
+    not a securely-stored secret.
+  - New files: `gui/lib/src/assistant.dart` (backend), `gui/lib/src/pages/
+    assistant_page.dart` (the tab itself).
+- **Releases are now flagged pre-release** going forward (not public yet).
+  Existing gui-v0.4.18–0.4.31 releases are left as full releases.
+  - Fixed the in-GUI "update available" check, which relied on GitHub's
+    `/releases/latest` — that endpoint only ever returns the newest
+    *non-prerelease*, so it would have gone permanently dark the moment the
+    first pre-release shipped. `checkForGuiUpdate()` now lists releases
+    itself and picks the newest by version number, regardless of the
+    pre-release flag.
+
 ## gui-v0.4.31
 
 - **Fixed: the Linux GUI wouldn't open at all on Debian 12 Bookworm** (issue
