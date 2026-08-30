@@ -3,6 +3,17 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.36
+
+- **The Assistant tab is always visible now**, in every build. Removed the
+  unlock-code/`kDebugMode` gating from `app.dart` — no hosted/shared AI
+  backend is planned (that would mean a server up 24/7, real abuse
+  exposure since any credential the app embedded would be sitting in this
+  public repo's source, and likely worse answers than Claude from a
+  self-hostable open model anyway), so it stays bring-your-own-backend:
+  every user needs their own Claude Code install or Anthropic API key for
+  it to actually answer anything, but the tab itself is no longer hidden.
+
 ## gui-v0.4.35
 
 - **New: a credits splash on launch.** Shows "Made by: KevinMayBeHere" /

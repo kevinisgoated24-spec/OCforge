@@ -1,8 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'controller.dart';
 import 'pages/assistant_page.dart';
@@ -78,63 +76,18 @@ class _Shell extends StatefulWidget {
 class _ShellState extends State<_Shell> {
   int _index = 0;
 
-  // Assistant shows up automatically in a local `flutter run` debug build
-  // (kDebugMode), and in ANY build -- including a public release -- once
-  // this exact string is typed anywhere in the app. This is a visibility
-  // toggle, not real access control: the app ships as public/open-source
-  // source code either way, so the phrase is trivially findable by anyone
-  // who looks; it just keeps the tab out of the way by default.
-  static const String _unlockCode = 'ocforgedev123';
-  String _keyBuffer = '';
-  bool _devUnlocked = false;
-
-  @override
-  void initState() {
-    super.initState();
-    HardwareKeyboard.instance.addHandler(_onKeyEvent);
-  }
-
-  @override
-  void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
-    super.dispose();
-  }
-
-  // Never returns true -- this only observes keystrokes, it must not
-  // consume them (so typing in the API-key field, a text box, etc. is
-  // completely unaffected).
-  bool _onKeyEvent(KeyEvent event) {
-    if (_devUnlocked || event is! KeyDownEvent) return false;
-    final String? ch = event.character;
-    if (ch == null || ch.isEmpty) return false;
-    _keyBuffer += ch.toLowerCase();
-    if (_keyBuffer.length > _unlockCode.length) {
-      _keyBuffer = _keyBuffer.substring(_keyBuffer.length - _unlockCode.length);
-    }
-    if (_keyBuffer == _unlockCode) {
-      setState(() => _devUnlocked = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Developer mode unlocked — Assistant tab added.')),
-        );
-      });
-    }
-    return false;
-  }
+  static const List<Widget> _pages = <Widget>[
+    DetectPage(),
+    PlanPage(),
+    ConfigPage(),
+    BuildPage(),
+    EditorPage(),
+    AssistantPage(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final OcforgeController c = ControllerScope.of(context);
-    final bool showAssistant = kDebugMode || _devUnlocked;
-    final List<Widget> pages = <Widget>[
-      const DetectPage(),
-      const PlanPage(),
-      const ConfigPage(),
-      const BuildPage(),
-      const EditorPage(),
-      if (showAssistant) const AssistantPage(),
-    ];
 
     return Scaffold(
       body: Row(
@@ -203,32 +156,31 @@ class _ShellState extends State<_Shell> {
                 ),
               ),
             ),
-            destinations: <NavigationRailDestination>[
-              const NavigationRailDestination(
+            destinations: const <NavigationRailDestination>[
+              NavigationRailDestination(
                 icon: Icon(Icons.search_rounded),
                 label: Text('Detect'),
               ),
-              const NavigationRailDestination(
+              NavigationRailDestination(
                 icon: Icon(Icons.tune_rounded),
                 label: Text('Plan'),
               ),
-              const NavigationRailDestination(
+              NavigationRailDestination(
                 icon: Icon(Icons.rule_rounded),
                 label: Text('Config'),
               ),
-              const NavigationRailDestination(
+              NavigationRailDestination(
                 icon: Icon(Icons.hardware_rounded),
                 label: Text('Forge'),
               ),
-              const NavigationRailDestination(
+              NavigationRailDestination(
                 icon: Icon(Icons.edit_note_rounded),
                 label: Text('Editor'),
               ),
-              if (showAssistant)
-                const NavigationRailDestination(
-                  icon: Icon(Icons.auto_awesome_rounded),
-                  label: Text('Assistant'),
-                ),
+              NavigationRailDestination(
+                icon: Icon(Icons.auto_awesome_rounded),
+                label: Text('Assistant'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -256,7 +208,7 @@ class _ShellState extends State<_Shell> {
                     ),
                     child: KeyedSubtree(
                       key: ValueKey<int>(_index),
-                      child: pages[_index],
+                      child: _pages[_index],
                     ),
                   ),
                 ),

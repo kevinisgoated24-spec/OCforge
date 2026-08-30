@@ -9,7 +9,7 @@ the app for ~2 seconds before fading out on its own — purely cosmetic, the
 real app is already loading underneath the whole time, so it doesn't delay
 anything.
 
-Five tabs:
+Six tabs:
 
 | tab | runs | shows |
 |-----|------|-------|
@@ -18,22 +18,18 @@ Five tabs:
 | **Config** | `ocforge explain --spec … [--macos N] --json` | every hardware-driven config.plist edit, grouped, each with a reason and a Dortania link; on AMD, the live AMD_Vanilla patch list too |
 | **Forge**  | `ocforge build --spec … --out … [--recovery] [--dump-dsdt] [--debug]` | live build log, "open folder" and "validate this EFI" when done |
 | **Editor** | `ocforge plist show/save`, `ocforge validate` | OCAT-style config.plist tree editor (bools / numbers / strings / hex data), save back, run ocvalidate |
+| **Assistant** | nothing from `ocforge` itself | a chat panel for general questions, with the current Detect/Plan data sent along as context |
 
-Plus a sixth, **Assistant**, that's hidden by default — see below.
+### Assistant
 
-### Assistant (hidden by default)
-
-Not shown until unlocked, two ways (`app.dart`'s `_ShellState`):
-
-* Automatically in a local `flutter run` debug build (`kDebugMode`).
-* In **any** build — including a public release — by typing
-  `ocforgedev123` anywhere in the app. A global (non-consuming) key
-  listener watches for it; typing normally in a text field elsewhere is
-  completely unaffected. This is a visibility toggle, not real access
-  control — the source is public either way, so the phrase is trivially
-  findable by anyone who looks; it just keeps the tab out of the way for
-  everyone else by default. A snackbar confirms when it unlocks, and it
-  stays unlocked for the rest of that session.
+There's no hosted/shared backend — running one would mean a server that's
+up 24/7 (whoever hosts it is on the hook for that) plus real abuse exposure
+(any credential the app used to reach it would be sitting in this public
+repo's source, same as an embedded API key would be), for answers a
+self-hosted open model would likely give worse than Claude anyway. So it's
+bring-your-own-backend instead: every user needs their own Claude Code
+install or their own Anthropic API key (below) for the tab to actually
+answer anything, but the tab itself is always there.
 
 A plain question-and-answer helper, not a running agent — each message is one
 independent request, using the current machine spec and plan text as context.
