@@ -3,6 +3,24 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.31
+
+- **Fixed: the Linux GUI wouldn't open at all on Debian 12 Bookworm** (issue
+  #2). The release build ran on GitHub's `ubuntu-latest`, which resolves to
+  Ubuntu 24.04 (glibc 2.39) — a binary linked against that refuses to even
+  start on Bookworm's glibc 2.36 (`GLIBC_2.38 not found`), with no window
+  and no visible error if launched by double-clicking rather than from a
+  terminal. Now built inside a `debian:bookworm` container instead
+  (`.github/workflows/gui-build.yml`'s new `build-linux` job, kept separate
+  from the windows/macos matrix job so nothing about it touches their
+  config). glibc is backwards-compatible, so this maximizes how far forward
+  the binary still runs rather than chasing GitHub's own runner-image
+  version (which is a moving target — `ubuntu-22.04` itself starts
+  deprecating next month, so pinning a specific Ubuntu version wouldn't
+  have been durable either). Verified: the produced binary's highest
+  required glibc symbol is `GLIBC_2.34`, well under Bookworm's 2.36 (it was
+  effectively requiring 2.39 before).
+
 ## gui-v0.4.30
 
 - **Fixed: an explicit `--macos N` bypassed hardware-support checking
