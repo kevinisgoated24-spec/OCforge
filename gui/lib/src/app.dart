@@ -12,6 +12,7 @@ import 'pages/detect_page.dart';
 import 'pages/editor_page.dart';
 import 'pages/plan_page.dart';
 import 'setup.dart';
+import 'splash.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -60,7 +61,7 @@ class _OcforgeAppState extends State<OcforgeApp> with WidgetsBindingObserver {
           theme: expressiveTheme(Brightness.light, seed: _controller.accent.seed),
           darkTheme: expressiveTheme(Brightness.dark, seed: _controller.accent.seed),
           themeMode: _controller.themeMode,
-          home: const SetupGate(child: _Shell()),
+          home: const SplashGate(child: SetupGate(child: _Shell())),
         ),
       ),
     );

@@ -4,6 +4,11 @@ A Material 3 Expressive desktop front-end for the [`ocforge`](../) OpenCore EFI
 builder — vivid dynamic-colour theme, fully-rounded components, springy page
 transitions. Runs on **Windows, macOS and Linux**.
 
+Every launch shows a brief credits splash (`splash.dart`'s `SplashGate`) over
+the app for ~2 seconds before fading out on its own — purely cosmetic, the
+real app is already loading underneath the whole time, so it doesn't delay
+anything.
+
 Five tabs:
 
 | tab | runs | shows |

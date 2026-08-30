@@ -3,6 +3,15 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.35
+
+- **New: a credits splash on launch.** Shows "Made by: KevinMayBeHere" /
+  "Tested by: GaM1ng" over the app for ~2 seconds on every startup, then
+  fades out on its own — purely cosmetic (`splash.dart`'s `SplashGate`).
+  The real app is already mounted and loading underneath the whole time
+  (first-run setup check included), so nothing is delayed by it; once
+  faded, clicks pass straight through to the app below.
+
 ## gui-v0.4.34
 
 - **The Assistant tab can now be unlocked in any build, including a public
