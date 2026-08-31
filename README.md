@@ -18,14 +18,20 @@ Supported Device And Tested Devices List [SupportedDevice.md](https://github.com
 
 ## Install
 
-```bash
-pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"
-# from a clone:  pipx install .   (or: pip install -e .[dev])
-```
+For Windows:
 
-Python 3.11+. No runtime dependencies.
+- Get The Exe From The Release (OCForge) (OCForge-GUI-windows-x64.zip) 
 
-Downloads come from GitHub releases.
+- Open The Exe You Will Be Prompted To Install OCForge-CLI Install It
+
+- If Your Having Issues With The Exe Such As This Error: The code execution cannot proceed because MSVCP140.dll was not found. Please Install This To Fix It: https://aka.ms/vs/16/release/vc_redist.x64.exe
+
+For Linux:
+
+- Adding This Later.
+
+For MacOS:
+- Adding This Later.
 
 ## Use
 
