@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'controller.dart';
 import 'pages/assistant_page.dart';
 import 'pages/build_page.dart';
 import 'pages/config_page.dart';
 import 'pages/detect_page.dart';
+import 'pages/dev_stats_page.dart';
 import 'pages/editor_page.dart';
 import 'pages/plan_page.dart';
 import 'setup.dart';
@@ -76,18 +78,64 @@ class _Shell extends StatefulWidget {
 class _ShellState extends State<_Shell> {
   int _index = 0;
 
-  static const List<Widget> _pages = <Widget>[
-    DetectPage(),
-    PlanPage(),
-    ConfigPage(),
-    BuildPage(),
-    EditorPage(),
-    AssistantPage(),
-  ];
+  // Dev-only stats panel (release download counts, repo stars/forks/issues --
+  // all public GitHub numbers, nothing sensitive). Unlocked by typing this
+  // phrase anywhere in the app; kept as char codes rather than a plain
+  // string literal so it doesn't turn up in a plain grep of the source --
+  // this is still a visibility toggle, not real access control, since the
+  // repo is public either way, but there's no reason to make it any easier
+  // to stumble onto than that.
+  static final String _unlockCode =
+      String.fromCharCodes(const <int>[111, 99, 102, 111, 114, 103, 101, 115, 116, 97, 116, 115]);
+  String _keyBuffer = '';
+  bool _devUnlocked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    super.dispose();
+  }
+
+  // Never returns true -- this only observes keystrokes, it must not
+  // consume them (so typing anywhere else in the app is unaffected).
+  bool _onKeyEvent(KeyEvent event) {
+    if (_devUnlocked || event is! KeyDownEvent) return false;
+    final String? ch = event.character;
+    if (ch == null || ch.isEmpty) return false;
+    _keyBuffer += ch.toLowerCase();
+    if (_keyBuffer.length > _unlockCode.length) {
+      _keyBuffer = _keyBuffer.substring(_keyBuffer.length - _unlockCode.length);
+    }
+    if (_keyBuffer == _unlockCode) {
+      setState(() => _devUnlocked = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dev stats unlocked.')),
+        );
+      });
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
     final OcforgeController c = ControllerScope.of(context);
+    final List<Widget> pages = <Widget>[
+      const DetectPage(),
+      const PlanPage(),
+      const ConfigPage(),
+      const BuildPage(),
+      const EditorPage(),
+      const AssistantPage(),
+      if (_devUnlocked) const DevStatsPage(),
+    ];
 
     return Scaffold(
       body: Row(
@@ -156,31 +204,36 @@ class _ShellState extends State<_Shell> {
                 ),
               ),
             ),
-            destinations: const <NavigationRailDestination>[
-              NavigationRailDestination(
+            destinations: <NavigationRailDestination>[
+              const NavigationRailDestination(
                 icon: Icon(Icons.search_rounded),
                 label: Text('Detect'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.tune_rounded),
                 label: Text('Plan'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.rule_rounded),
                 label: Text('Config'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.hardware_rounded),
                 label: Text('Forge'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.edit_note_rounded),
                 label: Text('Editor'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.auto_awesome_rounded),
                 label: Text('Assistant'),
               ),
+              if (_devUnlocked)
+                const NavigationRailDestination(
+                  icon: Icon(Icons.query_stats_rounded),
+                  label: Text('Dev'),
+                ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -208,7 +261,7 @@ class _ShellState extends State<_Shell> {
                     ),
                     child: KeyedSubtree(
                       key: ValueKey<int>(_index),
-                      child: _pages[_index],
+                      child: pages[_index],
                     ),
                   ),
                 ),

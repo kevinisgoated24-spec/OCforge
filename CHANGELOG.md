@@ -3,6 +3,17 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.38
+
+- **New: a hidden dev-only stats panel** — release download counts (per
+  platform, per version) and repo stars/forks/watchers/open issues, read
+  straight from GitHub's public API. Unlocked the same way the Assistant
+  tab briefly was: type a specific phrase anywhere in the app. Unlike that
+  one, the phrase isn't documented here or in `gui/README.md` this time,
+  and it's stored as char codes rather than a plain string in the source —
+  still just a visibility toggle rather than real access control (the repo
+  is public either way), but no reason to make it grep-able.
+
 ## gui-v0.4.37
 
 - **Fixed: the nav rail's bug-report button opened the Documents folder
