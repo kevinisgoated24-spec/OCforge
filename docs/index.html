@@ -468,42 +468,64 @@ footer a { color: var(--muted); }
   <section id="usbmap" style="margin-top:70px;">
     <hr class="divider" style="margin-top:0;margin-bottom:40px;">
     <div class="guide-head"><span class="num">AFTER EITHER PATH</span><h2 style="color:var(--ink)">Map your USB ports</h2></div>
-    <p class="guide-sub">Both paths above ship <code>USBToolBox.kext</code> — the driver — but not a map of <em>your</em> physical ports, which is specific to this exact board and has to be built once, after macOS is running. Skip it and USB mostly works anyway; do it properly and every port reports the right speed and there's no 15-port ceiling surprise later.</p>
+    <p class="guide-sub">Both paths above ship <code>USBToolBox.kext</code> — the driver — but not a map of <em>your</em> physical ports, which is specific to this exact board and has to be built once. Skip it and USB mostly works anyway; do it properly and every port reports the right speed and there's no 15-port ceiling surprise later.</p>
 
     <div class="step">
       <div class="dot">1</div>
-      <h3>Get the mapping app</h3>
-      <p>Not the kext you already have — a separate tool, <a href="https://github.com/USBToolBox/App" target="_blank" rel="noopener">USBToolBox/App</a>. It reads whatever OS it's running on, so you can map ports before macOS is even installed if you want — Windows, Linux, and macOS builds all work.</p>
+      <h3>Get the mapping app — on Windows</h3>
+      <p>Not the kext you already have — a separate tool, <a href="https://github.com/USBToolBox/tool" target="_blank" rel="noopener">USBToolBox/tool</a>. Download <code>Windows.zip</code> from its releases and run <code>Windows.exe</code> — a terminal-style menu opens. Mapping happens <strong>on Windows</strong>, not macOS: only Windows can auto-detect USB2/USB3 companion port pairs and guess port types, and macOS 11.3+ has a broken <code>XhciPortLimit</code> that makes mapping from within macOS more painful. No Windows install handy? Boot a Hiren's BootCD PE USB and run the tool from its <code>cmd</code> (Shift+F10).</p>
+      <div class="note">
+        <span class="ic">→</span>
+        <span>Under the hood, the Windows build uses <a href="https://github.com/USBToolBox/usbdump" target="_blank" rel="noopener">USBToolBox/usbdump</a> — an adapted Microsoft USBView — to enumerate the raw port data. You never run it directly; it's bundled into <code>Windows.exe</code>.</span>
+      </div>
     </div>
 
     <div class="step">
       <div class="dot">2</div>
-      <h3>Identify every port</h3>
-      <p>Plug a drive into one port at a time and watch which entry lights up in the app. For each one, set its real type (USB2, USB3, etc.) and whether it's internal (a header, a built-in webcam) or a port you can actually reach.</p>
+      <h3>Discover every port</h3>
+      <p>Press <code>D</code> for Discover Ports. Plug a device into <strong>one port at a time</strong>, wait for it to show up in the list, then unplug and move on — don't rush this.</p>
+      <p>Test each type properly:</p>
+      <table class="checklist">
+        <tr><th>Port type</th><th>What to do</th></tr>
+        <tr><td>USB 3 Type-A</td><td>One device is usually enough (companion detection works on Windows); use a USB2 <em>and</em> USB3 device if you want to be sure</td></tr>
+        <tr><td>USB-C</td><td>Plug in, note it, unplug, flip the plug over, plug it back in — orientation can enumerate differently</td></tr>
+        <tr><td>Legacy USB 1.1 (old OHCI/UHCI boards)</td><td>Plug in a mouse or keyboard — most modern USB2 devices skip straight past the 1.1 personality</td></tr>
+        <tr><td>Internal-only (headers, built-in webcam/BT)</td><td>No device needed — just leave it typed correctly, you'll mark it internal below</td></tr>
+      </table>
       <div class="note">
         <span class="ic">→</span>
-        <span>Apple caps USB controllers at 15 mapped ports each. The app warns you if you're over — disable ports you'll never use (a header with nothing wired to it) rather than guessing which to cut.</span>
+        <span>Turn on <strong>Show Friendly Types</strong> and <strong>Add Comments to Map</strong> in settings before you start — friendly types make the list readable, and comments let you label ports ("rear blue USB3", "front header") for later.</span>
       </div>
     </div>
 
     <div class="step">
       <div class="dot">3</div>
-      <h3>Build the map</h3>
-      <p>Save/Build in the app. Out comes <code>UTBMap.kext</code> — a real kext folder, generated for this board specifically — plus a <code>Ports.txt</code> summary worth keeping for reference.</p>
+      <h3>Type your ports and mind the 15-port cap</h3>
+      <p>Press <code>S</code> for Select Ports. For each detected port, set its real type and mark it internal or external. <strong>Apple caps every USB controller at 15 mapped ports</strong> — most modern boards physically expose more, so the tool will warn you if you're over. Disable ports you'll genuinely never use (an unwired header, a dead legacy port) rather than cutting the last N in the list at random — check what each one is actually wired to first.</p>
     </div>
 
     <div class="step">
       <div class="dot">4</div>
-      <h3>Add it to your EFI</h3>
-      <p>Copy the whole folder in:</p>
-      <pre><code>EFI/OC/Kexts/UTBMap.kext</code></pre>
-      <p>Then add a matching entry under <code>Kernel → Add</code> in <code>config.plist</code> — OCforge doesn't generate this one for you automatically, since it's tied to a map that doesn't exist until you've built it. The Editor tab's plist tree view (or <code>ocforge plist show</code> / <code>save</code>) is the quickest way: duplicate the existing <code>USBToolBox.kext</code> entry, change <code>BundlePath</code> to <code>UTBMap.kext</code>, leave everything else the same shape.</p>
+      <h3>Build the map</h3>
+      <p>Press <code>K</code> to build. Pick the <strong>USBToolBox kext</strong> format — it pairs with the <code>USBToolBox.kext</code> driver you already have installed. (The alternative, AppleUSBHostMergeProperties, is a native-Apple-style injector if you'd rather not depend on the third-party driver.) Out comes <code>UTBMap.kext</code> — a real kext folder, generated for this board specifically — plus a <code>Ports.txt</code> summary worth keeping for reference.</p>
     </div>
 
     <div class="step">
       <div class="dot">5</div>
+      <h3>Add it to your EFI</h3>
+      <p>Copy the whole folder in:</p>
+      <pre><code>EFI/OC/Kexts/UTBMap.kext</code></pre>
+      <p>Then add a matching entry under <code>Kernel → Add</code> in <code>config.plist</code> — OCforge doesn't generate this one for you automatically, since it's tied to a map that doesn't exist until you've built it. The Editor tab's plist tree view (or <code>ocforge plist show</code> / <code>save</code>) is the quickest way: duplicate the existing <code>USBToolBox.kext</code> entry, change <code>BundlePath</code> to <code>UTBMap.kext</code>, leave everything else the same shape. <strong>Order matters</strong> — <code>USBToolBox.kext</code> must load before <code>UTBMap.kext</code>.</p>
+      <div class="note warn">
+        <span class="ic">!</span>
+        <span>If you have <code>UTBDefault.kext</code> installed (the placeholder that unlocks all ports before you had a real map), remove it and its <code>Kernel → Add</code> entry now — leaving both in can conflict with your new map.</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="dot">6</div>
       <h3>Reboot and check</h3>
-      <p>Every port you mapped should now show its correct type in <strong>About This Mac → System Report → USB</strong>, instead of the generic fallback behavior USBToolBox uses with no map at all.</p>
+      <p>Every port you mapped should now show its correct type in <strong>About This Mac → System Report → USB</strong>, instead of the generic fallback behavior USBToolBox uses with no map at all — and the boot log shouldn't show any "no personality found" or over-the-limit warnings.</p>
     </div>
   </section>
 
