@@ -368,55 +368,52 @@ footer a { color: var(--muted); }
   <section class="guide regular" id="regular">
     <hr class="divider" style="margin-top:0;margin-bottom:40px;">
     <div class="guide-head"><span class="num">PATH A</span><h2>The regular build</h2></div>
-    <p class="guide-sub">Three commands, run on any Linux, Windows, or macOS machine — it doesn't have to be the target machine itself, though it usually is.</p>
+    <p class="guide-sub">The GUI, on Windows: five tabs, no terminal required. It doesn't have to be the target machine itself, though it usually is.</p>
 
     <div class="step">
       <div class="dot">1</div>
-      <h3>Install the CLI</h3>
-      <p>Needs Python 3.11+, no other runtime dependencies. Or skip this step entirely and use the <a href="#gui">desktop GUI</a> instead, which offers to install this for you.</p>
-      <pre><code>pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"</code></pre>
+      <h3>Get the app</h3>
+      <p>Grab <code>OCforge-GUI-windows-x64.zip</code> from the <a href="https://github.com/kevinisgoated24-spec/OCforge/releases" target="_blank" rel="noopener">releases page</a> and extract it.</p>
     </div>
 
     <div class="step">
       <div class="dot">2</div>
-      <h3>Scan the machine</h3>
-      <p>Reads the CPU, GPU, network cards, storage, and board — writes it all to a spec file so the next two steps don't need to re-detect anything.</p>
-      <pre><code>ocforge probe --save my-pc.json</code></pre>
+      <h3>Launch it</h3>
+      <p>Run the <code>.exe</code>. On first launch it'll prompt you to install OCforge-CLI — accept, the GUI needs it to actually do anything.</p>
+      <div class="note warn">
+        <span class="ic">!</span>
+        <span>If launching fails with <em>"The code execution cannot proceed because MSVCP140.dll was not found,"</em> install the <a href="https://aka.ms/vs/16/release/vc_redist.x64.exe" target="_blank" rel="noopener">Visual C++ Redistributable</a> and try again.</span>
+      </div>
     </div>
 
     <div class="step">
       <div class="dot">3</div>
-      <h3>See what it'll build</h3>
-      <p>Prints the macOS target it picked and why, the SMBIOS model, every kext and SSDT with a reason. Nothing is written to disk yet — this is the "check before you commit" step.</p>
-      <pre><code>ocforge plan --spec my-pc.json</code></pre>
-      <div class="note">
-        <span class="ic">→</span>
-        <span>Want the full reasoning behind every <code>config.plist</code> line, with a Dortania link for each? Run <code>ocforge explain --spec my-pc.json</code> instead.</span>
-      </div>
+      <h3>Detect</h3>
+      <p>Open the <strong>Detect</strong> tab and press <strong>Detect This PC</strong>. It reads out your specs — CPU, GPU, network, board, storage.</p>
     </div>
 
     <div class="step">
       <div class="dot">4</div>
-      <h3>Build it</h3>
-      <p>Either a plain <code>EFI/</code> folder you copy onto the drive's EFI partition yourself —</p>
-      <pre><code>ocforge build --spec my-pc.json --out ./EFI</code></pre>
-      <p>— or straight onto a USB stick with the macOS recovery included. Run <code>ocforge usb</code> first to find the right disk name:</p>
-      <pre><code>ocforge build --spec my-pc.json --usb /dev/sdX --recovery</code></pre>
-      <div class="note warn">
-        <span class="ic">!</span>
-        <span><code>--usb</code> erases the target disk. OCforge asks you to confirm before writing anything.</span>
-      </div>
+      <h3>Plan</h3>
+      <p>Switch to <strong>Plan</strong>, pick the macOS version you want to install, then press <strong>Generate Plan</strong>. It lays out the SMBIOS model, every kext, every SSDT, and any warnings — scroll all the way down the page to make sure nothing's flagged as broken before moving on.</p>
     </div>
 
     <div class="step">
       <div class="dot">5</div>
-      <h3>Boot it</h3>
-      <p>Copy <code>EFI/</code> onto the drive's EFI partition if you built to a folder, then boot from it. Three things to do before you trust it long-term:</p>
+      <h3>Config</h3>
+      <p>Open <strong>Config</strong> and press <strong>Generate Config</strong>.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">6</div>
+      <h3>Forge</h3>
+      <p>Open <strong>Forge</strong>. It'll ask where the EFI should go — make a folder on your desktop, copy its path, and paste it into the textbox. Then you'll see four options:</p>
       <table class="checklist">
-        <tr><th>Do this</th><th>Why</th></tr>
-        <tr><td>Run <code>ocforge validate --efi ./EFI</code></td><td>Confirms OpenCore's own <code>ocvalidate</code> is happy with the config</td></tr>
-        <tr><td><a href="#usbmap">Map your USB ports</a> after first boot</td><td>The stock port map is a placeholder — real ports need mapping for USB 3 to behave</td></tr>
-        <tr><td>Set a real SMBIOS serial</td><td>Only needed if <code>macserial</code> wasn't available at build time — OCforge tells you when this applies</td></tr>
+        <tr><th>Option</th><th>Notes</th></tr>
+        <tr><td>Get the recovery image for that macOS</td><td>Worth leaving on — it's only ~600MB or a bit more, but it can be slow to fetch</td></tr>
+        <tr><td>Build SSDTs from your machine</td><td>Only works on Linux right now — Windows support is still a work in progress</td></tr>
+        <tr><td>Use the OpenCore debug build</td><td>Leave this off unless you specifically need debug logging</td></tr>
+        <tr><td>Get the offline image for that macOS</td><td>Leave this off — it takes ages; see the <a href="#offline">offline installer guide</a> below if you actually need it</td></tr>
       </table>
     </div>
   </section>
