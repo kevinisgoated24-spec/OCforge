@@ -26,6 +26,20 @@ For Windows:
 
 - If Your Having Issues With The Exe Such As This Error: The code execution cannot proceed because MSVCP140.dll was not found. Please Install This To Fix It: https://aka.ms/vs/16/release/vc_redist.x64.exe
 
+- Go On Detect, Press Detect This PC It Will Show You Your Specs About The PC Such As: CPU, GPU, Network, Board, Storage
+
+- Then Go To Plan Press On The MacOS That You Want To Install And Then Press Generate Plan It Will Show You Everything SMBIOS, Kexts, SSDT, And The Warnings Please Scroll Down On That Page To See If Anything Is Not Working
+
+- Press Config, Generate Config
+
+- Finally Then Press Forge It Will Ask You To Where The EFI To Go (Just do a folder on the desktop copy the location of the folder on the desktop) Put it inside of the textbox then there will be some options:
+
+1. Get The Recovery Image For That MacOS (it will be kinda slow only 600mb or higher)
+
+2. Build SSDT'S From Your Machine (only works on Linux, Windows is still a work in progress for that option)
+
+3. Use The Opencore Debug Build (i would keep that off)
+
 For Linux:
 
 - Adding This Later.
