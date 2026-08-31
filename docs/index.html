@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCforge Install Guide</title>
+<meta name="description" content="Step-by-step: the regular OCforge build, the offline installer for machines that can't touch the internet mid-install, and mapping your USB ports.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #F6F3EE;
+  --surface: #FFFFFF;
+  --raised: #EFEAE1;
+  --border: #E0DACD;
+  --ink: #23262C;
+  --muted: #6C6F76;
+  --faint: #9A9C9F;
+  --copper: #B3661E;
+  --copper-ink: #7A4413;
+  --copper-soft: #F1E2CE;
+  --teal: #147F78;
+  --teal-ink: #0E5B56;
+  --teal-soft: #D9EEEC;
+  --danger: #A3402E;
+  --shadow: 0 1px 2px rgba(35,38,44,0.06), 0 8px 24px -12px rgba(35,38,44,0.12);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161B;
+    --surface: #1B1E24;
+    --raised: #22262E;
+    --border: #2E323B;
+    --ink: #E7E5DE;
+    --muted: #9BA0AA;
+    --faint: #666B75;
+    --copper: #E0985A;
+    --copper-ink: #F3C393;
+    --copper-soft: #2E2419;
+    --teal: #5FC4BC;
+    --teal-ink: #9BE0DA;
+    --teal-soft: #16292A;
+    --danger: #E08370;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161B;
+  --surface: #1B1E24;
+  --raised: #22262E;
+  --border: #2E323B;
+  --ink: #E7E5DE;
+  --muted: #9BA0AA;
+  --faint: #666B75;
+  --copper: #E0985A;
+  --copper-ink: #F3C393;
+  --copper-soft: #2E2419;
+  --teal: #5FC4BC;
+  --teal-ink: #9BE0DA;
+  --teal-soft: #16292A;
+  --danger: #E08370;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 28px -12px rgba(0,0,0,0.5);
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, .mono {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+}
+h1, h2, h3 { text-wrap: balance; letter-spacing: -0.01em; }
+code, pre, kbd {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+}
+a { color: var(--copper); }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
+img { max-width: 100%; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 24px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.topbar .brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar .brand span { color: var(--copper); }
+.topbar nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.topbar nav::-webkit-scrollbar { display: none; }
+.topbar nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.topbar nav a:hover { color: var(--ink); background: var(--raised); }
+.topbar .gh {
+  margin-left: auto;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.topbar .gh:hover { color: var(--ink); }
+
+main { max-width: 800px; margin: 0 auto; padding: 0 24px 100px; overflow-x: hidden; }
+
+.hero { padding: 56px 0 36px; }
+.hero .eyebrow {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 14px;
+}
+.hero h1 {
+  font-size: clamp(30px, 5vw, 42px);
+  font-weight: 700;
+  margin: 0 0 16px;
+  line-height: 1.12;
+}
+.hero p {
+  color: var(--muted);
+  font-size: 16.5px;
+  max-width: 62ch;
+  margin: 0;
+}
+
+.decision {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 36px 0 8px;
+}
+@media (max-width: 620px) { .decision { grid-template-columns: 1fr; } }
+.decision-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.decision-card.regular { border-top: 3px solid var(--copper); }
+.decision-card.offline { border-top: 3px solid var(--teal); }
+.decision-card .tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.decision-card.regular .tag { color: var(--copper-ink); }
+.decision-card.offline .tag { color: var(--teal-ink); }
+.decision-card h3 { font-size: 16.5px; margin: 0 0 10px; }
+.decision-card p { color: var(--muted); font-size: 14px; margin: 0; }
+.decision-card a.jump {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.decision-card.regular a.jump { color: var(--copper); }
+.decision-card.offline a.jump { color: var(--teal); }
+
+section.guide { margin-top: 76px; }
+.guide-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.guide-head .num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--faint);
+}
+.guide-head h2 { font-size: 26px; margin: 0; }
+section.guide.regular .guide-head h2 { color: var(--copper-ink); }
+section.guide.offline .guide-head h2 { color: var(--teal-ink); }
+.guide-sub { color: var(--muted); font-size: 15px; margin: 0 0 34px; max-width: 66ch; }
+
+.step {
+  position: relative;
+  padding: 0 0 30px 46px;
+  border-left: 1px solid var(--border);
+  margin-left: 15px;
+}
+.step:last-of-type { border-color: transparent; padding-bottom: 4px; }
+.step .dot {
+  position: absolute;
+  left: -15.5px;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+}
+.regular .step .dot { color: var(--copper-ink); }
+.offline .step .dot { color: var(--teal-ink); }
+.step h3 { font-size: 16.5px; margin: 0 0 6px; }
+.step p { margin: 0 0 12px; color: var(--muted); font-size: 14.5px; max-width: 62ch; }
+.step p code { color: var(--ink); }
+
+pre {
+  margin: 0 0 10px;
+  padding: 14px 16px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--copper);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.offline pre { border-left-color: var(--teal); }
+pre code { color: var(--ink); background: none; padding: 0; }
+p code, li code {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5px 6px;
+  font-size: 0.88em;
+}
+
+.note {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--copper-soft);
+  border: 1px solid color-mix(in srgb, var(--copper) 35%, transparent);
+  font-size: 13.5px;
+  color: var(--ink);
+  margin: 0 0 12px;
+}
+.offline .note { background: var(--teal-soft); border-color: color-mix(in srgb, var(--teal) 35%, transparent); }
+.note .ic { flex-shrink: 0; margin-top: 1px; }
+.regular .note .ic { color: var(--copper); }
+.offline .note .ic { color: var(--teal); }
+.note.warn { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.note.warn .ic { color: var(--danger); }
+
+.layout-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  line-height: 1.7;
+  overflow-x: auto;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.layout-block .k { color: var(--ink); }
+
+table.checklist {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  margin: 0 0 6px;
+}
+table.checklist th, table.checklist td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+table.checklist th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+table.checklist td { color: var(--ink); }
+table.checklist code { font-size: 0.85em; }
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 80px 0 0;
+}
+
+footer {
+  max-width: 800px;
+  margin: 60px auto 0;
+  padding: 30px 24px 40px;
+  color: var(--faint);
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+footer a { color: var(--muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .decision-card, .step { transition: transform 160ms ease; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="#top">OC<span>forge</span></a>
+  <nav>
+    <a href="#pick">Which do I need</a>
+    <a href="#regular">Regular build</a>
+    <a href="#offline">Offline installer</a>
+    <a href="#usbmap">USB mapping</a>
+  </nav>
+  <a class="gh" href="https://github.com/kevinisgoated24-spec/OCforge" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+
+<main>
+  <div id="top"></div>
+  <section class="hero">
+    <p class="eyebrow">Install guide</p>
+    <h1>From bare hardware to a bootable EFI</h1>
+    <p>OCforge scans a machine, works out which macOS release its hardware can actually run, and assembles the OpenCore <code>config.plist</code>, kexts, and SSDTs to match. Two ways to get from there to an installed Mac — pick one below.</p>
+  </section>
+
+  <div class="decision" id="pick">
+    <div class="decision-card regular">
+      <p class="tag">Path A</p>
+      <h3>Regular build</h3>
+      <p>The target machine has internet during install — the usual case. Build an EFI, boot the normal macOS installer or recovery, done.</p>
+      <a class="jump" href="#regular">Read the steps →</a>
+    </div>
+    <div class="decision-card offline">
+      <p class="tag">Path B</p>
+      <h3>Offline installer</h3>
+      <p>The target machine shouldn't or can't touch the internet mid-install — air-gapped, metered, or just unreliable Wi-Fi. Stage everything on a USB ahead of time instead.</p>
+      <a class="jump" href="#offline">Read the steps →</a>
+    </div>
+  </div>
+
+  <section class="guide regular" id="regular">
+    <hr class="divider" style="margin-top:0;margin-bottom:40px;">
+    <div class="guide-head"><span class="num">PATH A</span><h2>The regular build</h2></div>
+    <p class="guide-sub">Three commands, run on any Linux, Windows, or macOS machine — it doesn't have to be the target machine itself, though it usually is.</p>
+
+    <div class="step">
+      <div class="dot">1</div>
+      <h3>Install the CLI</h3>
+      <p>Needs Python 3.11+, no other runtime dependencies. Or skip this step entirely and use the <a href="#gui">desktop GUI</a> instead, which offers to install this for you.</p>
+      <pre><code>pipx install "git+https://github.com/kevinisgoated24-spec/OCforge.git"</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="dot">2</div>
+      <h3>Scan the machine</h3>
+      <p>Reads the CPU, GPU, network cards, storage, and board — writes it all to a spec file so the next two steps don't need to re-detect anything.</p>
+      <pre><code>ocforge probe --save my-pc.json</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="dot">3</div>
+      <h3>See what it'll build</h3>
+      <p>Prints the macOS target it picked and why, the SMBIOS model, every kext and SSDT with a reason. Nothing is written to disk yet — this is the "check before you commit" step.</p>
+      <pre><code>ocforge plan --spec my-pc.json</code></pre>
+      <div class="note">
+        <span class="ic">→</span>
+        <span>Want the full reasoning behind every <code>config.plist</code> line, with a Dortania link for each? Run <code>ocforge explain --spec my-pc.json</code> instead.</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="dot">4</div>
+      <h3>Build it</h3>
+      <p>Either a plain <code>EFI/</code> folder you copy onto the drive's EFI partition yourself —</p>
+      <pre><code>ocforge build --spec my-pc.json --out ./EFI</code></pre>
+      <p>— or straight onto a USB stick with the macOS recovery included. Run <code>ocforge usb</code> first to find the right disk name:</p>
+      <pre><code>ocforge build --spec my-pc.json --usb /dev/sdX --recovery</code></pre>
+      <div class="note warn">
+        <span class="ic">!</span>
+        <span><code>--usb</code> erases the target disk. OCforge asks you to confirm before writing anything.</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="dot">5</div>
+      <h3>Boot it</h3>
+      <p>Copy <code>EFI/</code> onto the drive's EFI partition if you built to a folder, then boot from it. Three things to do before you trust it long-term:</p>
+      <table class="checklist">
+        <tr><th>Do this</th><th>Why</th></tr>
+        <tr><td>Run <code>ocforge validate --efi ./EFI</code></td><td>Confirms OpenCore's own <code>ocvalidate</code> is happy with the config</td></tr>
+        <tr><td><a href="#usbmap">Map your USB ports</a> after first boot</td><td>The stock port map is a placeholder — real ports need mapping for USB 3 to behave</td></tr>
+        <tr><td>Set a real SMBIOS serial</td><td>Only needed if <code>macserial</code> wasn't available at build time — OCforge tells you when this applies</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="guide offline" id="offline">
+    <hr class="divider">
+    <div class="guide-head"><span class="num">PATH B</span><h2>The offline installer</h2></div>
+    <p class="guide-sub">For a target machine that shouldn't touch the internet mid-install. Downloads the full macOS installer and stages <a href="https://github.com/corpnewt/UnPlugged" target="_blank" rel="noopener">corpnewt/UnPlugged</a> alongside your EFI — both large, and this needs <em>your</em> internet, once, on the machine running OCforge, not the target's.</p>
+
+    <div class="step">
+      <div class="dot">1</div>
+      <h3>Stage everything</h3>
+      <p>Same spec file as the regular path. This step is slow — it's downloading Apple's full installer image.</p>
+      <pre><code>ocforge offline-installer --spec my-pc.json --out ./offline-installer</code></pre>
+      <p>What comes out the other side:</p>
+      <div class="layout-block">./offline-installer/<span class="k">EFI/</span>                        — your usual EFI, unchanged
+./offline-installer/<span class="k">com.apple.recovery.boot/</span>     — the boot environment
+./offline-installer/<span class="k">ExFAT/InstallAssistant.pkg</span>   — the actual installer
+./offline-installer/<span class="k">ExFAT/UnPlugged.command</span></div>
+    </div>
+
+    <div class="step">
+      <div class="dot">2</div>
+      <h3>Write the USB — two partitions</h3>
+      <p>A FAT32 partition (~1 GB — holds <code>EFI/</code> and <code>com.apple.recovery.boot/</code>) and an ExFAT partition (the rest — everything under <code>ExFAT/</code>).</p>
+      <p>Let OCforge partition and write both for you:</p>
+      <pre><code>ocforge offline-installer --spec my-pc.json --usb /dev/sdX</code></pre>
+      <div class="note warn">
+        <span class="ic">!</span>
+        <span>Destructive — asks to confirm first. Needs <code>exfatprogs</code> on Linux (<code>sudo apt install exfatprogs</code>); macOS and Windows format ExFAT natively.</span>
+      </div>
+      <p>Or format it yourself and copy the two folders over by hand if you'd rather not hand OCforge the disk.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">3</div>
+      <h3>Run UnPlugged from Recovery</h3>
+      <p>Boot the USB on the target machine. UnPlugged is a bash script that needs <code>diskutil</code>/<code>installer</code>/<code>asr</code> — real macOS APIs nothing outside a booted Recovery environment has, so this part can't be automated from outside it.</p>
+      <pre><code>cd /Volumes/ExFAT-VOLUME-NAME
+./UnPlugged.command</code></pre>
+      <p>It walks you through picking the target disk from there — the actual install happens fully offline after this point.</p>
+      <div class="note">
+        <span class="ic">→</span>
+        <span>Targeting macOS Sonoma (14) or newer? The boot environment deliberately uses an older BaseSystem (Monterey) even though the install payload is the newer release — Recovery on 14+ can't mount FAT32/ExFAT itself otherwise. OCforge does this automatically and says so. Expected, not a bug.</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="usbmap" style="margin-top:70px;">
+    <hr class="divider" style="margin-top:0;margin-bottom:40px;">
+    <div class="guide-head"><span class="num">AFTER EITHER PATH</span><h2 style="color:var(--ink)">Map your USB ports</h2></div>
+    <p class="guide-sub">Both paths above ship <code>USBToolBox.kext</code> — the driver — but not a map of <em>your</em> physical ports, which is specific to this exact board and has to be built once, after macOS is running. Skip it and USB mostly works anyway; do it properly and every port reports the right speed and there's no 15-port ceiling surprise later.</p>
+
+    <div class="step">
+      <div class="dot">1</div>
+      <h3>Get the mapping app</h3>
+      <p>Not the kext you already have — a separate tool, <a href="https://github.com/USBToolBox/App" target="_blank" rel="noopener">USBToolBox/App</a>. It reads whatever OS it's running on, so you can map ports before macOS is even installed if you want — Windows, Linux, and macOS builds all work.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">2</div>
+      <h3>Identify every port</h3>
+      <p>Plug a drive into one port at a time and watch which entry lights up in the app. For each one, set its real type (USB2, USB3, etc.) and whether it's internal (a header, a built-in webcam) or a port you can actually reach.</p>
+      <div class="note">
+        <span class="ic">→</span>
+        <span>Apple caps USB controllers at 15 mapped ports each. The app warns you if you're over — disable ports you'll never use (a header with nothing wired to it) rather than guessing which to cut.</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="dot">3</div>
+      <h3>Build the map</h3>
+      <p>Save/Build in the app. Out comes <code>UTBMap.kext</code> — a real kext folder, generated for this board specifically — plus a <code>Ports.txt</code> summary worth keeping for reference.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">4</div>
+      <h3>Add it to your EFI</h3>
+      <p>Copy the whole folder in:</p>
+      <pre><code>EFI/OC/Kexts/UTBMap.kext</code></pre>
+      <p>Then add a matching entry under <code>Kernel → Add</code> in <code>config.plist</code> — OCforge doesn't generate this one for you automatically, since it's tied to a map that doesn't exist until you've built it. The Editor tab's plist tree view (or <code>ocforge plist show</code> / <code>save</code>) is the quickest way: duplicate the existing <code>USBToolBox.kext</code> entry, change <code>BundlePath</code> to <code>UTBMap.kext</code>, leave everything else the same shape.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">5</div>
+      <h3>Reboot and check</h3>
+      <p>Every port you mapped should now show its correct type in <strong>About This Mac → System Report → USB</strong>, instead of the generic fallback behavior USBToolBox uses with no map at all.</p>
+    </div>
+  </section>
+
+  <section id="gui" style="margin-top:70px;">
+    <hr class="divider" style="margin-top:0;margin-bottom:40px;">
+    <div class="guide-head"><span class="num">ALTERNATIVE</span><h2 style="color:var(--ink)">Prefer a GUI?</h2></div>
+    <p class="guide-sub">The desktop app wraps both paths above in the same six tabs either way: Detect → Plan → Config → Forge (this is where the offline-installer toggle lives) → Editor → Assistant. It offers to install Python + the CLI for you on first launch. Grab the build for your OS — Windows, macOS, or Linux — from the <a href="https://github.com/kevinisgoated24-spec/OCforge/releases" target="_blank" rel="noopener">releases page</a>.</p>
+    <div class="note">
+      <span class="ic">→</span>
+      <span>Windows: if launching it fails with <em>"The code execution cannot proceed because MSVCP140.dll was not found,"</em> install the <a href="https://aka.ms/vs/16/release/vc_redist.x64.exe" target="_blank" rel="noopener">Visual C++ Redistributable</a> and try again.</span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>OCforge — built from public OpenCore / Dortania documentation. MIT licensed.</span>
+  <span><a href="https://github.com/kevinisgoated24-spec/OCforge/blob/master/SupportedDevice.md" target="_blank" rel="noopener">Tested devices</a> · <a href="https://github.com/kevinisgoated24-spec/OCforge/issues/new" target="_blank" rel="noopener">Report a problem</a></span>
+</footer>
+
+</body>
+</html>
