@@ -238,7 +238,18 @@ message), and HEDT (X79/X99/X299), where the SSDTs are selected but the MacPro
 SMBIOS and HEDT-specific quirks aren't fully modelled, so cross-check the
 Dortania HEDT guide.
 
-## Offline installer
+## Offline Installer
+To Do The Offline Installer Here's A Guide
+
+1.Get gibMacOS From corpnewt [Link For gibMacOS Github](https://github.com/corpnewt/gibmacos) 
+
+2.Unzip It And You Will Find Some Files For Us It's Important To Use The gibMacOS.bat You Will Need Python.
+
+3.After Opening It You Will Find A Lot Of Versions Of MacOS Please Scroll Down To Check The Recovery Option Is Disabled "R. Toggle Recovery-Only (Currently Off)" Then Get Your Build Of MacOS
+
+4.After Waiting To Download It You Will Find Those Files (com_apple_MobileAsset_MacSoftwareUpdate, InstallAssistant.pkg, InstallInfo, MajorOSInfo, UpdateBrain) The File That We Need Will Be The File Called InstallAssistant.pkg Get An Other Usb That Has At Least 20gb Or Less (FORMAT THE USB IN EXFAT!!!) Place That File On The Usb And Then We Will Get The UnPlugged.command Here's Where To Get The File [Link For UnPlugged.command](https://github.com/corpnewt/UnPlugged) As Always Credits To corpnewt for this UnPlugged.command
+
+5. After Placing Those Files On The USB Boot To MacOS Installer Before Go On Disk Utility Format The Disk Or Partiton To APFS And Place A Nice Name I Used The Disk Name As "OCForge Is Cool" But You Can Use Other Names, After Formatting The Disk Go To Utilities > Terminal Type Those Commands Inside Of Your Terminal: cd /Volumes/ ls (for example the ls will show this Untiled 1 Untitled 2, OCForge Is Cool, yourusbname) When You See The Name Of Your USB do this cd /Volumes/yourusbname then do this ./UnPlugged.command You will be ask to confirm to use this MacOS version do y then do Choose a locally discovered Install [macOS version].app Continue Do Not Touch Anything On The Terminal It Will Show Some Stuff Doing Then It Will Show The MacOS Installer Thats It You Made It:D  
 
 ```bash
 ocforge offline-installer --spec my-pc.json --out ./offline-installer
