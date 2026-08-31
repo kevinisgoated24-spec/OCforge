@@ -11,6 +11,11 @@ Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 * Assembles a `config.plist`, and writes the whole EFI 
 * Written efi optionally straight onto a USB with the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
 
+## Guide
+
+[Guide Link](https://kevinisgoated24-spec.github.io/OCforge/#usbmap)
+> This Guide Is The Tutorial To How Use OCForge Such As (How to use it, Making USB Mapping, Offline Installer, Etc)
+
 Changelog: [CHANGELOG.md](CHANGELOG.md), now with Linux and macOS support.
 > Made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
 
@@ -25,6 +30,22 @@ For Windows:
 - Open The Exe You Will Be Prompted To Install OCForge-CLI Install It
 
 - If Your Having Issues With The Exe Such As This Error: The code execution cannot proceed because MSVCP140.dll was not found. Please Install This To Fix It: https://aka.ms/vs/16/release/vc_redist.x64.exe
+
+- Go On Detect, Press Detect This PC It Will Show You Your Specs About The PC Such As: CPU, GPU, Network, Board, Storage
+
+- Then Go To Plan Press On The MacOS That You Want To Install And Then Press Generate Plan It Will Show You Everything SMBIOS, Kexts, SSDT, And The Warnings Please Scroll Down On That Page To See If Anything Is Not Working
+
+- Press Config, Generate Config
+
+- Finally Then Press Forge It Will Ask You To Where The EFI To Go (Just do a folder on the desktop copy the location of the folder on the desktop) Put it inside of the textbox then there will be some options:
+
+1. Get The Recovery Image For That MacOS (it will be kinda slow only 600mb or higher)
+
+2. Build SSDT'S From Your Machine (only works on Linux, Windows is still a work in progress for that option)
+
+3. Use The Opencore Debug Build (i would keep that off)
+
+4. Get The Offline Image For That MacOS (i would keep that off it will take ages please read on the guide) 
 
 For Linux:
 
