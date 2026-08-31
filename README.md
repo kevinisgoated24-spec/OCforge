@@ -11,6 +11,10 @@ Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 * Assembles a `config.plist`, and writes the whole EFI 
 * Written efi optionally straight onto a USB with the macOS recovery staged. Runs from Linux, Windows, or macOS as the host.
 
+## Guide
+
+[Guide Link](https://kevinisgoated24-spec.github.io/OCforge/#usbmap)
+
 Changelog: [CHANGELOG.md](CHANGELOG.md), now with Linux and macOS support.
 > Made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
 
