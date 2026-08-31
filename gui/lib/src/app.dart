@@ -244,7 +244,14 @@ Future<void> _reportBug(OcforgeController c) async {
   );
   try {
     if (Platform.isWindows) {
-      await Process.run('explorer', <String>[uri.toString()], runInShell: true);
+      // No runInShell here: cmd.exe treats an unescaped & as a command
+      // separator, and this URL has several &-joined query params
+      // (template/title/labels/...). Routed through "cmd /c explorer <url>"
+      // it gets cut at the first &, leaving explorer a mangled argument —
+      // which opens the default Documents folder instead of the browser.
+      // A direct launch passes the whole string as one argv element, no
+      // shell involved, so the &s are never reinterpreted.
+      await Process.run('explorer', <String>[uri.toString()]);
     } else if (Platform.isMacOS) {
       await Process.run('open', <String>[uri.toString()]);
     } else {

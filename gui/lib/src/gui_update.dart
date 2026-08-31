@@ -4,7 +4,7 @@ import 'dart:io';
 /// The GUI's own version — kept in sync by hand with pubspec.yaml's
 /// `version:` and [OcforgeCli.minVersion] (cli.dart), same manual-bump
 /// convention already used for every gui-v* tag.
-const String appVersion = '0.4.36';
+const String appVersion = '0.4.37';
 
 const String _releasesListApi =
     'https://api.github.com/repos/kevinisgoated24-spec/OCforge/releases?per_page=20';
@@ -73,7 +73,11 @@ bool _isNewer(String candidate, String current) {
 Future<void> openInBrowser(String url) async {
   try {
     if (Platform.isWindows) {
-      await Process.run('explorer', <String>[url], runInShell: true);
+      // No runInShell: a URL routed through cmd.exe has its unescaped &s
+      // (query-string separators) treated as command separators, mangling
+      // the argument explorer actually receives. See app.dart's _reportBug
+      // for the concrete case this broke.
+      await Process.run('explorer', <String>[url]);
     } else if (Platform.isMacOS) {
       await Process.run('open', <String>[url]);
     } else {

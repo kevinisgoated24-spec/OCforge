@@ -3,6 +3,19 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.37
+
+- **Fixed: the nav rail's bug-report button opened the Documents folder
+  instead of the browser.** Both it and the update banner's "Download" link
+  launched `explorer <url>` with `runInShell: true` — on Windows that routes
+  through `cmd.exe`, which treats an unescaped `&` as a command separator.
+  The report URL has several `&`-joined query params (template/title/
+  labels/ocforge-version/os/interface/hardware), so `cmd.exe` split it into
+  multiple commands at the first `&`, leaving `explorer` a mangled fragment
+  instead of the real URL. Reproduced directly (`cmd /c explorer <url>`
+  errors out mid-split); fixed by launching `explorer` directly with no
+  shell in between, so the full URL reaches it as one argument.
+
 ## gui-v0.4.36
 
 - **The Assistant tab is always visible now**, in every build. Removed the
