@@ -40,6 +40,8 @@ For Windows:
 
 3. Use The Opencore Debug Build (i would keep that off)
 
+4. Get The Offline Image For That MacOS (i would keep that off it will take ages please read on the guide) 
+
 For Linux:
 
 - Adding This Later.
