@@ -7,216 +7,149 @@
 <meta name="description" content="Step-by-step: the regular OCforge GUI build, the offline installer for machines that can't touch the internet mid-install, and mapping your USB ports.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700;8..144,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <style>
 /* ============================================================
-   Material 3 Expressive — token system
+   Tokens — matched to the OCforge desktop app's own UI:
+   single indigo accent, soft grey cards, pill chips/buttons.
    ============================================================ */
 :root {
-  /* Light tonal palette — copper (primary / Path A) + teal (secondary / Path B) */
-  --md-primary: #A2470E;
-  --md-on-primary: #FFFFFF;
-  --md-primary-container: #FFDBC4;
-  --md-on-primary-container: #351100;
+  --primary: #6E5AE0;
+  --primary-ink: #4B3BB0;
+  --on-primary: #FFFFFF;
+  --primary-soft: #EDE9FB;
+  --primary-soft-ink: #5C4AD1;
 
-  --md-secondary: #146B62;
-  --md-on-secondary: #FFFFFF;
-  --md-secondary-container: #A2F2E4;
-  --md-on-secondary-container: #00201C;
+  --bg: #F8F7FC;
+  --surface: #FFFFFF;
+  --surface-muted: #F1EEF8;
+  --surface-muted-strong: #E9E5F5;
+  --border: #E4E0F1;
 
-  --md-tertiary: #63597C;
-  --md-on-tertiary: #FFFFFF;
-  --md-tertiary-container: #E8DDFF;
-  --md-on-tertiary-container: #1F1836;
+  --ink: #1D1A2B;
+  --muted: #6F6B82;
+  --faint: #9A96AC;
 
-  --md-error: #A3402E;
-  --md-on-error: #FFFFFF;
-  --md-error-container: #FFDAD3;
-  --md-on-error-container: #3B0900;
+  --warn-soft: #FCEAE6;
+  --warn-ink: #A0431F;
 
-  --md-surface: #FFF8F5;
-  --md-surface-dim: #E4D7CE;
-  --md-surface-bright: #FFF8F5;
-  --md-surface-container-lowest: #FFFFFF;
-  --md-surface-container-low: #FDF1E9;
-  --md-surface-container: #F8EBE1;
-  --md-surface-container-high: #F2E5DC;
-  --md-surface-container-highest: #ECDFD6;
-  --md-on-surface: #211A15;
-  --md-on-surface-variant: #52443B;
-  --md-outline: #85736A;
-  --md-outline-variant: #D7C3B7;
-  --md-shadow: rgba(38, 25, 12, 0.22);
+  --shadow: rgba(29, 26, 43, 0.10);
 
-  --shape-xs: 8px;
-  --shape-sm: 14px;
-  --shape-md: 18px;
-  --shape-lg: 28px;
-  --shape-xl: 36px;
-  --shape-full: 999px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 24px;
+  --r-full: 999px;
 
-  --ez-emph: cubic-bezier(0.2, 0, 0, 1);
-  --ez-spring: cubic-bezier(0.34, 1.4, 0.4, 1);
-  --dur-s: 160ms;
-  --dur-m: 320ms;
-  --dur-l: 520ms;
+  --ez: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-s: 150ms;
+  --dur-m: 260ms;
+  --dur-l: 440ms;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --md-primary: #FFB787;
-    --md-on-primary: #5B2100;
-    --md-primary-container: #813400;
-    --md-on-primary-container: #FFDBC4;
+    --primary: #A996FF;
+    --primary-ink: #C9BDFF;
+    --on-primary: #1C1533;
+    --primary-soft: #2A2350;
+    --primary-soft-ink: #C4B8FF;
 
-    --md-secondary: #84D5C7;
-    --md-on-secondary: #00382F;
-    --md-secondary-container: #005046;
-    --md-on-secondary-container: #A2F2E4;
+    --bg: #131120;
+    --surface: #191629;
+    --surface-muted: #211D36;
+    --surface-muted-strong: #2A2440;
+    --border: #322C4A;
 
-    --md-tertiary: #CDC0EA;
-    --md-on-tertiary: #342B4C;
-    --md-tertiary-container: #4B4263;
-    --md-on-tertiary-container: #E8DDFF;
+    --ink: #ECE9F7;
+    --muted: #A7A2BE;
+    --faint: #726C8C;
 
-    --md-error: #FFB4A6;
-    --md-on-error: #5F1500;
-    --md-error-container: #832400;
-    --md-on-error-container: #FFDAD3;
+    --warn-soft: #3A2318;
+    --warn-ink: #F0A583;
 
-    --md-surface: #17120D;
-    --md-surface-dim: #17120D;
-    --md-surface-bright: #3F362E;
-    --md-surface-container-lowest: #120D08;
-    --md-surface-container-low: #1F1911;
-    --md-surface-container: #231C16;
-    --md-surface-container-high: #2E2620;
-    --md-surface-container-highest: #39312A;
-    --md-on-surface: #EDE0D6;
-    --md-on-surface-variant: #D7C3B7;
-    --md-outline: #A08D80;
-    --md-outline-variant: #52443B;
-    --md-shadow: rgba(0, 0, 0, 0.5);
+    --shadow: rgba(0, 0, 0, 0.45);
   }
 }
 :root[data-theme="dark"] {
-  --md-primary: #FFB787;
-  --md-on-primary: #5B2100;
-  --md-primary-container: #813400;
-  --md-on-primary-container: #FFDBC4;
-  --md-secondary: #84D5C7;
-  --md-on-secondary: #00382F;
-  --md-secondary-container: #005046;
-  --md-on-secondary-container: #A2F2E4;
-  --md-tertiary: #CDC0EA;
-  --md-on-tertiary: #342B4C;
-  --md-tertiary-container: #4B4263;
-  --md-on-tertiary-container: #E8DDFF;
-  --md-error: #FFB4A6;
-  --md-on-error: #5F1500;
-  --md-error-container: #832400;
-  --md-on-error-container: #FFDAD3;
-  --md-surface: #17120D;
-  --md-surface-dim: #17120D;
-  --md-surface-bright: #3F362E;
-  --md-surface-container-lowest: #120D08;
-  --md-surface-container-low: #1F1911;
-  --md-surface-container: #231C16;
-  --md-surface-container-high: #2E2620;
-  --md-surface-container-highest: #39312A;
-  --md-on-surface: #EDE0D6;
-  --md-on-surface-variant: #D7C3B7;
-  --md-outline: #A08D80;
-  --md-outline-variant: #52443B;
-  --md-shadow: rgba(0, 0, 0, 0.5);
+  --primary: #A996FF; --primary-ink: #C9BDFF; --on-primary: #1C1533;
+  --primary-soft: #2A2350; --primary-soft-ink: #C4B8FF;
+  --bg: #131120; --surface: #191629; --surface-muted: #211D36;
+  --surface-muted-strong: #2A2440; --border: #322C4A;
+  --ink: #ECE9F7; --muted: #A7A2BE; --faint: #726C8C;
+  --warn-soft: #3A2318; --warn-ink: #F0A583;
+  --shadow: rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; }
 html { color-scheme: light dark; scroll-behavior: smooth; }
 body {
   margin: 0;
-  background: var(--md-surface);
-  color: var(--md-on-surface);
-  font-family: 'Roboto Flex', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 code, pre, kbd { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace; }
-a { color: var(--md-primary); text-decoration: none; }
-a.inline-link { text-underline-offset: 3px; text-decoration: underline; text-decoration-color: var(--md-outline-variant); }
+a { color: var(--primary-ink); text-decoration: none; }
+a.inline-link { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border); }
 a.inline-link:hover { text-decoration-color: currentColor; }
-:focus-visible { outline: 2.5px solid var(--md-primary); outline-offset: 3px; border-radius: 4px; }
+:focus-visible { outline: 2.5px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
 img { max-width: 100%; }
-h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+h1, h2, h3 { font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; margin: 0; color: var(--ink); }
 
-/* ---------- Type scale ---------- */
-.display  { font-size: clamp(32px, 5.4vw, 45px); font-weight: 700; line-height: 1.12; letter-spacing: -0.015em; }
-.headline { font-size: clamp(23px, 3.4vw, 28px); font-weight: 700; line-height: 1.25; }
-.title    { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.display  { font-size: clamp(30px, 5vw, 40px); font-weight: 800; line-height: 1.15; }
+.headline { font-size: clamp(21px, 3.2vw, 25px); font-weight: 700; line-height: 1.3; }
+.title    { font-size: 16.5px; font-weight: 700; line-height: 1.35; }
 .body-l   { font-size: 15.5px; font-weight: 400; }
 .body-m   { font-size: 14px; font-weight: 400; }
-.label-l  { font-size: 13.5px; font-weight: 600; }
-.label-m  { font-size: 12.5px; font-weight: 600; }
+.label    { font-size: 12.5px; font-weight: 700; }
 
 /* ============================================================
-   App bar
+   App bar — logo mark + pill nav + outlined button, like the
+   app's own titlebar/sidebar treatment
    ============================================================ */
 .app-bar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 12px 24px;
-  background: color-mix(in srgb, var(--md-surface) 82%, transparent);
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 24px;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: blur(14px);
-  transition: box-shadow var(--dur-m) var(--ez-emph), background var(--dur-m) var(--ez-emph);
+  transition: box-shadow var(--dur-m) var(--ez), background var(--dur-m) var(--ez);
 }
 .app-bar--elevated {
-  background: color-mix(in srgb, var(--md-surface-container) 92%, transparent);
-  box-shadow: 0 1px 3px var(--md-shadow), 0 6px 20px -10px var(--md-shadow);
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  box-shadow: 0 1px 0 var(--border), 0 8px 22px -14px var(--shadow);
 }
-.app-bar__brand {
-  font-weight: 800;
-  font-size: 16px;
-  letter-spacing: -0.01em;
-  color: var(--md-on-surface);
-  white-space: nowrap;
+.app-bar__brand { display: flex; align-items: center; gap: 9px; }
+.logo-mark {
+  width: 26px; height: 26px; border-radius: 8px;
+  background: var(--primary); color: var(--on-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 11px; letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
-.app-bar__brand span { color: var(--md-primary); }
-.app-bar__nav {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
+.app-bar__brand span.word { font-weight: 800; font-size: 15px; color: var(--ink); white-space: nowrap; }
+.app-bar__nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .app-bar__nav::-webkit-scrollbar { display: none; }
 .nav-pill {
-  color: var(--md-on-surface-variant);
-  padding: 8px 14px;
-  border-radius: var(--shape-full);
-  white-space: nowrap;
-  font-weight: 600;
-  font-size: 13.5px;
-  transition: background var(--dur-s) var(--ez-emph), color var(--dur-s) var(--ez-emph);
+  color: var(--muted); padding: 8px 14px; border-radius: var(--r-full);
+  white-space: nowrap; font-weight: 600; font-size: 13.5px;
+  transition: background var(--dur-s) var(--ez), color var(--dur-s) var(--ez);
 }
-.nav-pill:hover { color: var(--md-on-surface); background: var(--md-surface-container-high); }
+.nav-pill:hover { color: var(--ink); background: var(--surface-muted); }
+
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 18px;
-  border-radius: var(--shape-full);
-  font-weight: 600;
-  font-size: 13.5px;
-  white-space: nowrap;
-  transition: transform var(--dur-s) var(--ez-spring), box-shadow var(--dur-s) var(--ez-emph), background var(--dur-s) var(--ez-emph);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: var(--r-full);
+  font-weight: 600; font-size: 13.5px; white-space: nowrap;
+  transition: transform var(--dur-s) var(--ez), box-shadow var(--dur-s) var(--ez), background var(--dur-s) var(--ez), border-color var(--dur-s) var(--ez);
 }
-.btn:active { transform: scale(0.94); }
-.btn-tonal { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
-.btn-tonal:hover { box-shadow: 0 2px 8px -2px var(--md-shadow); }
-.btn-filled { background: var(--md-primary); color: var(--md-on-primary); }
-.btn-filled:hover { box-shadow: 0 4px 14px -4px var(--md-shadow); }
+.btn:active { transform: scale(0.95); }
+.btn-filled { background: var(--primary); color: var(--on-primary); }
+.btn-filled:hover { box-shadow: 0 6px 16px -6px var(--shadow); }
+.btn-outline { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary-ink); }
 .app-bar .btn { margin-left: auto; }
 
 main { max-width: 800px; margin: 0 auto; padding: 0 24px 110px; overflow-x: hidden; }
@@ -224,163 +157,123 @@ main { max-width: 800px; margin: 0 auto; padding: 0 24px 110px; overflow-x: hidd
 /* ============================================================
    Hero
    ============================================================ */
-.hero { padding: 52px 0 36px; }
+.hero { padding: 48px 0 34px; }
 .chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 15px 7px 12px;
-  border-radius: var(--shape-full);
-  background: var(--md-primary-container);
-  color: var(--md-on-primary-container);
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 18px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 15px; border-radius: var(--r-full);
+  background: var(--primary-soft); color: var(--primary-soft-ink);
+  font-size: 12.5px; font-weight: 700; margin: 0 0 16px;
 }
-.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.hero p.body-l { color: var(--md-on-surface-variant); max-width: 60ch; margin: 16px 0 0; }
+.chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.hero p.body-l { color: var(--muted); max-width: 60ch; margin: 15px 0 0; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hero-enter { opacity: 0; transform: translateY(14px); animation: heroIn var(--dur-l) var(--ez-emph) forwards; }
+  .hero-enter { opacity: 0; transform: translateY(10px); animation: heroIn var(--dur-l) var(--ez) forwards; }
   .hero-enter:nth-child(1) { animation-delay: 0ms; }
-  .hero-enter:nth-child(2) { animation-delay: 90ms; }
-  .hero-enter:nth-child(3) { animation-delay: 180ms; }
+  .hero-enter:nth-child(2) { animation-delay: 70ms; }
+  .hero-enter:nth-child(3) { animation-delay: 140ms; }
   @keyframes heroIn { to { opacity: 1; transform: translateY(0); } }
 }
 
 /* ============================================================
-   Path cards (decision)
+   Path cards — soft grey fill, no border, no heavy shadow,
+   like the app's spec cards (Processor / Graphics / ...)
    ============================================================ */
-.path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 30px 0 8px; }
+.path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 28px 0 8px; }
 @media (max-width: 620px) { .path-grid { grid-template-columns: 1fr; } }
 .path-card {
-  position: relative;
-  border-radius: var(--shape-lg);
-  padding: 22px 24px;
-  overflow: hidden;
-  transition: transform var(--dur-m) var(--ez-spring), box-shadow var(--dur-m) var(--ez-emph);
-  box-shadow: 0 1px 2px var(--md-shadow);
+  border-radius: var(--r-xl);
+  padding: 24px 26px;
+  background: var(--surface-muted);
+  transition: transform var(--dur-m) var(--ez), box-shadow var(--dur-m) var(--ez), background var(--dur-m) var(--ez);
 }
-.path-card:hover { transform: translateY(-3px) scale(1.012); box-shadow: 0 10px 28px -12px var(--md-shadow); }
-.path-card--primary { background: var(--md-primary-container); color: var(--md-on-primary-container); }
-.path-card--secondary { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
-.path-card__tag { font-size: 12.5px; font-weight: 700; opacity: 0.75; margin: 0 0 8px; }
+.path-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -16px var(--shadow); background: var(--surface-muted-strong); }
+.path-card__tag {
+  display: inline-block; font-size: 12px; font-weight: 700;
+  padding: 4px 11px; border-radius: var(--r-full);
+  background: var(--primary-soft); color: var(--primary-soft-ink);
+  margin: 0 0 12px;
+}
 .path-card h3 { font-size: 18px; margin: 0 0 10px; }
-.path-card p { font-size: 14px; opacity: 0.88; margin: 0 0 18px; line-height: 1.55; }
-.path-card .btn { background: color-mix(in srgb, currentColor 14%, transparent); color: inherit; }
-.path-card .btn:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+.path-card p { font-size: 14px; color: var(--muted); margin: 0 0 18px; line-height: 1.55; }
 
 /* ============================================================
    Guide sections
    ============================================================ */
-section.guide { margin-top: 68px; scroll-margin-top: 90px; }
+section.guide { margin-top: 64px; scroll-margin-top: 90px; }
 .guide-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.guide-head .chip { margin: 0; }
-.guide-head h2 { color: var(--md-on-surface); }
-.guide.regular .guide-head .chip { background: var(--md-primary-container); color: var(--md-on-primary-container); }
-.guide.offline .guide-head .chip { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
-.guide-sub { color: var(--md-on-surface-variant); font-size: 15px; margin: 12px 0 30px; max-width: 66ch; }
-.divider { border: none; border-top: 1px solid var(--md-outline-variant); margin: 68px 0 0; }
+.guide-sub { color: var(--muted); font-size: 15px; margin: 12px 0 30px; max-width: 66ch; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 64px 0 0; }
 
 /* ---------- Step list ---------- */
 .step-item { display: flex; gap: 16px; padding: 0 0 26px; scroll-margin-top: 90px; }
 .step-item__rail { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
 .step-item__dot {
-  width: 34px; height: 34px; border-radius: var(--shape-full);
+  width: 32px; height: 32px; border-radius: var(--r-sm);
   display: flex; align-items: center; justify-content: center;
-  font-size: 13.5px; font-weight: 700;
-  background: var(--md-surface-container-high);
-  color: var(--md-on-surface-variant);
+  font-size: 13px; font-weight: 800;
+  background: var(--primary-soft); color: var(--primary-soft-ink);
 }
-.guide.regular .step-item__dot { background: var(--md-primary-container); color: var(--md-on-primary-container); }
-.guide.offline .step-item__dot { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
-.step-item__line { flex: 1; width: 1.5px; background: var(--md-outline-variant); margin-top: 6px; min-height: 8px; }
+.step-item__line { flex: 1; width: 1.5px; background: var(--border); margin-top: 6px; min-height: 8px; }
 .step-item:last-of-type .step-item__line { display: none; }
-.step-item__body { flex: 1; min-width: 0; padding-top: 4px; }
-.step-item h3.title { margin: 0 0 6px; color: var(--md-on-surface); }
-.step-item p.body-m { color: var(--md-on-surface-variant); margin: 0 0 12px; max-width: 62ch; }
-.step-item p.body-m code, .step-item li code { color: var(--md-on-surface); }
-.step-item strong { color: var(--md-on-surface); }
+.step-item__body { flex: 1; min-width: 0; padding-top: 3px; }
+.step-item h3.title { margin: 0 0 6px; }
+.step-item p.body-m { color: var(--muted); margin: 0 0 12px; max-width: 62ch; }
+.step-item p.body-m code, .step-item li code { color: var(--ink); }
+.step-item strong { color: var(--ink); }
 
 /* ---------- Code + layout blocks ---------- */
 pre {
-  margin: 0 0 12px;
-  padding: 14px 16px;
-  background: var(--md-surface-container-high);
-  border-radius: var(--shape-md);
-  overflow-x: auto;
-  font-size: 13px;
-  line-height: 1.6;
-  border-left: 4px solid var(--md-primary);
+  margin: 0 0 12px; padding: 14px 16px;
+  background: var(--surface-muted); border-radius: var(--r-md);
+  overflow-x: auto; font-size: 13px; line-height: 1.6;
+  border: 1px solid var(--border);
 }
-.guide.offline pre { border-left-color: var(--md-secondary); }
-pre code { color: var(--md-on-surface); background: none; padding: 0; }
+pre code { color: var(--ink); background: none; padding: 0; }
 p code, li code {
-  background: var(--md-surface-container-high);
-  border-radius: 5px;
-  padding: 2px 6px;
-  font-size: 0.87em;
+  background: var(--surface-muted); border: 1px solid var(--border);
+  border-radius: var(--r-full); padding: 2px 9px; font-size: 0.86em;
 }
 .layout-block {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12.5px;
-  background: var(--md-surface-container-high);
-  border-radius: var(--shape-md);
-  padding: 14px 16px;
-  line-height: 1.7;
-  overflow-x: auto;
-  color: var(--md-on-surface-variant);
-  margin: 0 0 12px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  background: var(--surface-muted); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 14px 16px; line-height: 1.7;
+  overflow-x: auto; color: var(--muted); margin: 0 0 12px;
 }
-.layout-block .k { color: var(--md-on-surface); }
+.layout-block .k { color: var(--ink); }
 
-/* ---------- Banners (notes) ---------- */
+/* ---------- Banners ---------- */
 .banner {
-  display: flex; gap: 11px;
-  padding: 13px 16px;
-  border-radius: var(--shape-md);
-  font-size: 13.5px;
-  margin: 0 0 12px;
+  display: flex; gap: 11px; padding: 13px 16px;
+  border-radius: var(--r-md); font-size: 13.5px; margin: 0 0 12px;
 }
 .banner .ic {
-  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 800; margin-top: 1px;
 }
-.banner--tip { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
-.banner--tip .ic { background: color-mix(in srgb, currentColor 20%, transparent); }
-.banner--warn { background: var(--md-error-container); color: var(--md-on-error-container); }
-.banner--warn .ic { background: color-mix(in srgb, currentColor 20%, transparent); }
+.banner--tip { background: var(--primary-soft); color: var(--primary-soft-ink); }
+.banner--tip .ic { background: color-mix(in srgb, currentColor 16%, transparent); }
+.banner--warn { background: var(--warn-soft); color: var(--warn-ink); }
+.banner--warn .ic { background: color-mix(in srgb, currentColor 16%, transparent); }
 
 /* ---------- Tables ---------- */
-.table-card {
-  border-radius: var(--shape-md);
-  overflow: hidden;
-  margin: 0 0 8px;
-  background: var(--md-surface-container-low);
-}
+.table-card { border-radius: var(--r-md); overflow: hidden; margin: 0 0 8px; border: 1px solid var(--border); }
 table.m3-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.m3-table th, table.m3-table td { text-align: left; padding: 10px 14px; }
-table.m3-table th {
-  background: var(--md-surface-container-high);
-  color: var(--md-on-surface-variant);
-  font-weight: 600; font-size: 12px;
-}
-table.m3-table td { color: var(--md-on-surface); border-top: 1px solid var(--md-outline-variant); transition: background var(--dur-s) var(--ez-emph); }
-table.m3-table tr:hover td { background: var(--md-surface-container); }
+table.m3-table th { background: var(--surface-muted); color: var(--muted); font-weight: 700; font-size: 12px; }
+table.m3-table td { color: var(--ink); border-top: 1px solid var(--border); background: var(--surface); transition: background var(--dur-s) var(--ez); }
+table.m3-table tr:hover td { background: var(--surface-muted); }
 table.m3-table code { font-size: 0.85em; }
 
 footer.site-footer {
-  max-width: 800px;
-  margin: 60px auto 0;
-  padding: 28px 24px 40px;
-  color: var(--md-on-surface-variant);
-  font-size: 13px;
+  max-width: 800px; margin: 56px auto 0; padding: 28px 24px 40px;
+  color: var(--muted); font-size: 13px;
   display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  border-top: 1px solid var(--md-outline-variant);
+  border-top: 1px solid var(--border);
 }
-footer.site-footer a { color: var(--md-on-surface-variant); }
-footer.site-footer a:hover { color: var(--md-primary); }
+footer.site-footer a { color: var(--muted); }
+footer.site-footer a:hover { color: var(--primary-ink); }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
@@ -390,14 +283,17 @@ footer.site-footer a:hover { color: var(--md-primary); }
 <body>
 
 <div class="app-bar" id="appBar">
-  <a class="app-bar__brand" href="#top">OC<span>forge</span></a>
+  <a class="app-bar__brand" href="#top">
+    <span class="logo-mark">OC</span>
+    <span class="word">OCforge</span>
+  </a>
   <nav class="app-bar__nav">
     <a class="nav-pill" href="#pick">Which do I need</a>
     <a class="nav-pill" href="#regular">Regular build</a>
     <a class="nav-pill" href="#offline">Offline installer</a>
     <a class="nav-pill" href="#usbmap">USB mapping</a>
   </nav>
-  <a class="btn btn-tonal" href="https://github.com/kevinisgoated24-spec/OCforge" target="_blank" rel="noopener">GitHub ↗</a>
+  <a class="btn btn-outline" href="https://github.com/kevinisgoated24-spec/OCforge" target="_blank" rel="noopener">GitHub ↗</a>
 </div>
 
 <main>
@@ -409,23 +305,23 @@ footer.site-footer a:hover { color: var(--md-primary); }
   </section>
 
   <div class="path-grid" id="pick">
-    <div class="path-card path-card--primary">
+    <div class="path-card">
       <p class="path-card__tag">Path A</p>
       <h3>Regular build</h3>
       <p>The target machine has internet during install — the usual case. Build an EFI with the GUI, boot the normal macOS installer or recovery, done.</p>
-      <a class="btn" href="#regular">Read the steps →</a>
+      <a class="btn btn-filled" href="#regular">Read the steps →</a>
     </div>
-    <div class="path-card path-card--secondary">
+    <div class="path-card">
       <p class="path-card__tag">Path B</p>
       <h3>Offline installer</h3>
       <p>The target machine shouldn't or can't touch the internet mid-install — air-gapped, metered, or just unreliable Wi-Fi. Stage everything on a USB ahead of time instead.</p>
-      <a class="btn" href="#offline">Read the steps →</a>
+      <a class="btn btn-filled" href="#offline">Read the steps →</a>
     </div>
   </div>
 
   <section class="guide regular" id="regular">
     <hr class="divider" style="margin-top:0;margin-bottom:40px;">
-    <div class="guide-head"><span class="chip">Path A</span><h2 class="headline">The regular build</h2></div>
+    <div class="guide-head"><span class="chip" style="margin:0">Path A</span><h2 class="headline">The regular build</h2></div>
     <p class="guide-sub">The GUI, on Windows: five tabs, no terminal required. It doesn't have to be the target machine itself, though it usually is.</p>
 
     <div class="step-item">
@@ -492,7 +388,7 @@ footer.site-footer a:hover { color: var(--md-primary); }
 
   <section class="guide offline" id="offline">
     <hr class="divider">
-    <div class="guide-head"><span class="chip">Path B</span><h2 class="headline">The offline installer</h2></div>
+    <div class="guide-head"><span class="chip" style="margin:0">Path B</span><h2 class="headline">The offline installer</h2></div>
     <p class="guide-sub">For a target machine that shouldn't or can't touch the internet mid-install. The manual route below uses <a class="inline-link" href="https://github.com/corpnewt/gibMacOS" target="_blank" rel="noopener">gibMacOS</a> and <a class="inline-link" href="https://github.com/corpnewt/UnPlugged" target="_blank" rel="noopener">UnPlugged</a> — both by corpnewt, credit to them. There's also a one-command version further down if you'd rather let ocforge handle the staging.</p>
 
     <div class="step-item">
@@ -572,13 +468,13 @@ ls</code></pre>
     </div>
   </section>
 
-  <section id="usbmap" style="margin-top:68px;">
+  <section id="usbmap" style="margin-top:64px;">
     <hr class="divider" style="margin-top:0;margin-bottom:40px;">
-    <div class="guide-head"><span class="chip" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">After either path</span><h2 class="headline">Map your USB ports</h2></div>
+    <div class="guide-head"><span class="chip" style="margin:0">After either path</span><h2 class="headline">Map your USB ports</h2></div>
     <p class="guide-sub">Both paths above ship <code>USBToolBox.kext</code> — the driver — but not a map of <em>your</em> physical ports, which is specific to this exact board and has to be built once. Skip it and USB mostly works anyway; do it properly and every port reports the right speed and there's no 15-port ceiling surprise later.</p>
 
     <div class="step-item">
-      <div class="step-item__rail"><div class="step-item__dot" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">1</div><div class="step-item__line"></div></div>
+      <div class="step-item__rail"><div class="step-item__dot">1</div><div class="step-item__line"></div></div>
       <div class="step-item__body">
         <h3 class="title">Get the mapping app — on Windows</h3>
         <p class="body-m">Not the kext you already have — a separate tool, <a class="inline-link" href="https://github.com/USBToolBox/tool" target="_blank" rel="noopener">USBToolBox/tool</a>. Download <code>Windows.zip</code> from its releases and run <code>Windows.exe</code> — a terminal-style menu opens. Mapping happens <strong>on Windows</strong>, not macOS: only Windows can auto-detect USB2/USB3 companion port pairs and guess port types, and macOS 11.3+ has a broken <code>XhciPortLimit</code> that makes mapping from within macOS more painful. No Windows install handy? Boot a Hiren's BootCD PE USB and run the tool from its <code>cmd</code> (Shift+F10).</p>
@@ -590,7 +486,7 @@ ls</code></pre>
     </div>
 
     <div class="step-item">
-      <div class="step-item__rail"><div class="step-item__dot" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">2</div><div class="step-item__line"></div></div>
+      <div class="step-item__rail"><div class="step-item__dot">2</div><div class="step-item__line"></div></div>
       <div class="step-item__body">
         <h3 class="title">Discover every port</h3>
         <p class="body-m">Press <code>D</code> for Discover Ports. Plug a device into <strong>one port at a time</strong>, wait for it to show up in the list, then unplug and move on — don't rush this.</p>
@@ -612,7 +508,7 @@ ls</code></pre>
     </div>
 
     <div class="step-item">
-      <div class="step-item__rail"><div class="step-item__dot" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">3</div><div class="step-item__line"></div></div>
+      <div class="step-item__rail"><div class="step-item__dot">3</div><div class="step-item__line"></div></div>
       <div class="step-item__body">
         <h3 class="title">Type your ports and mind the 15-port cap</h3>
         <p class="body-m">Press <code>S</code> for Select Ports. For each detected port, set its real type and mark it internal or external. <strong>Apple caps every USB controller at 15 mapped ports</strong> — most modern boards physically expose more, so the tool will warn you if you're over. Disable ports you'll genuinely never use (an unwired header, a dead legacy port) rather than cutting the last N in the list at random — check what each one is actually wired to first.</p>
@@ -620,7 +516,7 @@ ls</code></pre>
     </div>
 
     <div class="step-item">
-      <div class="step-item__rail"><div class="step-item__dot" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">4</div><div class="step-item__line"></div></div>
+      <div class="step-item__rail"><div class="step-item__dot">4</div><div class="step-item__line"></div></div>
       <div class="step-item__body">
         <h3 class="title">Build the map</h3>
         <p class="body-m">Press <code>K</code> to build. Pick the <strong>USBToolBox kext</strong> format — it pairs with the <code>USBToolBox.kext</code> driver you already have installed. (The alternative, AppleUSBHostMergeProperties, is a native-Apple-style injector if you'd rather not depend on the third-party driver.) Out comes <code>UTBMap.kext</code> — a real kext folder, generated for this board specifically — plus a <code>Ports.txt</code> summary worth keeping for reference.</p>
@@ -628,7 +524,7 @@ ls</code></pre>
     </div>
 
     <div class="step-item">
-      <div class="step-item__rail"><div class="step-item__dot" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">5</div><div class="step-item__line"></div></div>
+      <div class="step-item__rail"><div class="step-item__dot">5</div><div class="step-item__line"></div></div>
       <div class="step-item__body">
         <h3 class="title">Add it to your EFI</h3>
         <p class="body-m">Copy the whole folder in:</p>
@@ -642,7 +538,7 @@ ls</code></pre>
     </div>
 
     <div class="step-item">
-      <div class="step-item__rail"><div class="step-item__dot" style="background:var(--md-tertiary-container);color:var(--md-on-tertiary-container)">6</div></div>
+      <div class="step-item__rail"><div class="step-item__dot">6</div></div>
       <div class="step-item__body">
         <h3 class="title">Reboot and check</h3>
         <p class="body-m">Every port you mapped should now show its correct type in <strong>About This Mac → System Report → USB</strong>, instead of the generic fallback behavior USBToolBox uses with no map at all — and the boot log shouldn't show any "no personality found" or over-the-limit warnings.</p>
