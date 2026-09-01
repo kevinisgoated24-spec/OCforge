@@ -421,43 +421,69 @@ footer a { color: var(--muted); }
   <section class="guide offline" id="offline">
     <hr class="divider">
     <div class="guide-head"><span class="num">PATH B</span><h2>The offline installer</h2></div>
-    <p class="guide-sub">For a target machine that shouldn't touch the internet mid-install. Downloads the full macOS installer and stages <a href="https://github.com/corpnewt/UnPlugged" target="_blank" rel="noopener">corpnewt/UnPlugged</a> alongside your EFI — both large, and this needs <em>your</em> internet, once, on the machine running OCforge, not the target's.</p>
+    <p class="guide-sub">For a target machine that shouldn't or can't touch the internet mid-install. The manual route below uses <a href="https://github.com/corpnewt/gibMacOS" target="_blank" rel="noopener">gibMacOS</a> and <a href="https://github.com/corpnewt/UnPlugged" target="_blank" rel="noopener">UnPlugged</a> — both by corpnewt, credit to them. There's also a one-command version further down if you'd rather let ocforge handle the staging.</p>
 
     <div class="step">
       <div class="dot">1</div>
-      <h3>Stage everything</h3>
-      <p>Same spec file as the regular path. This step is slow — it's downloading Apple's full installer image.</p>
+      <h3>Get gibMacOS</h3>
+      <p>Download <a href="https://github.com/corpnewt/gibMacOS" target="_blank" rel="noopener">gibMacOS</a> from corpnewt's GitHub and unzip it.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">2</div>
+      <h3>Run it</h3>
+      <p>Use <code>gibMacOS.bat</code> — you'll need Python installed for it to run.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">3</div>
+      <h3>Pick your build</h3>
+      <p>You'll see a long list of macOS versions. Scroll down first and make sure recovery-only mode is off — it should read <code>R. Toggle Recovery-Only (Currently Off)</code> — then pick the build you want. This downloads the full installer, not just the recovery.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">4</div>
+      <h3>Get the installer onto a USB</h3>
+      <p>Once it's done downloading you'll have a handful of files: <code>com_apple_MobileAsset_MacSoftwareUpdate</code>, <code>InstallAssistant.pkg</code>, <code>InstallInfo</code>, <code>MajorOSInfo</code>, <code>UpdateBrain</code>. Only <code>InstallAssistant.pkg</code> matters here. Get a second USB — 20GB or more, <strong>formatted ExFAT</strong> — and copy that file onto it. Then grab <a href="https://github.com/corpnewt/UnPlugged" target="_blank" rel="noopener">UnPlugged.command</a> (also corpnewt) and put it on the same USB.</p>
+    </div>
+
+    <div class="step">
+      <div class="dot">5</div>
+      <h3>Run UnPlugged from the installer</h3>
+      <p>Boot the target machine into the macOS installer. Before anything else, open <strong>Disk Utility</strong> and format the target disk or partition as <strong>APFS</strong>, giving it any name you like.</p>
+      <p>Then go to <strong>Utilities → Terminal</strong> and find your USB's volume name:</p>
+      <pre><code>cd /Volumes/
+ls</code></pre>
+      <p>Once you spot it in the list, switch into it and run the script:</p>
+      <pre><code>cd /Volumes/your-usb-name
+./UnPlugged.command</code></pre>
+      <p>Confirm the detected macOS version with <code>y</code>, choose <strong>"Choose a locally discovered Install [macOS version].app"</strong>, continue, then pick the disk you formatted earlier by its number and press enter.</p>
+      <div class="note warn">
+        <span class="ic">!</span>
+        <span>Don't touch the terminal once it's running. It'll show progress output for a while, then hand off to the normal macOS installer — that's the sign it worked.</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="dot">⚡</div>
+      <h3>Prefer the terminal? One command does steps 1–4</h3>
+      <p>Same spec file as the regular path. This step is slow — it's downloading Apple's full installer image via gibMacOS under the hood.</p>
       <pre><code>ocforge offline-installer --spec my-pc.json --out ./offline-installer</code></pre>
       <p>What comes out the other side:</p>
       <div class="layout-block">./offline-installer/<span class="k">EFI/</span>                        — your usual EFI, unchanged
 ./offline-installer/<span class="k">com.apple.recovery.boot/</span>     — the boot environment
 ./offline-installer/<span class="k">ExFAT/InstallAssistant.pkg</span>   — the actual installer
 ./offline-installer/<span class="k">ExFAT/UnPlugged.command</span></div>
-    </div>
-
-    <div class="step">
-      <div class="dot">2</div>
-      <h3>Write the USB — two partitions</h3>
-      <p>A FAT32 partition (~1 GB — holds <code>EFI/</code> and <code>com.apple.recovery.boot/</code>) and an ExFAT partition (the rest — everything under <code>ExFAT/</code>).</p>
-      <p>Let OCforge partition and write both for you:</p>
+      <p>Format your USB with a FAT32 partition (~1 GB — holds <code>EFI/</code> and <code>com.apple.recovery.boot/</code>) and an ExFAT partition (the rest — everything under <code>ExFAT/</code>), then follow step 5 above from Terminal. Or skip the manual formatting and let ocforge do both:</p>
       <pre><code>ocforge offline-installer --spec my-pc.json --usb /dev/sdX</code></pre>
       <div class="note warn">
         <span class="ic">!</span>
         <span>Destructive — asks to confirm first. Needs <code>exfatprogs</code> on Linux (<code>sudo apt install exfatprogs</code>); macOS and Windows format ExFAT natively.</span>
       </div>
-      <p>Or format it yourself and copy the two folders over by hand if you'd rather not hand OCforge the disk.</p>
-    </div>
-
-    <div class="step">
-      <div class="dot">3</div>
-      <h3>Run UnPlugged from Recovery</h3>
-      <p>Boot the USB on the target machine. UnPlugged is a bash script that needs <code>diskutil</code>/<code>installer</code>/<code>asr</code> — real macOS APIs nothing outside a booted Recovery environment has, so this part can't be automated from outside it.</p>
-      <pre><code>cd /Volumes/ExFAT-VOLUME-NAME
-./UnPlugged.command</code></pre>
-      <p>It walks you through picking the target disk from there — the actual install happens fully offline after this point.</p>
+      <p>UnPlugged itself still has to run from inside a booted macOS installer/Recovery — it's a bash script using <code>diskutil</code>/<code>installer</code>/<code>asr</code>, real macOS APIs nothing outside that environment has, so ocforge can't run it for you. It only handles getting everything into the layout UnPlugged expects.</p>
       <div class="note">
         <span class="ic">→</span>
-        <span>Targeting macOS Sonoma (14) or newer? The boot environment deliberately uses an older BaseSystem (Monterey) even though the install payload is the newer release — Recovery on 14+ can't mount FAT32/ExFAT itself otherwise. OCforge does this automatically and says so. Expected, not a bug.</span>
+        <span>Targeting macOS Sonoma (14) or newer? Recovery on 14+ can't mount FAT32/ExFAT itself, so the boot environment deliberately uses an older BaseSystem (Monterey) even though the install payload is the newer release. ocforge does this automatically and says so — expected, not a bug.</span>
       </div>
     </div>
   </section>
