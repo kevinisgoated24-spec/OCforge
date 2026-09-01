@@ -79,14 +79,19 @@ class _ShellState extends State<_Shell> {
   int _index = 0;
 
   // Dev-only stats panel (release download counts, repo stars/forks/issues --
-  // all public GitHub numbers, nothing sensitive). Unlocked by typing this
-  // phrase anywhere in the app; kept as char codes rather than a plain
-  // string literal so it doesn't turn up in a plain grep of the source --
-  // this is still a visibility toggle, not real access control, since the
-  // repo is public either way, but there's no reason to make it any easier
-  // to stumble onto than that.
-  static final String _unlockCode =
-      String.fromCharCodes(const <int>[111, 99, 102, 111, 114, 103, 101, 115, 116, 97, 116, 115]);
+  // all public GitHub numbers, nothing sensitive). Unlocked by typing either
+  // phrase anywhere in the app -- the newer one is kept as char codes rather
+  // than a plain string literal so it doesn't turn up in a plain grep of the
+  // source; the older one was already published in past changelogs/docs
+  // (it briefly gated the Assistant tab), so there's nothing left to hide
+  // there. Either way this is a visibility toggle, not real access control,
+  // since the repo is public regardless.
+  static final List<String> _unlockCodes = <String>[
+    String.fromCharCodes(const <int>[111, 99, 102, 111, 114, 103, 101, 115, 116, 97, 116, 115]),
+    'ocforgedev123',
+  ];
+  static final int _maxUnlockLen =
+      _unlockCodes.map((String c) => c.length).reduce((int a, int b) => a > b ? a : b);
   String _keyBuffer = '';
   bool _devUnlocked = false;
 
@@ -109,10 +114,10 @@ class _ShellState extends State<_Shell> {
     final String? ch = event.character;
     if (ch == null || ch.isEmpty) return false;
     _keyBuffer += ch.toLowerCase();
-    if (_keyBuffer.length > _unlockCode.length) {
-      _keyBuffer = _keyBuffer.substring(_keyBuffer.length - _unlockCode.length);
+    if (_keyBuffer.length > _maxUnlockLen) {
+      _keyBuffer = _keyBuffer.substring(_keyBuffer.length - _maxUnlockLen);
     }
-    if (_keyBuffer == _unlockCode) {
+    if (_unlockCodes.any((String code) => _keyBuffer.endsWith(code))) {
       setState(() => _devUnlocked = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

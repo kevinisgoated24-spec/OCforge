@@ -3,6 +3,12 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.39
+
+- The dev stats panel's unlock now also accepts the older phrase that
+  briefly gated the Assistant tab (gui-v0.4.34–35), alongside the newer
+  one — either works.
+
 ## gui-v0.4.38
 
 - **New: a hidden dev-only stats panel** — release download counts (per
