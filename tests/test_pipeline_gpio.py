@@ -53,6 +53,14 @@ def _stub_ssdttime(monkeypatch, *, dumped: list, fetched: list, acpidump_fetched
     monkeypatch.setattr(pipeline.fetch_ssdttime, "fetch", fake_fetch)
     monkeypatch.setattr(pipeline.fetch_acpidump, "fetch", fake_fetch_acpidump)
     monkeypatch.setattr(pipeline.ssdtgen, "run", fake_run)
+    # This laptop also picks up prebuilt SSDTs SSDTTime can't generate (XOSI at
+    # minimum, every Intel laptop gets it) -- fetch_all is a real network call
+    # otherwise. Left unmocked, it "worked" locally by actually reaching
+    # Dortania's repo, but on a non-Windows CI runner the platform="win32"
+    # mock above also fools Python's own ssl module into trying Windows-only
+    # certificate-store code (NameError: enum_certificates) once the real
+    # HTTPS request underneath tries to build an SSL context.
+    monkeypatch.setattr(pipeline.fetch_acpi, "fetch_all", lambda ssdts, out: [])
     monkeypatch.setattr(
         "ocforge.build.gpio.generate", lambda acpi_dir, st_dir, out_dir: None
     )
