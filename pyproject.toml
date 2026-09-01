@@ -9,7 +9,7 @@ description = "Build a bootable OpenCore EFI for a machine you can describe."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
-authors = [{ name = "Epic34-cyberdudder" }]
+authors = [{ name = "kevinisgoated24-spec" }]
 keywords = ["opencore", "hackintosh", "efi", "bootloader"]
 dependencies = []
 
