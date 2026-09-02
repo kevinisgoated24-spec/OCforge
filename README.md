@@ -105,6 +105,9 @@ at build time. The tool tells you when that happens.
 | `ocforge offline-installer --spec my-pc.json --out ./offline` | stage a [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged) offline installer |
 | `ocforge build --spec my-pc.json --out ./EFI --exclude-kext USBToolBox` | drop a kext ocforge would normally include (repeatable) |
 | `ocforge build --spec my-pc.json --out ./EFI --include-kext VoodooPS2Controller` | force in a kext ocforge wouldn't normally pick (repeatable) |
+| `ocforge build --spec my-pc.json --out ./EFI --exclude-ssdt SSDT-PLUG` | drop an SSDT ocforge would normally include (repeatable) |
+| `ocforge build --spec my-pc.json --out ./EFI --smbios iMac19,1` | use this SMBIOS model instead of ocforge's own pick |
+| `ocforge build --spec my-pc.json --out ./EFI --quirk DevirtualiseMmio=false` | override one Quirks on/off toggle (repeatable) |
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
 hotpatch set, following the [prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
@@ -256,9 +259,29 @@ the same detection/build pipeline:
   instead of only being reachable after a build fails once.
 - **Kext overrides** — `--exclude-kext NAME` drops a kext ocforge would
   otherwise add; `--include-kext NAME` forces one in that it wouldn't
-  otherwise pick (both repeatable — see the table above). Unknown names are
-  rejected with an error rather than silently ignored, and any override adds
-  a warning to `ocforge plan`'s output so it's clear the pick was manual.
+  otherwise pick (both repeatable — see the table above). Unknown
+  `--include-kext` names are rejected with an error rather than silently
+  ignored, and any override adds a warning to `ocforge plan`'s output so
+  it's clear the pick was manual.
+- **SSDT overrides** — `--exclude-ssdt NAME` drops one of the precompiled
+  SSDTs ocforge would otherwise add (repeatable), e.g. `--exclude-ssdt
+  SSDT-PLUG` if you're handling XCPM some other way. There's no
+  `--include-ssdt` — an arbitrary SSDT name doesn't map onto a real
+  Dortania asset the way a kext name maps onto a real kext, so adding one
+  ocforge doesn't already know about still means supplying it yourself
+  (drop the `.aml` into the built `EFI/OC/ACPI/` folder and add it to
+  `config.plist`'s `ACPI → Add` by hand, or via `ocforge plist save`).
+- **SMBIOS override** — `--smbios MODEL` (e.g. `iMac19,1`) replaces
+  ocforge's own board-generation pick outright. Only checked for the right
+  *shape* (`Name123,4`) up front; `macserial` is the real authority and
+  fails loudly during the build if the model doesn't actually exist.
+- **Quirk overrides** — `--quirk NAME=true|false` (repeatable) flips one
+  ACPI/Booter/Kernel/UEFI Quirks toggle directly, e.g. `--quirk
+  DevirtualiseMmio=false`. On/off toggles only — a handful of Quirks
+  entries are numeric settings (a slide count, a timeout) rather than
+  booleans, and those are rejected rather than silently coerced. Only
+  `build`/`offline-installer` actually apply quirks (there's no
+  `config.plist` to apply them to yet at `plan`/`explain` time).
 - **Review before you trust it** — `ocforge validate --efi ./EFI` runs
   `ocvalidate` on the assembled `config.plist`, and `ocforge plist show` /
   `plist save` round-trip it to JSON for hand editing. The desktop GUI wraps

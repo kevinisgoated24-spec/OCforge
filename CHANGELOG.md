@@ -3,6 +3,28 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.41
+
+Expert mode, part two: the rest of the manual-override set, same "extend the
+Advanced panel" pattern as 0.4.40's kext overrides.
+
+- **SSDT overrides** — `--exclude-ssdt NAME` (repeatable) drops a precompiled
+  SSDT ocforge would otherwise add, e.g. `--exclude-ssdt SSDT-PLUG`. No
+  `--include-ssdt`: an arbitrary SSDT name doesn't map onto a real Dortania
+  asset the way a kext name maps onto a real kext, so adding one ocforge
+  doesn't know about still means supplying the `.aml` yourself.
+- **SMBIOS override** — `--smbios MODEL` (e.g. `iMac19,1`) replaces ocforge's
+  own board-generation pick. Checked for the right shape up front; macserial
+  is the real authority and fails loudly if the model doesn't exist.
+- **Quirk overrides** — `--quirk NAME=true|false` (repeatable) flips one
+  ACPI/Booter/Kernel/UEFI Quirks toggle directly. On/off toggles only — the
+  handful of numeric Quirks entries (a slide count, a timeout) are rejected
+  rather than silently coerced. `build`/`offline-installer` only, since
+  there's no `config.plist` to apply a quirk to at `plan`/`explain` time.
+- All three get matching fields in the GUI's Advanced panel, and — like the
+  kext overrides before them — an override adds a warning to `ocforge
+  plan`'s output so it's clear which parts of the build were manual.
+
 ## gui-v0.4.40
 
 Expert mode, part one: an "Advanced" panel on the Build page, and the first

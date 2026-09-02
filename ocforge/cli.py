@@ -32,10 +32,27 @@ UNSUPPORTED_GPU_EXIT = 3
 UNSUPPORTED_OS_EXIT = 4
 
 
+def _parse_quirk_args(raw: list[str] | None) -> dict[str, bool]:
+    """Parses repeated ``--quirk NAME=true|false`` into a dict."""
+    out: dict[str, bool] = {}
+    for item in raw or ():
+        name, sep, value = item.partition("=")
+        if not sep:
+            raise ValueError(f"--quirk expects NAME=true|false, got: {item!r}")
+        v = value.strip().lower()
+        if v not in ("true", "false"):
+            raise ValueError(f"--quirk {name}: value must be 'true' or 'false', got: {value!r}")
+        out[name.strip()] = v == "true"
+    return out
+
+
 def _resolve_plan(m: Machine, target_major: int | None, *,
                   force_unsupported_gpu: bool, force_unsupported_os: bool = False,
                   exclude_kexts: frozenset[str] = frozenset(),
-                  include_kexts: frozenset[str] = frozenset()):
+                  include_kexts: frozenset[str] = frozenset(),
+                  exclude_ssdts: frozenset[str] = frozenset(),
+                  smbios_override: str | None = None,
+                  quirk_overrides: dict[str, bool] | None = None):
     """make() a BuildPlan, handling UnsupportedGpuError/UnsupportedReleaseError:
 
     - already forced (--force-unsupported-gpu / --force-unsupported-os) ->
@@ -63,23 +80,25 @@ def _resolve_plan(m: Machine, target_major: int | None, *,
             sys.exit(exit_code)
         return answer.strip().lower() == "y"
 
+    kw = {
+        "exclude_kexts": exclude_kexts, "include_kexts": include_kexts,
+        "exclude_ssdts": exclude_ssdts, "smbios_override": smbios_override,
+        "quirk_overrides": quirk_overrides,
+    }
     try:
         return make(m, target_major=target_major,
                    allow_unsupported_gpu=force_unsupported_gpu,
-                   allow_unsupported_os=force_unsupported_os,
-                   exclude_kexts=exclude_kexts, include_kexts=include_kexts)
+                   allow_unsupported_os=force_unsupported_os, **kw)
     except UnsupportedGpuError as exc:
         if not ask(exc, UNSUPPORTED_GPU_EXIT):
             return None
         return make(m, target_major=target_major,
-                   allow_unsupported_gpu=True, allow_unsupported_os=force_unsupported_os,
-                   exclude_kexts=exclude_kexts, include_kexts=include_kexts)
+                   allow_unsupported_gpu=True, allow_unsupported_os=force_unsupported_os, **kw)
     except UnsupportedReleaseError as exc:
         if not ask(exc, UNSUPPORTED_OS_EXIT):
             return None
         return make(m, target_major=target_major,
-                   allow_unsupported_gpu=force_unsupported_gpu, allow_unsupported_os=True,
-                   exclude_kexts=exclude_kexts, include_kexts=include_kexts)
+                   allow_unsupported_gpu=force_unsupported_gpu, allow_unsupported_os=True, **kw)
 
 
 def _load_machine(spec: str | None) -> Machine:
@@ -178,7 +197,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
                              force_unsupported_os=args.force_unsupported_os,
                              exclude_kexts=frozenset(args.exclude_kext or ()),
-                             include_kexts=frozenset(args.include_kext or ()))
+                             include_kexts=frozenset(args.include_kext or ()),
+                             exclude_ssdts=frozenset(args.exclude_ssdt or ()),
+                             smbios_override=args.smbios)
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
@@ -199,7 +220,9 @@ def cmd_explain(args: argparse.Namespace) -> int:
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
                              force_unsupported_os=args.force_unsupported_os,
                              exclude_kexts=frozenset(args.exclude_kext or ()),
-                             include_kexts=frozenset(args.include_kext or ()))
+                             include_kexts=frozenset(args.include_kext or ()),
+                             exclude_ssdts=frozenset(args.exclude_ssdt or ()),
+                             smbios_override=args.smbios)
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
@@ -335,10 +358,14 @@ def cmd_build(args: argparse.Namespace) -> int:
 
     m = _load_machine(args.spec)
     try:
+        quirk_overrides = _parse_quirk_args(args.quirk)
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
                              force_unsupported_os=args.force_unsupported_os,
                              exclude_kexts=frozenset(args.exclude_kext or ()),
-                             include_kexts=frozenset(args.include_kext or ()))
+                             include_kexts=frozenset(args.include_kext or ()),
+                             exclude_ssdts=frozenset(args.exclude_ssdt or ()),
+                             smbios_override=args.smbios,
+                             quirk_overrides=quirk_overrides)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -356,16 +383,23 @@ def cmd_build(args: argparse.Namespace) -> int:
 
     rec = plan.target.major if args.recovery else None
 
-    if args.usb:
-        if input(f"\nERASE {args.usb} and write a bootable USB? [y/N] ").strip().lower() != "y":
-            return 130
-        report = build_usb(plan, work, args.usb, recovery_major=rec, log=print,
-                           dsdt=dsdt, dump_dsdt=args.dump_dsdt, legacy_mmap=args.legacy_mmap)
-    else:
-        report = build_efi(plan, work, Path(args.out).resolve(), log=print, debug=args.debug,
-                           dsdt=dsdt, dump_dsdt=args.dump_dsdt, recovery_major=rec,
-                           legacy_mmap=args.legacy_mmap)
-        print(f"\nEFI folder: {report.efi_dir}")
+    if args.usb and input(f"\nERASE {args.usb} and write a bootable USB? [y/N] ").strip().lower() != "y":
+        return 130
+
+    try:
+        if args.usb:
+            report = build_usb(plan, work, args.usb, recovery_major=rec, log=print,
+                               dsdt=dsdt, dump_dsdt=args.dump_dsdt, legacy_mmap=args.legacy_mmap)
+        else:
+            report = build_efi(plan, work, Path(args.out).resolve(), log=print, debug=args.debug,
+                               dsdt=dsdt, dump_dsdt=args.dump_dsdt, recovery_major=rec,
+                               legacy_mmap=args.legacy_mmap)
+            print(f"\nEFI folder: {report.efi_dir}")
+    except ValueError as exc:
+        # only reachable from a bad --quirk name/type -- everything else here
+        # was already validated by _resolve_plan above.
+        print(f"\n{exc}", file=sys.stderr)
+        return 1
 
     _print_build_report(report)
     return 0 if report.ok else 1
@@ -377,10 +411,14 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
 
     m = _load_machine(args.spec)
     try:
+        quirk_overrides = _parse_quirk_args(args.quirk)
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
                              force_unsupported_os=args.force_unsupported_os,
                              exclude_kexts=frozenset(args.exclude_kext or ()),
-                             include_kexts=frozenset(args.include_kext or ()))
+                             include_kexts=frozenset(args.include_kext or ()),
+                             exclude_ssdts=frozenset(args.exclude_ssdt or ()),
+                             smbios_override=args.smbios,
+                             quirk_overrides=quirk_overrides)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -401,7 +439,13 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
     else:
         out = Path(args.out or "offline-installer").resolve()
 
-    efi_report = build_efi(plan, work, out, log=print, legacy_mmap=args.legacy_mmap)
+    try:
+        efi_report = build_efi(plan, work, out, log=print, legacy_mmap=args.legacy_mmap)
+    except ValueError as exc:
+        # only reachable from a bad --quirk name/type -- everything else here
+        # was already validated by _resolve_plan above.
+        print(f"\n{exc}", file=sys.stderr)
+        return 1
     oi_report = stage(plan, work, out, log=print)
 
     if args.usb:
@@ -485,6 +529,12 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--include-kext", action="append", metavar="NAME",
                     help="force this kext in, even if ocforge wouldn't normally pick it "
                          "(repeatable; must be a name ocforge knows about)")
+    pl.add_argument("--exclude-ssdt", action="append", metavar="NAME",
+                    help="drop this SSDT even if ocforge would normally include it, e.g. "
+                         "SSDT-PLUG (repeatable)")
+    pl.add_argument("--smbios", metavar="MODEL",
+                    help="use this SMBIOS model instead of ocforge's own pick, e.g. "
+                         "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
     pl.set_defaults(func=cmd_plan)
 
     pe = sub.add_parser("explain",
@@ -508,6 +558,12 @@ def build_parser() -> argparse.ArgumentParser:
     pe.add_argument("--include-kext", action="append", metavar="NAME",
                     help="force this kext in, even if ocforge wouldn't normally pick it "
                          "(repeatable; must be a name ocforge knows about)")
+    pe.add_argument("--exclude-ssdt", action="append", metavar="NAME",
+                    help="drop this SSDT even if ocforge would normally include it, e.g. "
+                         "SSDT-PLUG (repeatable)")
+    pe.add_argument("--smbios", metavar="MODEL",
+                    help="use this SMBIOS model instead of ocforge's own pick, e.g. "
+                         "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
     pe.set_defaults(func=cmd_explain)
 
     prep = sub.add_parser("report",
@@ -567,6 +623,16 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--include-kext", action="append", metavar="NAME",
                     help="force this kext in, even if ocforge wouldn't normally pick it "
                          "(repeatable; must be a name ocforge knows about)")
+    pb.add_argument("--exclude-ssdt", action="append", metavar="NAME",
+                    help="drop this SSDT even if ocforge would normally include it, e.g. "
+                         "SSDT-PLUG (repeatable)")
+    pb.add_argument("--smbios", metavar="MODEL",
+                    help="use this SMBIOS model instead of ocforge's own pick, e.g. "
+                         "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
+    pb.add_argument("--quirk", action="append", metavar="NAME=true|false",
+                    help="override one ACPI/Booter/Kernel/UEFI Quirks toggle, e.g. "
+                         "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "
+                         "Quirks entries are numeric settings and can't be set this way)")
     pb.set_defaults(func=cmd_build)
 
     poi = sub.add_parser("offline-installer",
@@ -597,6 +663,16 @@ def build_parser() -> argparse.ArgumentParser:
     poi.add_argument("--include-kext", action="append", metavar="NAME",
                      help="force this kext in, even if ocforge wouldn't normally pick it "
                           "(repeatable; must be a name ocforge knows about)")
+    poi.add_argument("--exclude-ssdt", action="append", metavar="NAME",
+                     help="drop this SSDT even if ocforge would normally include it, e.g. "
+                          "SSDT-PLUG (repeatable)")
+    poi.add_argument("--smbios", metavar="MODEL",
+                     help="use this SMBIOS model instead of ocforge's own pick, e.g. "
+                          "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
+    poi.add_argument("--quirk", action="append", metavar="NAME=true|false",
+                     help="override one ACPI/Booter/Kernel/UEFI Quirks toggle, e.g. "
+                          "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "
+                          "Quirks entries are numeric settings and can't be set this way)")
     poi.set_defaults(func=cmd_offline_installer)
     return p
 

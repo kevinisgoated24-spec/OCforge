@@ -114,6 +114,79 @@ def _latest_target():
     return macos.recommended(ryzen_desktop())
 
 
+# --- SMBIOS override -------------------------------------------------------
+
+
+def test_smbios_override_applies():
+    p = make(ryzen_desktop(), smbios_override="iMac19,1")
+    assert p.smbios_model == "iMac19,1"
+    assert any("SMBIOS manually overridden" in w for w in p.warnings)
+
+
+def test_smbios_override_bad_format_raises():
+    import pytest
+
+    with pytest.raises(ValueError, match="doesn't look like a real SMBIOS model"):
+        make(ryzen_desktop(), smbios_override="not-a-model")
+
+
+def test_smbios_no_override_uses_pick_smbios():
+    p = make(ryzen_desktop())
+    assert not any("SMBIOS manually overridden" in w for w in p.warnings)
+
+
+# --- SSDT exclude -----------------------------------------------------------
+
+
+def test_ssdt_exclude():
+    m = intel_laptop()
+    names = {s.name for s in acpi.select(m)}
+    assert "SSDT-XOSI" in names
+    excluded = {s.name for s in acpi.select(m, exclude=frozenset({"SSDT-XOSI"}))}
+    assert "SSDT-XOSI" not in excluded
+    assert names - {"SSDT-XOSI"} == excluded
+
+
+def test_ssdt_exclude_drops_its_patch_too():
+    m = intel_laptop()
+    assert acpi.patches(m)  # SSDT-XOSI's _OSI->XOSI rename, normally present
+    assert acpi.patches(m, exclude=frozenset({"SSDT-XOSI"})) == []
+
+
+def test_make_exclude_ssdts_threads_through():
+    p = make(intel_laptop(), exclude_ssdts=frozenset({"SSDT-XOSI"}))
+    assert "SSDT-XOSI" not in {s.name for s in p.ssdts}
+    assert any("SSDT selection manually overridden" in w for w in p.warnings)
+
+
+# --- quirk override ----------------------------------------------------------
+
+
+def test_quirk_override_applies_from_the_plan_automatically():
+    # assemble() defaults to plan.quirk_overrides -- a caller doesn't need to
+    # pass it again separately, same as kexts/ssdts already living on the plan.
+    plan = make(ryzen_desktop(), quirk_overrides={"DevirtualiseMmio": True})
+    cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
+    assert cfg["Booter"]["Quirks"]["DevirtualiseMmio"] is True
+
+
+def test_quirk_override_unknown_name_raises():
+    import pytest
+
+    plan = make(ryzen_desktop(), quirk_overrides={"NotAQuirk": True})
+    with pytest.raises(ValueError, match="unknown quirk"):
+        cfgmod.assemble(plan, generate(plan.smbios_model, None))
+
+
+def test_quirk_override_non_boolean_field_raises():
+    import pytest
+
+    # SetApfsTrimTimeout is a real Kernel Quirks key, but an integer, not a toggle.
+    plan = make(ryzen_desktop(), quirk_overrides={"SetApfsTrimTimeout": True})
+    with pytest.raises(ValueError, match="aren't on/off toggles"):
+        cfgmod.assemble(plan, generate(plan.smbios_model, None))
+
+
 # --- ACPI selection -----------------------------------------------------------
 
 

@@ -6,10 +6,18 @@ so it can be printed by ``ocforge plan`` and consumed by ``ocforge build``.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from ocforge.catalog import acpi, bios, kexts, macos
 from ocforge.model import Chassis, Machine, Vendor
+
+# "Name123,4" -- loose enough to cover every real Apple model string without
+# hard-coding the list (Apple adds new ones yearly); a real typo like
+# "iMax19,1" or "iMac19" still gets caught here before we ever touch the
+# network, and macserial itself is the final authority if the format's fine
+# but the model doesn't actually exist.
+_SMBIOS_FORMAT = re.compile(r"^[A-Za-z]+\d+,\d+$")
 
 # SMBIOS model per hardware class. Chosen for a still-supported board-id with
 # the right core count / graphics expectations; the serial is generated later.
@@ -101,6 +109,7 @@ class BuildPlan:
     manual_acpi: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     bios: list[str] = field(default_factory=list)
+    quirk_overrides: dict[str, bool] = field(default_factory=dict)
 
     @property
     def is_amd(self) -> bool:
@@ -138,7 +147,16 @@ _WIFI_OK = (Vendor.INTEL, Vendor.BROADCOM, Vendor.APPLE, Vendor.UNKNOWN)
 def make(m: Machine, *, target_major: int | None = None,
         allow_unsupported_gpu: bool = False, allow_unsupported_os: bool = False,
         exclude_kexts: frozenset[str] = frozenset(),
-        include_kexts: frozenset[str] = frozenset()) -> BuildPlan:
+        include_kexts: frozenset[str] = frozenset(),
+        exclude_ssdts: frozenset[str] = frozenset(),
+        smbios_override: str | None = None,
+        quirk_overrides: dict[str, bool] | None = None) -> BuildPlan:
+    if smbios_override and not _SMBIOS_FORMAT.match(smbios_override):
+        raise ValueError(
+            f"'{smbios_override}' doesn't look like a real SMBIOS model (expected "
+            "something like 'iMac19,1' or 'MacBookPro16,1')"
+        )
+
     # An old spec (or an unparseable CPU brand) can leave intel_gen at 0; if
     # there's an Intel iGPU, recover the generation from its device id.
     from ocforge.probe.base import backfill_intel_gen
@@ -257,15 +275,34 @@ def make(m: Machine, *, target_major: int | None = None,
             f"{', '.join(sorted(include_kexts)) or 'none'}. This bypasses ocforge's "
             "hardware detection; you're on your own if the result doesn't boot."
         )
+    if exclude_ssdts:
+        warnings.append(
+            f"SSDT selection manually overridden — excluded: {', '.join(sorted(exclude_ssdts))}. "
+            "This bypasses ocforge's ACPI detection; you're on your own if the result doesn't boot."
+        )
+    if smbios_override:
+        warnings.append(
+            f"SMBIOS manually overridden to {smbios_override} — ocforge would otherwise have "
+            f"picked {pick_smbios(m, target)}. macserial fails loudly if this model doesn't "
+            "actually exist."
+        )
+    if quirk_overrides:
+        pairs = ", ".join(f"{k}={v}" for k, v in sorted(quirk_overrides.items()))
+        warnings.append(
+            f"quirk(s) manually overridden — {pairs}. Only takes effect on `build`/"
+            "`offline-installer` (quirks aren't part of this plan); unknown quirk names "
+            "are rejected when the config is assembled."
+        )
 
     return BuildPlan(
         machine=m,
         target=target,
-        smbios_model=pick_smbios(m, target),
+        smbios_model=smbios_override or pick_smbios(m, target),
         kexts=kexts.resolve(m, target, exclude=exclude_kexts, include=include_kexts),
-        ssdts=acpi.select(m),
-        acpi_patches=acpi.patches(m),
+        ssdts=acpi.select(m, exclude=exclude_ssdts),
+        acpi_patches=acpi.patches(m, exclude=exclude_ssdts),
         manual_acpi=acpi.needs_generation(m),
         bios=bios.checklist(m),
         warnings=warnings,
+        quirk_overrides=dict(quirk_overrides or {}),
     )

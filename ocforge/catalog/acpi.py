@@ -107,7 +107,7 @@ def hedt_family(m: Machine) -> str | None:
     return None
 
 
-def select(m: Machine) -> list[Ssdt]:
+def select(m: Machine, *, exclude: frozenset[str] = frozenset()) -> list[Ssdt]:
     out: list[Ssdt] = []
     gen = m.cpu.intel_gen or 0
     intel = m.cpu.vendor is Vendor.INTEL
@@ -180,12 +180,14 @@ def select(m: Machine) -> list[Ssdt]:
         out.append(Ssdt("SSDT-RTC0-RANGE-HEDT", "SSDT-RTC0-RANGE-HEDT",
                         "legacy RTC range fix for HEDT (also fixes early-boot halts)"))
 
+    if exclude:
+        out = [s for s in out if s.name not in exclude]
     return out
 
 
-def patches(m: Machine) -> list[dict]:
+def patches(m: Machine, *, exclude: frozenset[str] = frozenset()) -> list[dict]:
     """OC ACPI ``Patch`` entries the selected SSDTs require (currently XOSI)."""
-    return [s.patch.as_oc() for s in select(m) if s.patch]
+    return [s.patch.as_oc() for s in select(m, exclude=exclude) if s.patch]
 
 
 def needs_generation(m: Machine) -> list[str]:

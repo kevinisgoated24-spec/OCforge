@@ -24,6 +24,9 @@ class _BuildPageState extends State<BuildPage> {
   final TextEditingController _dsdtPathCtl = TextEditingController();
   final TextEditingController _excludeKextCtl = TextEditingController();
   final TextEditingController _includeKextCtl = TextEditingController();
+  final TextEditingController _excludeSsdtCtl = TextEditingController();
+  final TextEditingController _smbiosCtl = TextEditingController();
+  final TextEditingController _quirkCtl = TextEditingController();
   final List<String> _log = <String>[];
   bool _running = false;
   bool _recovery = true;
@@ -43,11 +46,15 @@ class _BuildPageState extends State<BuildPage> {
     _dsdtPathCtl.dispose();
     _excludeKextCtl.dispose();
     _includeKextCtl.dispose();
+    _excludeSsdtCtl.dispose();
+    _smbiosCtl.dispose();
+    _quirkCtl.dispose();
     _proc?.kill();
     super.dispose();
   }
 
-  /// Splits a comma/space-separated field into individual kext names.
+  /// Splits a comma/space-separated field into individual tokens (kext/SSDT
+  /// names, or NAME=value quirk pairs).
   List<String> _splitNames(String raw) => raw
       .split(RegExp(r'[,\s]+'))
       .map((String s) => s.trim())
@@ -84,6 +91,9 @@ class _BuildPageState extends State<BuildPage> {
     final String dsdtPath = _dsdtPathCtl.text.trim();
     final List<String> excludeKexts = _splitNames(_excludeKextCtl.text);
     final List<String> includeKexts = _splitNames(_includeKextCtl.text);
+    final List<String> excludeSsdts = _splitNames(_excludeSsdtCtl.text);
+    final List<String> quirks = _splitNames(_quirkCtl.text);
+    final String smbios = _smbiosCtl.text.trim();
     final List<String> args = <String>[
       _offlineInstaller ? 'offline-installer' : 'build',
       '--spec',
@@ -103,6 +113,9 @@ class _BuildPageState extends State<BuildPage> {
       if (_forceUnsupportedOs) '--force-unsupported-os',
       for (final String name in excludeKexts) ...<String>['--exclude-kext', name],
       for (final String name in includeKexts) ...<String>['--include-kext', name],
+      for (final String name in excludeSsdts) ...<String>['--exclude-ssdt', name],
+      if (smbios.isNotEmpty) ...<String>['--smbios', smbios],
+      for (final String pair in quirks) ...<String>['--quirk', pair],
     ];
     try {
       int code = await _runStreamed(c, args);
@@ -295,8 +308,8 @@ class _BuildPageState extends State<BuildPage> {
                     onExpansionChanged: (bool v) => setState(() => _advancedOpen = v),
                     title: const Text('Advanced', style: TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: const Text('ACPI source, debug build, memory map, forcing an '
-                        'unsupported hardware/macOS combination through anyway, kext '
-                        'include/exclude overrides',
+                        'unsupported hardware/macOS combination through anyway, kext/SSDT/'
+                        'SMBIOS/quirk overrides',
                         style: TextStyle(fontSize: 12.5)),
                     children: <Widget>[
                       Padding(
@@ -440,6 +453,83 @@ class _BuildPageState extends State<BuildPage> {
                         decoration: InputDecoration(
                           labelText: 'Include',
                           hintText: 'e.g. VoodooPS2Controller',
+                          isDense: true,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('SSDT overrides',
+                            style: Theme.of(context).textTheme.labelLarge),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _excludeSsdtCtl,
+                        enabled: !_running,
+                        decoration: InputDecoration(
+                          labelText: 'Exclude',
+                          hintText: 'e.g. SSDT-PLUG',
+                          isDense: true,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('SMBIOS override',
+                            style: Theme.of(context).textTheme.labelLarge),
+                      ),
+                      Text(
+                        'Use this model instead of ocforge’s own pick — macserial fails '
+                        'loudly if it doesn’t actually exist.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _smbiosCtl,
+                        enabled: !_running,
+                        decoration: InputDecoration(
+                          labelText: 'SMBIOS model',
+                          hintText: 'e.g. iMac19,1',
+                          isDense: true,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('Quirk overrides',
+                            style: Theme.of(context).textTheme.labelLarge),
+                      ),
+                      Text(
+                        'On/off toggles only — ACPI, Booter, Kernel, or UEFI Quirks. '
+                        'NAME=true or NAME=false, comma or space separated.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _quirkCtl,
+                        enabled: !_running,
+                        decoration: InputDecoration(
+                          labelText: 'Quirks',
+                          hintText: 'e.g. DevirtualiseMmio=false',
                           isDense: true,
                           filled: true,
                           border: OutlineInputBorder(

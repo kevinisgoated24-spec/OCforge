@@ -100,9 +100,29 @@ _PRE_HASWELL_ACPI_DELETE = [
 ]
 
 
+def _apply_quirk_overrides(quirks: dict[str, Any], overrides: dict[str, bool],
+                           applied: set[str], wrong_type: set[str]) -> None:
+    """Applies whichever ``overrides`` this particular quirks dict recognizes,
+    recording each one in ``applied`` so ``assemble()`` can tell a real quirk
+    name from a typo once all four sections have had a turn. A name that
+    exists but isn't a boolean toggle (a few Quirks entries are numeric, e.g.
+    Booter's ProvideMaxSlide) is recorded in ``wrong_type`` instead of being
+    silently coerced."""
+    for name, value in overrides.items():
+        if name not in quirks:
+            continue
+        if not isinstance(quirks[name], bool):
+            wrong_type.add(name)
+            continue
+        quirks[name] = value
+        applied.add(name)
+
+
 def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
          patch: list[dict[str, Any]] | None = None,
-         delete: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+         delete: list[dict[str, Any]] | None = None, *,
+         quirk_overrides: dict[str, bool], applied: set[str],
+         wrong_type: set[str]) -> dict[str, Any]:
     if add is None:
         add = [
             {"Comment": s.name, "Enabled": True, "Path": f"{s.name}.aml"} for s in plan.ssdts
@@ -111,22 +131,26 @@ def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
     m = plan.machine
     if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 4:
         delete += _PRE_HASWELL_ACPI_DELETE
+    quirks = {
+        "FadtEnableReset": False,
+        "NormalizeHeaders": False,
+        "RebaseRegions": False,
+        "ResetHwSig": False,
+        "ResetLogoStatus": True,
+        "SyncTableIds": False,
+    }
+    _apply_quirk_overrides(quirks, quirk_overrides, applied, wrong_type)
     return {
         "Add": add,
         "Delete": delete,
         "Patch": patch or [],
-        "Quirks": {
-            "FadtEnableReset": False,
-            "NormalizeHeaders": False,
-            "RebaseRegions": False,
-            "ResetHwSig": False,
-            "ResetLogoStatus": True,
-            "SyncTableIds": False,
-        },
+        "Quirks": quirks,
     }
 
 
-def _booter(plan: BuildPlan, *, legacy_mmap: bool = False) -> dict[str, Any]:
+def _booter(plan: BuildPlan, *, legacy_mmap: bool = False,
+           quirk_overrides: dict[str, bool], applied: set[str],
+           wrong_type: set[str]) -> dict[str, Any]:
     m = plan.machine
     gen = m.cpu.intel_gen
     intel = m.cpu.vendor is Vendor.INTEL
@@ -149,36 +173,38 @@ def _booter(plan: BuildPlan, *, legacy_mmap: bool = False) -> dict[str, Any]:
     # Dortania-documented default there too, not just an OEM-firmware fallback.
     modern_mmap = not legacy_mmap and (
         (plan.is_amd and not legacy_amd) or (intel and gen >= 8))
+    quirks = {
+        "AllowRelocationBlock": False,
+        "AvoidRuntimeDefrag": True,
+        "ClearTaskSwitchBit": False,
+        # Dortania: YES for all Coffee/Comet Lake desktop (helps slide/MMIO
+        # allocation), plus Z390, 11th-gen+ and Threadripper.
+        "DevirtualiseMmio": z390 or threadripper
+        or (intel and not m.is_laptop and gen >= 8),
+        "DisableSingleUser": False,
+        "DisableVariableWrite": False,
+        "DiscardHibernateMap": False,
+        "EnableSafeModeSlide": True,
+        "EnableWriteUnprotector": not modern_mmap,
+        "FixupAppleEfiImages": True,
+        "ForceBooterSignature": False,
+        "ForceExitBootServices": False,
+        "ProtectMemoryRegions": False,
+        "ProtectSecureBoot": False,
+        "ProtectUefiServices": z390 or gen >= 11,
+        "ProvideCustomSlide": True,
+        "ProvideMaxSlide": 0,
+        "RebuildAppleMemoryMap": modern_mmap,
+        "ResizeAppleGpuBars": -1,
+        "SetupVirtualMap": not (newer_amd_board or gen >= 11 or z390),
+        "SignalAppleOS": False,
+        "SyncRuntimePermissions": modern_mmap,
+    }
+    _apply_quirk_overrides(quirks, quirk_overrides, applied, wrong_type)
     return {
         "MmioWhitelist": [],
         "Patch": [],
-        "Quirks": {
-            "AllowRelocationBlock": False,
-            "AvoidRuntimeDefrag": True,
-            "ClearTaskSwitchBit": False,
-            # Dortania: YES for all Coffee/Comet Lake desktop (helps slide/MMIO
-            # allocation), plus Z390, 11th-gen+ and Threadripper.
-            "DevirtualiseMmio": z390 or threadripper
-            or (intel and not m.is_laptop and gen >= 8),
-            "DisableSingleUser": False,
-            "DisableVariableWrite": False,
-            "DiscardHibernateMap": False,
-            "EnableSafeModeSlide": True,
-            "EnableWriteUnprotector": not modern_mmap,
-            "FixupAppleEfiImages": True,
-            "ForceBooterSignature": False,
-            "ForceExitBootServices": False,
-            "ProtectMemoryRegions": False,
-            "ProtectSecureBoot": False,
-            "ProtectUefiServices": z390 or gen >= 11,
-            "ProvideCustomSlide": True,
-            "ProvideMaxSlide": 0,
-            "RebuildAppleMemoryMap": modern_mmap,
-            "ResizeAppleGpuBars": -1,
-            "SetupVirtualMap": not (newer_amd_board or gen >= 11 or z390),
-            "SignalAppleOS": False,
-            "SyncRuntimePermissions": modern_mmap,
-        },
+        "Quirks": quirks,
     }
 
 
@@ -226,7 +252,9 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
     return {"Add": add, "Delete": {}}
 
 
-def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[str, Any]:
+def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None, *,
+           quirk_overrides: dict[str, bool], applied: set[str],
+           wrong_type: set[str]) -> dict[str, Any]:
     adds = []
     for s in plan.kexts:
         entry = {
@@ -272,6 +300,7 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None) -> dict[s
         "ThirdPartyDrives": False,
         "XhciPortLimit": False,
     }
+    _apply_quirk_overrides(quirks, quirk_overrides, applied, wrong_type)
 
     spoof_data, spoof_mask = _cpu_spoof(plan.machine)
     emulate = {
@@ -395,8 +424,9 @@ def _platform_info(sm: SmbiosData) -> dict[str, Any]:
     }
 
 
-def _uefi(plan: BuildPlan) -> dict[str, Any]:
-    return {
+def _uefi(plan: BuildPlan, *, quirk_overrides: dict[str, bool], applied: set[str],
+         wrong_type: set[str]) -> dict[str, Any]:
+    result = {
         "APFS": {
             "EnableJumpstart": True,
             "GlobalConnect": False,
@@ -515,6 +545,8 @@ def _uefi(plan: BuildPlan) -> dict[str, Any]:
         "ReservedMemory": [],
         "Unload": [],
     }
+    _apply_quirk_overrides(result["Quirks"], quirk_overrides, applied, wrong_type)
+    return result
 
 
 def assemble(plan: BuildPlan, sm: SmbiosData, *,
@@ -522,16 +554,37 @@ def assemble(plan: BuildPlan, sm: SmbiosData, *,
              acpi_add: list[dict[str, Any]] | None = None,
              acpi_patch: list[dict[str, Any]] | None = None,
              acpi_delete: list[dict[str, Any]] | None = None,
-             legacy_mmap: bool = False) -> dict[str, Any]:
+             legacy_mmap: bool = False,
+             quirk_overrides: dict[str, bool] | None = None) -> dict[str, Any]:
+    # Defaults to whatever the plan itself carries (set via `make(...,
+    # quirk_overrides=...)`) -- explicit here only lets a caller (tests,
+    # mainly) override that without building a whole new plan.
+    overrides = plan.quirk_overrides if quirk_overrides is None else quirk_overrides
+    applied: set[str] = set()
+    wrong_type: set[str] = set()
+    acpi_ = _acpi(plan, acpi_add, acpi_patch, acpi_delete,
+                 quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
+    booter = _booter(plan, legacy_mmap=legacy_mmap,
+                     quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
+    kernel = _kernel(plan, amd_patches, quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
+    uefi = _uefi(plan, quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
+    unknown = set(overrides) - applied - wrong_type
+    if unknown:
+        raise ValueError(f"unknown quirk name(s): {', '.join(sorted(unknown))}")
+    if wrong_type:
+        raise ValueError(
+            f"quirk(s) {', '.join(sorted(wrong_type))} aren't on/off toggles (they're "
+            "numeric settings, e.g. a slide count or a timeout) -- not overridable with --quirk"
+        )
     return {
-        "ACPI": _acpi(plan, acpi_add, acpi_patch, acpi_delete),
-        "Booter": _booter(plan, legacy_mmap=legacy_mmap),
+        "ACPI": acpi_,
+        "Booter": booter,
         "DeviceProperties": _device_properties(plan),
-        "Kernel": _kernel(plan, amd_patches),
+        "Kernel": kernel,
         "Misc": _misc(plan),
         "NVRAM": _nvram(plan),
         "PlatformInfo": _platform_info(sm),
-        "UEFI": _uefi(plan),
+        "UEFI": uefi,
     }
 
 
