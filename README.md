@@ -20,6 +20,7 @@ Changelog: [CHANGELOG.md](CHANGELOG.md), now with Linux and macOS support.
 > Made from public OpenCore / Dortania documentation; MIT, see [LICENSE](LICENSE).
 
 Supported Device And Tested Devices List [SupportedDevice.md](https://github.com/kevinisgoated24-spec/OCforge/blob/master/SupportedDevice.md)
+> This is the list of tested and supported devices if you actually managed to get your EFI to work please join in the discord group to tell us:D 
 
 ## Install
 
