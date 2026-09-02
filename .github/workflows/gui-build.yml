@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - "gui-v*"
+      - "gui-beta-v*"
 
 permissions:
   contents: write
@@ -184,10 +185,18 @@ jobs:
             $0 == t {f=1; next}
             /^## / {f=0}
             f {print}
-          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
-          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
-            echo "_No changelog entry for ${GITHUB_REF_NAME}; see the commit history._" > "$RUNNER_TEMP/notes.md"
+          ' CHANGELOG.md > "$RUNNER_TEMP/body.md"
+          if [ ! -s "$RUNNER_TEMP/body.md" ]; then
+            echo "_No changelog entry for ${GITHUB_REF_NAME}; see the commit history._" > "$RUNNER_TEMP/body.md"
           fi
+          case "${GITHUB_REF_NAME}" in
+            gui-beta-v*)
+              { echo "> **Beta build — for beta testers only.** May be unstable; not the recommended download for general use."; echo; cat "$RUNNER_TEMP/body.md"; } > "$RUNNER_TEMP/notes.md"
+              ;;
+            *)
+              cp "$RUNNER_TEMP/body.md" "$RUNNER_TEMP/notes.md"
+              ;;
+          esac
           echo "===== release notes ====="; cat "$RUNNER_TEMP/notes.md"
 
       - run: find dist -type f

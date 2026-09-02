@@ -368,6 +368,12 @@ install Python + `ocforge` for you, and falls back to a demo mode otherwise.
 Prebuilt bundles are attached to each `gui-v*` [release](https://github.com/kevinisgoated24-spec/OCforge/releases);
 see [`gui/README.md`](gui/README.md).
 
+**Beta channel:** the flask icon in the bottom-left of the GUI (next to
+Theme and Report-a-bug) opts into `gui-beta-v*` releases — builds off the
+[`beta`](https://github.com/kevinisgoated24-spec/OCforge/tree/beta) branch,
+for testers trying things out before they land in a regular `gui-v*`
+release. Off by default; toggling it re-checks for an update immediately.
+
 ## Layout
 
 | package            | does |

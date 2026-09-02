@@ -4,23 +4,31 @@ import 'dart:io';
 /// The GUI's own version — kept in sync by hand with pubspec.yaml's
 /// `version:` and [OcforgeCli.minVersion] (cli.dart), same manual-bump
 /// convention already used for every gui-v* tag.
-const String appVersion = '0.4.41';
+const String appVersion = '0.4.42';
 
 const String _releasesListApi =
     'https://api.github.com/repos/kevinisgoated24-spec/OCforge/releases?per_page=20';
 
-/// Checks GitHub for a newer `gui-v*` release than [appVersion]. Returns
-/// `(version, releaseUrl)` if one exists, or null if already current or the
-/// check couldn't complete (offline, rate-limited, malformed response, …) —
-/// this never throws into the caller and should never block startup on it.
+/// Checks GitHub for a newer release than [appVersion]. Returns
+/// `(version, releaseUrl, isBeta)` if one exists, or null if already current
+/// or the check couldn't complete (offline, rate-limited, malformed
+/// response, …) — this never throws into the caller and should never block
+/// startup on it.
 ///
 /// Lists releases and picks the newest by version number itself, rather
 /// than GitHub's own `/releases/latest` — that endpoint only ever returns
-/// the newest *non-prerelease*, and every gui-v* release is tagged
+/// the newest *non-prerelease*, and every release here is tagged
 /// pre-release while this project isn't public yet (draft releases are
 /// never included here regardless: GitHub only returns those to an
 /// authenticated request, and this one carries no token).
-Future<(String, String)?> checkForGuiUpdate() async {
+///
+/// Two tag families exist: `gui-v*` (stable — always considered) and
+/// `gui-beta-v*` (beta — only considered when [includeBeta] is true, i.e.
+/// the user opted into the beta channel via [OcforgeController.betaChannel]).
+/// Whichever family has the numerically newer version wins; [isBeta] on the
+/// result says which one was picked, so the caller (the update banner/dialog)
+/// can label it and fetch the right tag.
+Future<(String, String, bool)?> checkForGuiUpdate({bool includeBeta = false}) async {
   HttpClient? client;
   try {
     client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
@@ -34,19 +42,24 @@ Future<(String, String)?> checkForGuiUpdate() async {
 
     String? bestVersion;
     String? bestUrl;
+    bool bestIsBeta = false;
     for (final dynamic r in releases) {
       final Map<String, dynamic> rel = r as Map<String, dynamic>;
       final String tag = (rel['tag_name'] as String?) ?? '';
-      if (!tag.startsWith('gui-v')) continue;
-      final String version = tag.substring(5);
+      final bool isBetaTag = tag.startsWith('gui-beta-v');
+      final String prefix = isBetaTag ? 'gui-beta-v' : 'gui-v';
+      if (!tag.startsWith(prefix)) continue;
+      if (isBetaTag && !includeBeta) continue;
+      final String version = tag.substring(prefix.length);
       if (bestVersion == null || _isNewer(version, bestVersion)) {
         bestVersion = version;
+        bestIsBeta = isBetaTag;
         bestUrl = (rel['html_url'] as String?) ??
             'https://github.com/kevinisgoated24-spec/OCforge/releases/tag/$tag';
       }
     }
     if (bestVersion == null || !_isNewer(bestVersion, appVersion)) return null;
-    return (bestVersion, bestUrl!);
+    return (bestVersion, bestUrl!, bestIsBeta);
   } on Object {
     return null;
   } finally {

@@ -54,6 +54,10 @@ class OcforgeController extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.system;
   AccentTheme accent = AccentTheme.violet;
 
+  /// Opt-in to `gui-beta-v*` releases in [checkForGuiUpdate] — off by
+  /// default, so nobody gets offered a beta build without asking for one.
+  bool betaChannel = false;
+
   /// Anthropic API key for the in-GUI assistant (assistant.dart), used only
   /// when no local Claude Code CLI is found. Stored in the same plaintext
   /// prefs.json as theme/accent -- this app has no OS-keychain integration
@@ -64,10 +68,11 @@ class OcforgeController extends ChangeNotifier {
   bool _prefsLoaded = false;
   bool _disposed = false;
 
-  /// (version, releaseUrl) of a newer GUI release, once the background check
-  /// in [init] finds one. Null until then, and stays null if none exists or
-  /// the check couldn't complete — never blocks startup either way.
-  (String, String)? guiUpdate;
+  /// (version, releaseUrl, isBeta) of a newer GUI release, once a check (in
+  /// [init], or re-run by [setBetaChannel]) finds one. Null until then, and
+  /// stays null if none exists or the check couldn't complete — never blocks
+  /// startup either way.
+  (String, String, bool)? guiUpdate;
 
   Future<void> init() async {
     if (!_prefsLoaded) {
@@ -80,23 +85,40 @@ class OcforgeController extends ChangeNotifier {
       );
       accent = AccentTheme.byName(p['accent'] is String ? p['accent'] as String : null);
       aiApiKey = p['aiApiKey'] is String ? p['aiApiKey'] as String : null;
+      betaChannel = p['betaChannel'] == true;
     }
     cliReady = await cli.resolve();
     notifyListeners();
-    unawaited(checkForGuiUpdate().then(((String, String)? r) {
-      // The app may have closed before this network call finished --
-      // notifyListeners() on a disposed ChangeNotifier throws.
-      if (r != null && !_disposed) {
-        guiUpdate = r;
-        notifyListeners();
-      }
-    }));
+    unawaited(_checkForUpdate());
+  }
+
+  Future<void> _checkForUpdate() async {
+    final (String, String, bool)? r =
+        await checkForGuiUpdate(includeBeta: betaChannel);
+    // The app may have closed (or the user flipped the toggle again) before
+    // this network call finished -- notifyListeners() on a disposed
+    // ChangeNotifier throws, and a stale result shouldn't clobber a newer one.
+    if (!_disposed) {
+      guiUpdate = r;
+      notifyListeners();
+    }
+  }
+
+  /// Toggles the beta-updates opt-in and immediately re-checks for an
+  /// update under the new setting, so flipping it on (or off) doesn't wait
+  /// for the next app launch to take effect.
+  void setBetaChannel(bool v) {
+    betaChannel = v;
+    _persist();
+    notifyListeners();
+    unawaited(_checkForUpdate());
   }
 
   void _persist() {
     Prefs.save(<String, dynamic>{
       'themeMode': themeMode.name,
       'accent': accent.name,
+      'betaChannel': betaChannel,
       if (aiApiKey != null && aiApiKey!.isNotEmpty) 'aiApiKey': aiApiKey,
     });
   }

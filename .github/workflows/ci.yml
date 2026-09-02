@@ -1,13 +1,13 @@
 name: CI
 
-# Runs on every push and PR, unlike gui-build.yml (which only builds on a
-# workflow_dispatch or a gui-v* tag). With more than one person pushing
-# directly to master, this is what actually catches a broken commit before
-# someone notices the hard way.
+# Runs on every push to master or beta, and on PRs, unlike gui-build.yml
+# (which only builds on a workflow_dispatch or a gui-v*/gui-beta-v* tag).
+# With more than one person pushing directly to these branches, this is
+# what actually catches a broken commit before someone notices the hard way.
 
 on:
   push:
-    branches: [master]
+    branches: [master, beta]
   pull_request:
 
 jobs:

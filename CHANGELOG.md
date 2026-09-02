@@ -3,6 +3,23 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.42
+
+A beta channel, for a smaller group to try builds before they go out to
+everyone.
+
+- New **Beta updates** toggle (the flask icon next to Theme/Report-a-bug) —
+  off by default. Flipping it on makes the update-checker also consider
+  `gui-beta-v*` releases, not just `gui-v*` ones; flipping it off (or back
+  on) re-checks immediately rather than waiting for the next launch.
+- The update banner and "Update now" dialog label a beta pick as such, and
+  fetch the right tag (`gui-beta-v*` vs `gui-v*`) when self-updating.
+- CI (`gui-build.yml`) now also builds and publishes on `gui-beta-v*` tags,
+  with a "beta build — for beta testers only" note prepended to the release
+  notes.
+- New `beta` branch in the repo — where beta-tagged work will land going
+  forward, kept separate from `master`'s stable `gui-v*` line.
+
 ## gui-v0.4.41
 
 Expert mode, part two: the rest of the manual-override set, same "extend the

@@ -439,10 +439,11 @@ Future<bool> confirmUnsupportedOs(BuildContext context, String detail) async {
 /// complete for any reason it falls back to just opening the release page,
 /// same as this banner always did before.
 class GuiUpdateBanner extends StatelessWidget {
-  const GuiUpdateBanner({super.key, required this.version, required this.url});
+  const GuiUpdateBanner({super.key, required this.version, required this.url, this.isBeta = false});
 
   final String version;
   final String url;
+  final bool isBeta;
 
   @override
   Widget build(BuildContext context) {
@@ -457,12 +458,15 @@ class GuiUpdateBanner extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'OCForge GUI $version is available — you have $appVersion.',
+                isBeta
+                    ? 'OCForge GUI $version (beta) is available — you have $appVersion.'
+                    : 'OCForge GUI $version is available — you have $appVersion.',
                 style: TextStyle(color: s.onSecondaryContainer, fontSize: 12.5),
               ),
             ),
             TextButton(
-              onPressed: () => showGuiUpdateDialog(context, version: version, url: url),
+              onPressed: () =>
+                  showGuiUpdateDialog(context, version: version, url: url, isBeta: isBeta),
               child: const Text('Update'),
             ),
           ],
@@ -479,21 +483,23 @@ class GuiUpdateBanner extends StatelessWidget {
 /// to opening the release page — same as the old banner-only behaviour —
 /// and the dialog stays open on the current (unmodified) install so the user
 /// can keep using it.
-Future<void> showGuiUpdateDialog(BuildContext context, {required String version, required String url}) {
+Future<void> showGuiUpdateDialog(BuildContext context,
+    {required String version, required String url, bool isBeta = false}) {
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (BuildContext ctx) => _GuiUpdateDialog(version: version, url: url),
+    builder: (BuildContext ctx) => _GuiUpdateDialog(version: version, url: url, isBeta: isBeta),
   );
 }
 
 enum _UpdatePhase { confirm, working, failed, done }
 
 class _GuiUpdateDialog extends StatefulWidget {
-  const _GuiUpdateDialog({required this.version, required this.url});
+  const _GuiUpdateDialog({required this.version, required this.url, this.isBeta = false});
 
   final String version;
   final String url;
+  final bool isBeta;
 
   @override
   State<_GuiUpdateDialog> createState() => _GuiUpdateDialogState();
@@ -527,7 +533,7 @@ class _GuiUpdateDialogState extends State<_GuiUpdateDialog> {
     _say('');
     _say('Updating the GUI app…');
     final bool ok = await GuiSelfUpdate.apply(
-      tag: 'gui-v${widget.version}',
+      tag: widget.isBeta ? 'gui-beta-v${widget.version}' : 'gui-v${widget.version}',
       log: (String l) => _say('  $l'),
     );
     if (!ok) {
@@ -550,14 +556,15 @@ class _GuiUpdateDialogState extends State<_GuiUpdateDialog> {
     final bool closable = _phase == _UpdatePhase.confirm || _phase == _UpdatePhase.failed;
     return AlertDialog(
       title: Text(_phase == _UpdatePhase.confirm
-          ? 'Update to ${widget.version}?'
+          ? 'Update to ${widget.version}${widget.isBeta ? ' (beta)' : ''}?'
           : 'Updating OCForge'),
       content: SizedBox(
         width: 520,
         child: _phase == _UpdatePhase.confirm
-            ? const Text('This updates both the ocforge CLI and this app, then '
+            ? Text('This updates both the ocforge CLI and this app, then '
                 'relaunches. If the automatic swap can\'t complete on this '
-                'machine, it falls back to opening the release page instead.')
+                'machine, it falls back to opening the release page instead.'
+                '${widget.isBeta ? '\n\nThis is a beta build — it may be less stable than a regular release.' : ''}')
             : LogConsole(lines: _log, minHeight: 180),
       ),
       actions: <Widget>[

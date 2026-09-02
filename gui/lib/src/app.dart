@@ -211,6 +211,15 @@ class _ShellState extends State<_Shell> {
                       ),
                       const SizedBox(height: 4),
                       IconButton(
+                        tooltip: c.betaChannel
+                            ? 'Beta updates: on — you\'ll be offered gui-beta-* builds'
+                            : 'Beta updates: off — join if you\'re a beta tester',
+                        onPressed: () => c.setBetaChannel(!c.betaChannel),
+                        icon: Icon(c.betaChannel ? Icons.science_rounded : Icons.science_outlined),
+                        color: c.betaChannel ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                      const SizedBox(height: 4),
+                      IconButton(
                         tooltip: 'Report a bug (OCforgeReporter)',
                         onPressed: () => _reportBug(c),
                         icon: const Icon(Icons.bug_report_outlined),
@@ -258,7 +267,11 @@ class _ShellState extends State<_Shell> {
               children: <Widget>[
                 if (c.demo) const DemoBanner(),
                 if (c.guiUpdate != null)
-                  GuiUpdateBanner(version: c.guiUpdate!.$1, url: c.guiUpdate!.$2),
+                  GuiUpdateBanner(
+                    version: c.guiUpdate!.$1,
+                    url: c.guiUpdate!.$2,
+                    isBeta: c.guiUpdate!.$3,
+                  ),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 340),
