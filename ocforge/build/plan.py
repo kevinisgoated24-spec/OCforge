@@ -136,7 +136,9 @@ _WIFI_OK = (Vendor.INTEL, Vendor.BROADCOM, Vendor.APPLE, Vendor.UNKNOWN)
 
 
 def make(m: Machine, *, target_major: int | None = None,
-        allow_unsupported_gpu: bool = False, allow_unsupported_os: bool = False) -> BuildPlan:
+        allow_unsupported_gpu: bool = False, allow_unsupported_os: bool = False,
+        exclude_kexts: frozenset[str] = frozenset(),
+        include_kexts: frozenset[str] = frozenset()) -> BuildPlan:
     # An old spec (or an unparseable CPU brand) can leave intel_gen at 0; if
     # there's an Intel iGPU, recover the generation from its device id.
     from ocforge.probe.base import backfill_intel_gen
@@ -248,12 +250,19 @@ def make(m: Machine, *, target_major: int | None = None,
     if any(v in _bv for v in ("dell", "hewlett", "hp ", "lenovo")):
         warnings.append("OEM firmware (Dell/HP/Lenovo) can lack the MAT table -- if the "
                         "build panics or hangs early, rebuild with --legacy-mmap")
+    if exclude_kexts or include_kexts:
+        warnings.append(
+            "kext selection manually overridden — excluded: "
+            f"{', '.join(sorted(exclude_kexts)) or 'none'}; included: "
+            f"{', '.join(sorted(include_kexts)) or 'none'}. This bypasses ocforge's "
+            "hardware detection; you're on your own if the result doesn't boot."
+        )
 
     return BuildPlan(
         machine=m,
         target=target,
         smbios_model=pick_smbios(m, target),
-        kexts=kexts.resolve(m, target),
+        kexts=kexts.resolve(m, target, exclude=exclude_kexts, include=include_kexts),
         ssdts=acpi.select(m),
         acpi_patches=acpi.patches(m),
         manual_acpi=acpi.needs_generation(m),

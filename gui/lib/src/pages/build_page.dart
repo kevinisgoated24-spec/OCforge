@@ -17,24 +17,42 @@ class BuildPage extends StatefulWidget {
   State<BuildPage> createState() => _BuildPageState();
 }
 
+enum _DsdtSource { none, autoDump, supplied }
+
 class _BuildPageState extends State<BuildPage> {
   final TextEditingController _outCtl = TextEditingController();
+  final TextEditingController _dsdtPathCtl = TextEditingController();
+  final TextEditingController _excludeKextCtl = TextEditingController();
+  final TextEditingController _includeKextCtl = TextEditingController();
   final List<String> _log = <String>[];
   bool _running = false;
   bool _recovery = true;
-  bool _dumpDsdt = false;
+  _DsdtSource _dsdtSource = _DsdtSource.none;
   bool _debug = false;
   bool _legacyMmap = false;
   bool _offlineInstaller = false;
+  bool _forceUnsupportedGpu = false;
+  bool _forceUnsupportedOs = false;
+  bool _advancedOpen = false;
   int? _lastExit;
   Process? _proc;
 
   @override
   void dispose() {
     _outCtl.dispose();
+    _dsdtPathCtl.dispose();
+    _excludeKextCtl.dispose();
+    _includeKextCtl.dispose();
     _proc?.kill();
     super.dispose();
   }
+
+  /// Splits a comma/space-separated field into individual kext names.
+  List<String> _splitNames(String raw) => raw
+      .split(RegExp(r'[,\s]+'))
+      .map((String s) => s.trim())
+      .where((String s) => s.isNotEmpty)
+      .toList();
 
   void _append(String line) {
     if (!mounted) return;
@@ -63,6 +81,9 @@ class _BuildPageState extends State<BuildPage> {
       return;
     }
 
+    final String dsdtPath = _dsdtPathCtl.text.trim();
+    final List<String> excludeKexts = _splitNames(_excludeKextCtl.text);
+    final List<String> includeKexts = _splitNames(_includeKextCtl.text);
     final List<String> args = <String>[
       _offlineInstaller ? 'offline-installer' : 'build',
       '--spec',
@@ -73,20 +94,30 @@ class _BuildPageState extends State<BuildPage> {
       // offline-installer always stages its own recovery boot image (with
       // the Sonoma+ older-BaseSystem split) and doesn't take these flags.
       if (!_offlineInstaller && _recovery) '--recovery',
-      if (!_offlineInstaller && _dumpDsdt) '--dump-dsdt',
+      if (!_offlineInstaller && _dsdtSource == _DsdtSource.autoDump) '--dump-dsdt',
+      if (!_offlineInstaller && _dsdtSource == _DsdtSource.supplied && dsdtPath.isNotEmpty)
+        ...<String>['--dsdt', dsdtPath],
       if (!_offlineInstaller && _debug) '--debug',
       if (_legacyMmap) '--legacy-mmap',
+      if (_forceUnsupportedGpu) '--force-unsupported-gpu',
+      if (_forceUnsupportedOs) '--force-unsupported-os',
+      for (final String name in excludeKexts) ...<String>['--exclude-kext', name],
+      for (final String name in includeKexts) ...<String>['--include-kext', name],
     ];
     try {
       int code = await _runStreamed(c, args);
-      if (code == unsupportedGpuExitCode) {
+      // Already forced up front (the Advanced toggles above) -> a matching
+      // exit code here means something else is wrong, not "ask the user" --
+      // showing the same confirm dialog again would just re-force a flag
+      // that's already on the command line.
+      if (code == unsupportedGpuExitCode && !_forceUnsupportedGpu) {
         final String detail = _log.join('\n');
         if (!await confirmUnsupportedGpu(context, detail)) {
           _finish(130, out);
           return;
         }
         code = await _runStreamed(c, <String>[...args, '--force-unsupported-gpu']);
-      } else if (code == unsupportedOsExitCode) {
+      } else if (code == unsupportedOsExitCode && !_forceUnsupportedOs) {
         final String detail = _log.join('\n');
         if (!await confirmUnsupportedOs(context, detail)) {
           _finish(130, out);
@@ -255,33 +286,170 @@ class _BuildPageState extends State<BuildPage> {
                       ? null
                       : (bool v) => setState(() => _recovery = v),
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Build SSDTs from this PC\u2019s DSDT'),
-                  subtitle: const Text(
-                      'Runs SSDTTime against the live ACPI tables (Linux host) \u2014 --dump-dsdt'),
-                  value: _dumpDsdt,
-                  onChanged: (_running || _offlineInstaller)
-                      ? null
-                      : (bool v) => setState(() => _dumpDsdt = v),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('OpenCore DEBUG build'),
-                  subtitle: const Text('Verbose logging to the EFI \u2014 --debug'),
-                  value: _debug,
-                  onChanged: (_running || _offlineInstaller)
-                      ? null
-                      : (bool v) => setState(() => _debug = v),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Legacy memory map'),
-                  subtitle: const Text(
-                      'EnableWriteUnprotector instead of RebuildAppleMemoryMap \u2014 for '
-                      'OEM firmware (Dell/HP/Lenovo) that panics early \u2014 --legacy-mmap'),
-                  value: _legacyMmap,
-                  onChanged: _running ? null : (bool v) => setState(() => _legacyMmap = v),
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: const EdgeInsets.only(bottom: 8),
+                    initiallyExpanded: _advancedOpen,
+                    onExpansionChanged: (bool v) => setState(() => _advancedOpen = v),
+                    title: const Text('Advanced', style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text('ACPI source, debug build, memory map, forcing an '
+                        'unsupported hardware/macOS combination through anyway, kext '
+                        'include/exclude overrides',
+                        style: TextStyle(fontSize: 12.5)),
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('SSDTs from', style: Theme.of(context).textTheme.labelLarge),
+                      ),
+                      RadioListTile<_DsdtSource>(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('Dortania\u2019s precompiled set (default)'),
+                        value: _DsdtSource.none,
+                        groupValue: _dsdtSource,
+                        onChanged: (_running || _offlineInstaller)
+                            ? null
+                            : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
+                      ),
+                      RadioListTile<_DsdtSource>(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('This PC\u2019s own ACPI tables'),
+                        subtitle: const Text(
+                            'Runs SSDTTime against a live dump \u2014 --dump-dsdt',
+                            style: TextStyle(fontSize: 12)),
+                        value: _DsdtSource.autoDump,
+                        groupValue: _dsdtSource,
+                        onChanged: (_running || _offlineInstaller)
+                            ? null
+                            : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
+                      ),
+                      RadioListTile<_DsdtSource>(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('A DSDT I already have'),
+                        subtitle: const Text(
+                            'A .aml file or a folder of dumped ACPI tables \u2014 --dsdt PATH',
+                            style: TextStyle(fontSize: 12)),
+                        value: _DsdtSource.supplied,
+                        groupValue: _dsdtSource,
+                        onChanged: (_running || _offlineInstaller)
+                            ? null
+                            : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
+                      ),
+                      if (_dsdtSource == _DsdtSource.supplied)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8, top: 4),
+                          child: TextField(
+                            controller: _dsdtPathCtl,
+                            enabled: !_running,
+                            decoration: InputDecoration(
+                              hintText: r'e.g. C:\Users\you\Desktop\my-pc-acpi',
+                              isDense: true,
+                              filled: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                      const Divider(height: 24),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('OpenCore DEBUG build'),
+                        subtitle: const Text('Verbose logging to the EFI \u2014 --debug'),
+                        value: _debug,
+                        onChanged: (_running || _offlineInstaller)
+                            ? null
+                            : (bool v) => setState(() => _debug = v),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('Legacy memory map'),
+                        subtitle: const Text(
+                            'EnableWriteUnprotector instead of RebuildAppleMemoryMap \u2014 for '
+                            'OEM firmware (Dell/HP/Lenovo) that panics early \u2014 --legacy-mmap',
+                            style: TextStyle(fontSize: 12)),
+                        value: _legacyMmap,
+                        onChanged: _running ? null : (bool v) => setState(() => _legacyMmap = v),
+                      ),
+                      const Divider(height: 24),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('Force through an unsupported GPU'),
+                        subtitle: const Text(
+                            'Skip the \u201ccontinue anyway?\u201d prompt for no supported display '
+                            'path \u2014 --force-unsupported-gpu',
+                            style: TextStyle(fontSize: 12)),
+                        value: _forceUnsupportedGpu,
+                        onChanged: _running
+                            ? null
+                            : (bool v) => setState(() => _forceUnsupportedGpu = v),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('Force through an unsupported macOS target'),
+                        subtitle: const Text(
+                            'Skip the prompt when the chosen macOS version isn\u2019t supported '
+                            'on this hardware \u2014 --force-unsupported-os',
+                            style: TextStyle(fontSize: 12)),
+                        value: _forceUnsupportedOs,
+                        onChanged: _running
+                            ? null
+                            : (bool v) => setState(() => _forceUnsupportedOs = v),
+                      ),
+                      const Divider(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('Kext overrides',
+                            style: Theme.of(context).textTheme.labelLarge),
+                      ),
+                      Text(
+                        'Bypasses ocforge’s hardware detection — you’re on your own '
+                        'if the result doesn’t boot. Comma or space separated bundle names.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _excludeKextCtl,
+                        enabled: !_running,
+                        decoration: InputDecoration(
+                          labelText: 'Exclude',
+                          hintText: 'e.g. USBToolBox, ECEnabler',
+                          isDense: true,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _includeKextCtl,
+                        enabled: !_running,
+                        decoration: InputDecoration(
+                          labelText: 'Include',
+                          hintText: 'e.g. VoodooPS2Controller',
+                          isDense: true,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -320,25 +488,43 @@ class _BuildPageState extends State<BuildPage> {
         ),
         if (_lastExit == 0) ...<Widget>[
           const SizedBox(height: 14),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               FilledButton.tonalIcon(
                 onPressed: _running ? null : () => _validate(_outCtl.text.trim()),
                 icon: const Icon(Icons.verified_rounded),
                 label: const Text('Validate this EFI'),
               ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text('runs OpenCore’s ocvalidate on the config.plist',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 12.5)),
+              OutlinedButton.icon(
+                onPressed: _running ? null : () => _reviewInEditor(c),
+                icon: const Icon(Icons.data_object_rounded),
+                label: const Text('Review in Editor'),
               ),
+              Text('check or hand-tweak config.plist before it’s used to boot anything',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12.5)),
             ],
           ),
         ],
       ],
     );
+  }
+
+  // Editor is nav-rail index 4 regardless of whether the dev-stats tab is
+  // unlocked (that one's always appended at the end) -- see app.dart's
+  // _pages/destinations.
+  static const int _editorTabIndex = 4;
+
+  void _reviewInEditor(OcforgeController c) {
+    final String out = _outCtl.text.trim();
+    if (out.isEmpty) return;
+    final String configPath =
+        <String>[out, 'EFI', 'OC', 'config.plist'].join(Platform.pathSeparator);
+    c.reviewInEditor(configPath, editorTabIndex: _editorTabIndex);
   }
 
   Future<void> _validate(String out) async {

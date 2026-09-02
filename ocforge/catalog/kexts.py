@@ -154,7 +154,17 @@ def _need_wifi(m: Machine) -> str | None:
     return None  # Atheros / MediaTek / unknown — user problem
 
 
-def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
+def resolve(
+    m: Machine,
+    target: MacOSRelease,
+    *,
+    exclude: frozenset[str] = frozenset(),
+    include: frozenset[str] = frozenset(),
+) -> list[Selected]:
+    unknown = include - _BY_NAME.keys()
+    if unknown:
+        raise ValueError(f"unknown kext name(s): {', '.join(sorted(unknown))}")
+
     picks: dict[str, str] = {}  # name -> comment
 
     for base in ("Lilu", "VirtualSMC", "SMCProcessor", "WhateverGreen", "AppleALC",
@@ -209,6 +219,11 @@ def resolve(m: Machine, target: MacOSRelease) -> list[Selected]:
         picks.setdefault("NVMeFix", "")
 
     picks["USBToolBox"] = "USB mapping (map ports after first boot)"
+
+    for name in exclude:
+        picks.pop(name, None)
+    for name in include:
+        picks.setdefault(name, "manually added")
 
     out = [Selected(_BY_NAME[n], _BY_NAME[n].min_darwin, _BY_NAME[n].max_darwin, c)
            for n, c in picks.items()]

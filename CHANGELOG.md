@@ -3,6 +3,29 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v0.4.40
+
+Expert mode, part one: an "Advanced" panel on the Build page, and the first
+manual override underneath it.
+
+- **DSDT source** is now a real choice instead of a single dump toggle:
+  Dortania's precompiled set (default), this PC's own ACPI tables
+  (`--dump-dsdt`), or a DSDT/ACPI folder you already have (`--dsdt PATH`).
+- **Force through an unsupported build** — two new switches to skip the
+  "continue anyway?" prompt up front for an unsupported GPU or macOS target,
+  instead of only being able to answer it after a build already failed once.
+- **Review in Editor** — a new button next to "Validate this EFI" that jumps
+  straight to the Editor tab with the just-built `config.plist` already
+  loaded, for a quick look or hand edit before it's used to boot anything.
+- **Kext include/exclude overrides** — new `--exclude-kext NAME` /
+  `--include-kext NAME` CLI flags (repeatable, on `plan`/`explain`/`build`/
+  `offline-installer`), plus matching fields in the GUI's Advanced panel.
+  Lets you drop a kext ocforge would normally add, or force one in that it
+  wouldn't normally pick — e.g. adding `VoodooPS2Controller` on a desktop
+  board with a PS/2 header, or dropping `USBToolBox` if you're mapping ports
+  a different way. Unknown names are rejected outright; any override adds a
+  warning to the build plan so it's clear the pick was manual, not detected.
+
 ## gui-v0.4.39
 
 - The dev stats panel's unlock now also accepts the older phrase that

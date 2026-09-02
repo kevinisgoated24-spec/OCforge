@@ -102,6 +102,8 @@ at build time. The tool tells you when that happens.
 | `ocforge build --out ./EFI --dump-dsdt` | dump this host's ACPI tables (Linux, Windows) |
 | `ocforge report --spec my-pc.json` | file a bug with version + hardware pre-filled |
 | `ocforge offline-installer --spec my-pc.json --out ./offline` | stage a [corpnewt/UnPlugged](https://github.com/corpnewt/UnPlugged) offline installer |
+| `ocforge build --spec my-pc.json --out ./EFI --exclude-kext USBToolBox` | drop a kext ocforge would normally include (repeatable) |
+| `ocforge build --spec my-pc.json --out ./EFI --include-kext VoodooPS2Controller` | force in a kext ocforge wouldn't normally pick (repeatable) |
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
 hotpatch set, following the [prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
@@ -237,6 +239,35 @@ warns and carries on), pre-Sandy-Bridge Intel (rejected up front with a clear
 message), and HEDT (X79/X99/X299), where the SSDTs are selected but the MacPro
 SMBIOS and HEDT-specific quirks aren't fully modelled, so cross-check the
 Dortania HEDT guide.
+
+### Expert mode
+
+Everything above is ocforge deciding for you. If you'd rather do it yourself
+— the way the [Dortania guide](https://dortania.github.io/OpenCore-Install-Guide/)
+walks through it, decision by decision — a few manual overrides sit on top of
+the same detection/build pipeline:
+
+- **ACPI source** — `--dsdt PATH` (a DSDT/folder of tables you already have)
+  or `--dump-dsdt` (dump this host's own live tables) instead of Dortania's
+  precompiled SSDT set.
+- **Force through an unsupported build** — `--force-unsupported-gpu` /
+  `--force-unsupported-os` skip the "continue anyway?" prompt outright,
+  instead of only being reachable after a build fails once.
+- **Kext overrides** — `--exclude-kext NAME` drops a kext ocforge would
+  otherwise add; `--include-kext NAME` forces one in that it wouldn't
+  otherwise pick (both repeatable — see the table above). Unknown names are
+  rejected with an error rather than silently ignored, and any override adds
+  a warning to `ocforge plan`'s output so it's clear the pick was manual.
+- **Review before you trust it** — `ocforge validate --efi ./EFI` runs
+  `ocvalidate` on the assembled `config.plist`, and `ocforge plist show` /
+  `plist save` round-trip it to JSON for hand editing. The desktop GUI wraps
+  both behind a "Validate this EFI" / "Review in Editor" pair right after a
+  build finishes.
+
+None of this changes what ocforge *detects* — only what it does with that
+detection. If a manual pick makes a machine unbootable, that's on you; the
+warning in `plan`'s output is there so you know which parts were manual
+before you go looking for what to fix.
 
 ## Offline Installer
 To Do The Offline Installer Here's A Guide

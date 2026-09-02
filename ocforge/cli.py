@@ -33,7 +33,9 @@ UNSUPPORTED_OS_EXIT = 4
 
 
 def _resolve_plan(m: Machine, target_major: int | None, *,
-                  force_unsupported_gpu: bool, force_unsupported_os: bool = False):
+                  force_unsupported_gpu: bool, force_unsupported_os: bool = False,
+                  exclude_kexts: frozenset[str] = frozenset(),
+                  include_kexts: frozenset[str] = frozenset()):
     """make() a BuildPlan, handling UnsupportedGpuError/UnsupportedReleaseError:
 
     - already forced (--force-unsupported-gpu / --force-unsupported-os) ->
@@ -64,17 +66,20 @@ def _resolve_plan(m: Machine, target_major: int | None, *,
     try:
         return make(m, target_major=target_major,
                    allow_unsupported_gpu=force_unsupported_gpu,
-                   allow_unsupported_os=force_unsupported_os)
+                   allow_unsupported_os=force_unsupported_os,
+                   exclude_kexts=exclude_kexts, include_kexts=include_kexts)
     except UnsupportedGpuError as exc:
         if not ask(exc, UNSUPPORTED_GPU_EXIT):
             return None
         return make(m, target_major=target_major,
-                   allow_unsupported_gpu=True, allow_unsupported_os=force_unsupported_os)
+                   allow_unsupported_gpu=True, allow_unsupported_os=force_unsupported_os,
+                   exclude_kexts=exclude_kexts, include_kexts=include_kexts)
     except UnsupportedReleaseError as exc:
         if not ask(exc, UNSUPPORTED_OS_EXIT):
             return None
         return make(m, target_major=target_major,
-                   allow_unsupported_gpu=force_unsupported_gpu, allow_unsupported_os=True)
+                   allow_unsupported_gpu=force_unsupported_gpu, allow_unsupported_os=True,
+                   exclude_kexts=exclude_kexts, include_kexts=include_kexts)
 
 
 def _load_machine(spec: str | None) -> Machine:
@@ -171,7 +176,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
     _print_machine(m)
     try:
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
-                             force_unsupported_os=args.force_unsupported_os)
+                             force_unsupported_os=args.force_unsupported_os,
+                             exclude_kexts=frozenset(args.exclude_kext or ()),
+                             include_kexts=frozenset(args.include_kext or ()))
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
@@ -190,7 +197,9 @@ def cmd_explain(args: argparse.Namespace) -> int:
     m = _load_machine(args.spec)
     try:
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
-                             force_unsupported_os=args.force_unsupported_os)
+                             force_unsupported_os=args.force_unsupported_os,
+                             exclude_kexts=frozenset(args.exclude_kext or ()),
+                             include_kexts=frozenset(args.include_kext or ()))
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
@@ -327,7 +336,9 @@ def cmd_build(args: argparse.Namespace) -> int:
     m = _load_machine(args.spec)
     try:
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
-                             force_unsupported_os=args.force_unsupported_os)
+                             force_unsupported_os=args.force_unsupported_os,
+                             exclude_kexts=frozenset(args.exclude_kext or ()),
+                             include_kexts=frozenset(args.include_kext or ()))
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -367,7 +378,9 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
     m = _load_machine(args.spec)
     try:
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
-                             force_unsupported_os=args.force_unsupported_os)
+                             force_unsupported_os=args.force_unsupported_os,
+                             exclude_kexts=frozenset(args.exclude_kext or ()),
+                             include_kexts=frozenset(args.include_kext or ()))
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -466,6 +479,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip the 'continue anyway?' prompt when an explicit "
                          "--macos isn't supported on this hardware "
                          "(no interactive terminal — e.g. the GUI — must pass this)")
+    pl.add_argument("--exclude-kext", action="append", metavar="NAME",
+                    help="drop this kext even if ocforge would normally include it "
+                         "(repeatable)")
+    pl.add_argument("--include-kext", action="append", metavar="NAME",
+                    help="force this kext in, even if ocforge wouldn't normally pick it "
+                         "(repeatable; must be a name ocforge knows about)")
     pl.set_defaults(func=cmd_plan)
 
     pe = sub.add_parser("explain",
@@ -483,6 +502,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip the 'continue anyway?' prompt when an explicit "
                          "--macos isn't supported on this hardware "
                          "(no interactive terminal — e.g. the GUI — must pass this)")
+    pe.add_argument("--exclude-kext", action="append", metavar="NAME",
+                    help="drop this kext even if ocforge would normally include it "
+                         "(repeatable)")
+    pe.add_argument("--include-kext", action="append", metavar="NAME",
+                    help="force this kext in, even if ocforge wouldn't normally pick it "
+                         "(repeatable; must be a name ocforge knows about)")
     pe.set_defaults(func=cmd_explain)
 
     prep = sub.add_parser("report",
@@ -536,6 +561,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip the 'continue anyway?' prompt when an explicit "
                          "--macos isn't supported on this hardware "
                          "(no interactive terminal — e.g. the GUI — must pass this)")
+    pb.add_argument("--exclude-kext", action="append", metavar="NAME",
+                    help="drop this kext even if ocforge would normally include it "
+                         "(repeatable)")
+    pb.add_argument("--include-kext", action="append", metavar="NAME",
+                    help="force this kext in, even if ocforge wouldn't normally pick it "
+                         "(repeatable; must be a name ocforge knows about)")
     pb.set_defaults(func=cmd_build)
 
     poi = sub.add_parser("offline-installer",
@@ -560,6 +591,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip the 'continue anyway?' prompt when an explicit "
                          "--macos isn't supported on this hardware "
                          "(no interactive terminal — e.g. the GUI — must pass this)")
+    poi.add_argument("--exclude-kext", action="append", metavar="NAME",
+                     help="drop this kext even if ocforge would normally include it "
+                          "(repeatable)")
+    poi.add_argument("--include-kext", action="append", metavar="NAME",
+                     help="force this kext in, even if ocforge wouldn't normally pick it "
+                          "(repeatable; must be a name ocforge knows about)")
     poi.set_defaults(func=cmd_offline_installer)
     return p
 

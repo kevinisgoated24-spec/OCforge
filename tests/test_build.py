@@ -75,6 +75,45 @@ def test_kext_resolve_broadcom_wifi():
     assert "AirportItlwm" not in names
 
 
+def test_kext_resolve_exclude():
+    names = {s.kext.name for s in kexts.resolve(ryzen_desktop(), _latest_target())}
+    assert "AppleALC" in names
+    excluded = {s.kext.name for s in
+                kexts.resolve(ryzen_desktop(), _latest_target(), exclude=frozenset({"AppleALC"}))}
+    assert "AppleALC" not in excluded
+    assert names - {"AppleALC"} == excluded
+
+
+def test_kext_resolve_include():
+    m = ryzen_desktop()
+    baseline = {s.kext.name for s in kexts.resolve(m, _latest_target())}
+    assert "VoodooPS2Controller" not in baseline  # desktop, not a laptop pick
+    included = {s.kext.name for s in
+                kexts.resolve(m, _latest_target(), include=frozenset({"VoodooPS2Controller"}))}
+    assert "VoodooPS2Controller" in included
+
+
+def test_kext_resolve_include_unknown_name_raises():
+    try:
+        kexts.resolve(ryzen_desktop(), _latest_target(), include=frozenset({"NotARealKext"}))
+    except ValueError as exc:
+        assert "NotARealKext" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for an unknown kext name")
+
+
+def test_make_warns_on_kext_override():
+    p = make(ryzen_desktop(), exclude_kexts=frozenset({"AppleALC"}))
+    assert any("manually overridden" in w for w in p.warnings)
+    assert "AppleALC" not in {s.kext.name for s in p.kexts}
+
+
+def _latest_target():
+    from ocforge.catalog import macos
+
+    return macos.recommended(ryzen_desktop())
+
+
 # --- ACPI selection -----------------------------------------------------------
 
 

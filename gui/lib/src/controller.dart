@@ -26,6 +26,31 @@ class OcforgeController extends ChangeNotifier {
   /// null == "Auto (recommended)".
   int? macosOverride;
 
+  /// Set by Forge's "Review in Editor" button after a successful build --
+  /// the Editor tab picks this up on its next build() (see [consumeTabJump]),
+  /// pre-fills its path field, and opens it automatically. Lets a user
+  /// hand-check/tweak the just-built config.plist before it's copied to a
+  /// USB or EFI partition and actually booted, without retyping the path.
+  String? pendingEditorPath;
+  int? requestedTabIndex;
+
+  void reviewInEditor(String configPath, {required int editorTabIndex}) {
+    pendingEditorPath = configPath;
+    requestedTabIndex = editorTabIndex;
+    notifyListeners();
+  }
+
+  /// Called by the shell once it's acted on [requestedTabIndex], so the same
+  /// jump doesn't keep firing on every rebuild.
+  void consumeTabJump() {
+    requestedTabIndex = null;
+  }
+
+  /// Called by the Editor tab once it's picked up [pendingEditorPath].
+  void consumeEditorPath() {
+    pendingEditorPath = null;
+  }
+
   ThemeMode themeMode = ThemeMode.system;
   AccentTheme accent = AccentTheme.violet;
 

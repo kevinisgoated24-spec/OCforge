@@ -30,11 +30,32 @@ class _EditorPageState extends State<EditorPage> {
 
   final List<String> _valLog = <String>[];
   bool _validating = false;
+  bool _checkedPendingPath = false;
 
   @override
   void dispose() {
     _path.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Runs once per instance -- initState() can't reach an InheritedWidget
+    // yet, so this is the standard place for "consume something on first
+    // build" work. Picks up a config.plist Forge asked to have reviewed
+    // here (see OcforgeController.reviewInEditor) and opens it right away.
+    if (_checkedPendingPath) return;
+    _checkedPendingPath = true;
+    final OcforgeController c = ControllerScope.of(context);
+    final String? pending = c.pendingEditorPath;
+    if (pending != null) {
+      c.consumeEditorPath();
+      _path.text = pending;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _open();
+      });
+    }
   }
 
   void _dirtyMark() {

@@ -142,6 +142,17 @@ class _ShellState extends State<_Shell> {
       if (_devUnlocked) const DevStatsPage(),
     ];
 
+    // A page (currently just Forge's "Review in Editor") asked to switch
+    // tabs -- deferred a frame since this runs during build() itself.
+    if (c.requestedTabIndex != null && c.requestedTabIndex != _index) {
+      final int target = c.requestedTabIndex!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        c.consumeTabJump();
+        setState(() => _index = target);
+      });
+    }
+
     return Scaffold(
       body: Row(
         children: <Widget>[
