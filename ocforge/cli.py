@@ -13,6 +13,7 @@
                     [--dsdt PATH | --dump-dsdt]
     ocforge offline-installer [--spec FILE] [--macos N] [--out DIR | --usb DEV]
                     stage a corpnewt/UnPlugged offline installer
+    ocforge logcheck [--log FILE]                  scan a boot log for known trouble signatures
 """
 
 from __future__ import annotations
@@ -473,6 +474,41 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
     return 0 if efi_report.ok else 1
 
 
+def cmd_logcheck(args: argparse.Namespace) -> int:
+    import json
+    from dataclasses import asdict
+
+    from ocforge.catalog import logcheck
+
+    if args.log:
+        path = Path(args.log)
+        if not path.exists():
+            print(f"--log path not found: {path}", file=sys.stderr)
+            return 2
+        text = path.read_text(errors="replace")
+    else:
+        text = sys.stdin.read()
+
+    findings = logcheck.scan(text)
+
+    if args.json:
+        print(json.dumps([asdict(f) for f in findings]))
+        return 0 if not findings else 1
+
+    if not findings:
+        print("No known trouble signatures found in this log.")
+        print("(This checks a small, curated list from Dortania's own troubleshooting "
+              "guide — a clean result isn't proof the boot actually succeeded.)")
+        return 0
+
+    for f in findings:
+        print(f"\n[line {f.line_no}] {f.title}")
+        print(f"  {f.line}")
+        print(f"  → {f.explanation}")
+        print(f"  fix: {f.suggestion}")
+    return 1
+
+
 def _print_build_report(r) -> None:
     src = {"ssdttime": "SSDTTime (from the target's DSDT)",
            "precompiled": "Dortania precompiled hotpatches"}.get(r.ssdt_source, r.ssdt_source)
@@ -674,6 +710,13 @@ def build_parser() -> argparse.ArgumentParser:
                           "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "
                           "Quirks entries are numeric settings and can't be set this way)")
     poi.set_defaults(func=cmd_offline_installer)
+
+    plc = sub.add_parser("logcheck",
+                         help="scan an OpenCore boot log / macOS panic log for known "
+                              "trouble signatures (from Dortania's troubleshooting guide)")
+    plc.add_argument("--log", metavar="FILE", help="path to the log file (default: read stdin)")
+    plc.add_argument("--json", action="store_true", help="machine-readable output (for the GUI)")
+    plc.set_defaults(func=cmd_logcheck)
     return p
 
 
