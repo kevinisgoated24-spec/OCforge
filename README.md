@@ -4,6 +4,8 @@
 
 Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 
+(This is the Beta version please join in the Discord OCForge For Beta Testers)
+
 ## Heres how it works
 
 * Point it at the machine (or a saved spec of one)
