@@ -3,6 +3,29 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v0.4.43
+
+A boot-log checker — CLI, GUI, and a build-log summary — plus a first pass
+at surfacing warnings without having to scroll a raw log.
+
+- **`ocforge logcheck [--log FILE] [--json]`** scans an OpenCore boot log or
+  a macOS panic report against a small, curated list of known trouble
+  signatures straight from Dortania's own troubleshooting guide (kernel
+  panics, "Couldn't allocate runtime area", stalls at IOConsoleUsers/PCI
+  enumeration/waiting-for-root-device/AppleACPICPU, and a few more). Each
+  hit comes with an explanation and a suggested next step tied to ocforge's
+  own flags where one applies. Stall-type signatures (lines that are normal
+  on *any* boot) are only flagged when they're at the very end of the log —
+  i.e. the last thing it actually printed — not wherever they happen to
+  appear. A clean scan isn't proof the boot succeeded; it only means none
+  of *these* signatures showed up.
+- New **Diagnose** tab in the GUI wraps this: point it at a log file, hit
+  "Check log", get the same findings as cards instead of a text dump.
+- **Forge** (the build page) now pulls its own warning/failure lines back
+  out of the build log into a summary card above it, so a failed kext
+  download or a manual-TODO note doesn't get lost scrolling through
+  everything else the build printed.
+
 ## gui-v0.4.42
 
 A beta channel, for a smaller group to try builds before they go out to

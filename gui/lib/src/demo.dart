@@ -400,6 +400,20 @@ const List<String> demoValidateOutput = <String>[
   'Completed validating config.plist in 1 ms. No issues found.',
 ];
 
+// Canned findings matching the shape of `ocforge logcheck --json`'s output
+// (see ocforge.catalog.logcheck) — shown by the Diagnose page in demo mode,
+// since there's no real CLI to actually scan a log with.
+const List<Map<String, Object>> demoLogcheckFindings = <Map<String, Object>>[
+  <String, Object>{
+    'title': 'Stalled waiting on AppleACPICPU (SMC)',
+    'explanation': 'The kernel is waiting on a VirtualSMC key that never showed up.',
+    'suggestion': 'Check VirtualSMC (and SMCProcessor/SMCSuperIO/SMCBatteryManager as '
+        'applicable) actually loaded — see the kext list in ocforge explain.',
+    'line_no': 42,
+    'line': 'kextd stall[0]: AppleACPICPU waiting on gIOScreenLock timeout',
+  },
+];
+
 const List<String> demoBuildLog = <String>[
   'fetching OpenCore 1.0.7 ...',
   'fetching OcBinaryData ...',

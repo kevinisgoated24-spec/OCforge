@@ -9,6 +9,7 @@ import 'pages/build_page.dart';
 import 'pages/config_page.dart';
 import 'pages/detect_page.dart';
 import 'pages/dev_stats_page.dart';
+import 'pages/diagnose_page.dart';
 import 'pages/editor_page.dart';
 import 'pages/plan_page.dart';
 import 'setup.dart';
@@ -139,6 +140,7 @@ class _ShellState extends State<_Shell> {
       const BuildPage(),
       const EditorPage(),
       const AssistantPage(),
+      const DiagnosePage(),
       if (_devUnlocked) const DevStatsPage(),
     ];
 
@@ -253,6 +255,10 @@ class _ShellState extends State<_Shell> {
               const NavigationRailDestination(
                 icon: Icon(Icons.auto_awesome_rounded),
                 label: Text('Assistant'),
+              ),
+              const NavigationRailDestination(
+                icon: Icon(Icons.troubleshoot_rounded),
+                label: Text('Diagnose'),
               ),
               if (_devUnlocked)
                 const NavigationRailDestination(

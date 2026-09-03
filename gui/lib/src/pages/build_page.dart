@@ -61,6 +61,16 @@ class _BuildPageState extends State<BuildPage> {
       .where((String s) => s.isNotEmpty)
       .toList();
 
+  /// Pulls the warning/failure lines back out of the raw build log --
+  /// matches the "  ! thing" prefix `_print_build_report` (cli.py) already
+  /// uses for kext/SSDT download failures, manual-TODOs and the placeholder-
+  /// SMBIOS warning, plus the final "✗ build failed" line -- so the
+  /// summary card below doesn't need its own separate log format.
+  List<String> _extractIssues() => _log
+      .map((String l) => l.trim())
+      .where((String l) => l.startsWith('!') || l.startsWith('✗'))
+      .toList();
+
   void _append(String line) {
     if (!mounted) return;
     setState(() => _log.add(line));
@@ -244,6 +254,7 @@ class _BuildPageState extends State<BuildPage> {
   @override
   Widget build(BuildContext context) {
     final OcforgeController c = ControllerScope.of(context);
+    final List<String> issues = _lastExit != null ? _extractIssues() : const <String>[];
 
     return PageScroller(
       children: <Widget>[
@@ -571,6 +582,10 @@ class _BuildPageState extends State<BuildPage> {
         ),
         const SizedBox(height: 10),
         if (_running) const LinearProgressIndicator(),
+        if (issues.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 14),
+          FadeInUp(child: _BuildIssuesCard(issues: issues)),
+        ],
         const SizedBox(height: 18),
         FadeInUp(
           delay: const Duration(milliseconds: 140),
@@ -650,5 +665,42 @@ class _BuildPageState extends State<BuildPage> {
       setState(() => _running = false);
       _snack(code == 0 ? 'ocvalidate: no issues' : 'ocvalidate found problems — see the log');
     }
+  }
+}
+
+/// Summarizes the warning/failure lines out of the full build log, so they
+/// don't get lost scrolling through everything else the build printed.
+class _BuildIssuesCard extends StatelessWidget {
+  const _BuildIssuesCard({required this.issues});
+
+  final List<String> issues;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme s = Theme.of(context).colorScheme;
+    return ExpressiveCard(
+      tone: s.errorContainer,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.warning_amber_rounded, color: s.onErrorContainer, size: 20),
+              const SizedBox(width: 10),
+              Text('${issues.length} issue${issues.length == 1 ? '' : 's'} in this build',
+                  style: TextStyle(
+                      color: s.onErrorContainer, fontWeight: FontWeight.w700, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final String i in issues)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(i,
+                  style: TextStyle(color: s.onErrorContainer, fontSize: 12.5)),
+            ),
+        ],
+      ),
+    );
   }
 }

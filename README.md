@@ -108,6 +108,7 @@ at build time. The tool tells you when that happens.
 | `ocforge build --spec my-pc.json --out ./EFI --exclude-ssdt SSDT-PLUG` | drop an SSDT ocforge would normally include (repeatable) |
 | `ocforge build --spec my-pc.json --out ./EFI --smbios iMac19,1` | use this SMBIOS model instead of ocforge's own pick |
 | `ocforge build --spec my-pc.json --out ./EFI --quirk DevirtualiseMmio=false` | override one Quirks on/off toggle (repeatable) |
+| `ocforge logcheck --log opencore-2026-01-01-120000.txt` | scan a boot log / panic report for known trouble signatures |
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
 hotpatch set, following the [prebuilt-SSDT matrix](https://dortania.github.io/Getting-Started-With-ACPI/ssdt-methods/ssdt-prebuilt.html)
@@ -292,6 +293,25 @@ None of this changes what ocforge *detects* — only what it does with that
 detection. If a manual pick makes a machine unbootable, that's on you; the
 warning in `plan`'s output is there so you know which parts were manual
 before you go looking for what to fix.
+
+### Diagnosing a failed boot
+
+`ocforge logcheck --log PATH` (`--json` for machine-readable output; the
+desktop GUI's **Diagnose** tab wraps this) scans an OpenCore boot log or a
+macOS panic report against a small, curated list of known trouble
+signatures straight from [Dortania's own troubleshooting
+guide](https://github.com/dortania/OpenCore-Install-Guide/blob/master/troubleshooting/boot.md):
+kernel panics, `Couldn't allocate runtime area` (a KASLR-slide issue, common
+on Z390/X99/X299), `Cannot perform kext summary`, `Invalid frame pointer`,
+and stalls at `IOConsoleUsers` (no display handoff), `AppleACPICPU` (a
+missing SMC key), waiting for the root device, or early PCI/ACPI
+enumeration. Each hit comes with an explanation and, where one applies, a
+suggested `ocforge` flag to try. Stall-type signatures are lines that are
+completely normal on *any* boot — they're only flagged when they're the
+last thing the log printed (i.e. the boot actually stopped there), not
+wherever they happen to appear. This is a small, hand-picked list, not an
+exhaustive parser — a clean scan means none of *these* signatures showed
+up, not that the boot definitely succeeded.
 
 ## Offline Installer
 To Do The Offline Installer Here's A Guide
