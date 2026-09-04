@@ -3,6 +3,26 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.1.1
+
+Fixes the CLI auto-installer failing outright on Arch and its family
+(CachyOS, Manjaro, EndeavourOS, …), reported on CachyOS with Python 3.14.
+
+- Those distros don't ship `pip` with Python at all (`No module named pip`),
+  and the installer's own `ensurepip` bootstrap attempt then hits the exact
+  same PEP 668 "externally-managed-environment" guard trying to install
+  *itself* system-wide — with no `--break-system-packages`-equivalent
+  exposed on `ensurepip`'s own CLI to get past it. Previously this was a
+  dead end: a raw traceback and a generic "pip exited 1".
+- The installer now falls back to `pipx` (which never touches the system
+  Python, so PEP 668 doesn't apply) whenever pip's own retries — plain,
+  then `--break-system-packages`, then `ensurepip` — all fail. This is the
+  same manual fallback already documented for demo mode / in the README,
+  now tried automatically first.
+- If `pipx` isn't installed either, the failure message now names the exact
+  package-manager command for it (`pacman -S python-pipx`, `apt install
+  pipx`) instead of just repeating the pip command that already failed.
+
 ## gui-beta-v1.1.0
 
 Device ID spoofing, for presenting a different PCI device to macOS than
