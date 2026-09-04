@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -47,13 +48,46 @@ def _parse_quirk_args(raw: list[str] | None) -> dict[str, bool]:
     return out
 
 
+_HEX_ID = re.compile(r"^[0-9a-fA-F]{1,4}$")
+
+
+def _parse_spoof_device_args(raw: list[str] | None) -> dict[str, dict[str, int]]:
+    """Parses repeated ``--spoof-device PATH=[VENDOR:]DEVICE`` into
+    ``{pci_path: {"device-id": int, ["vendor-id": int]}}``. PATH is an OC
+    device path, e.g. ``PciRoot(0x0)/Pci(0x3,0x0)``; VENDOR/DEVICE are 1-4
+    hex digits (a real PCI vendor/device id is always 16-bit)."""
+    out: dict[str, dict[str, int]] = {}
+    for item in raw or ():
+        path, sep, ids = item.partition("=")
+        path = path.strip()
+        if not sep or not path:
+            raise ValueError(f"--spoof-device expects PATH=[VENDOR:]DEVICE, got: {item!r}")
+        vendor_s, colon, device_s = ids.rpartition(":")
+        device_s = device_s.strip()
+        if not _HEX_ID.match(device_s):
+            raise ValueError(
+                f"--spoof-device {path}: device id must be 1-4 hex digits, got: {device_s!r}"
+            )
+        props: dict[str, int] = {"device-id": int(device_s, 16)}
+        if colon:
+            vendor_s = vendor_s.strip()
+            if not _HEX_ID.match(vendor_s):
+                raise ValueError(
+                    f"--spoof-device {path}: vendor id must be 1-4 hex digits, got: {vendor_s!r}"
+                )
+            props["vendor-id"] = int(vendor_s, 16)
+        out[path] = props
+    return out
+
+
 def _resolve_plan(m: Machine, target_major: int | None, *,
                   force_unsupported_gpu: bool, force_unsupported_os: bool = False,
                   exclude_kexts: frozenset[str] = frozenset(),
                   include_kexts: frozenset[str] = frozenset(),
                   exclude_ssdts: frozenset[str] = frozenset(),
                   smbios_override: str | None = None,
-                  quirk_overrides: dict[str, bool] | None = None):
+                  quirk_overrides: dict[str, bool] | None = None,
+                  spoof_devices: dict[str, dict[str, int]] | None = None):
     """make() a BuildPlan, handling UnsupportedGpuError/UnsupportedReleaseError:
 
     - already forced (--force-unsupported-gpu / --force-unsupported-os) ->
@@ -84,7 +118,7 @@ def _resolve_plan(m: Machine, target_major: int | None, *,
     kw = {
         "exclude_kexts": exclude_kexts, "include_kexts": include_kexts,
         "exclude_ssdts": exclude_ssdts, "smbios_override": smbios_override,
-        "quirk_overrides": quirk_overrides,
+        "quirk_overrides": quirk_overrides, "spoof_devices": spoof_devices,
     }
     try:
         return make(m, target_major=target_major,
@@ -360,13 +394,15 @@ def cmd_build(args: argparse.Namespace) -> int:
     m = _load_machine(args.spec)
     try:
         quirk_overrides = _parse_quirk_args(args.quirk)
+        spoof_devices = _parse_spoof_device_args(args.spoof_device)
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
                              force_unsupported_os=args.force_unsupported_os,
                              exclude_kexts=frozenset(args.exclude_kext or ()),
                              include_kexts=frozenset(args.include_kext or ()),
                              exclude_ssdts=frozenset(args.exclude_ssdt or ()),
                              smbios_override=args.smbios,
-                             quirk_overrides=quirk_overrides)
+                             quirk_overrides=quirk_overrides,
+                             spoof_devices=spoof_devices)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -413,13 +449,15 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
     m = _load_machine(args.spec)
     try:
         quirk_overrides = _parse_quirk_args(args.quirk)
+        spoof_devices = _parse_spoof_device_args(args.spoof_device)
         plan = _resolve_plan(m, args.macos, force_unsupported_gpu=args.force_unsupported_gpu,
                              force_unsupported_os=args.force_unsupported_os,
                              exclude_kexts=frozenset(args.exclude_kext or ()),
                              include_kexts=frozenset(args.include_kext or ()),
                              exclude_ssdts=frozenset(args.exclude_ssdt or ()),
                              smbios_override=args.smbios,
-                             quirk_overrides=quirk_overrides)
+                             quirk_overrides=quirk_overrides,
+                             spoof_devices=spoof_devices)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -669,6 +707,11 @@ def build_parser() -> argparse.ArgumentParser:
                     help="override one ACPI/Booter/Kernel/UEFI Quirks toggle, e.g. "
                          "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "
                          "Quirks entries are numeric settings and can't be set this way)")
+    pb.add_argument("--spoof-device", action="append", metavar="PATH=[VENDOR:]DEVICE",
+                    help="present a different PCI device to macOS at this OC device path, "
+                         "e.g. 'PciRoot(0x0)/Pci(0x3,0x0)=73AF' or '...=1002:73AF' (repeatable). "
+                         "Forces the OpenCore DEBUG build on automatically. You're on your own "
+                         "if the result doesn't boot.")
     pb.set_defaults(func=cmd_build)
 
     poi = sub.add_parser("offline-installer",
@@ -709,6 +752,11 @@ def build_parser() -> argparse.ArgumentParser:
                      help="override one ACPI/Booter/Kernel/UEFI Quirks toggle, e.g. "
                           "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "
                           "Quirks entries are numeric settings and can't be set this way)")
+    poi.add_argument("--spoof-device", action="append", metavar="PATH=[VENDOR:]DEVICE",
+                     help="present a different PCI device to macOS at this OC device path, "
+                          "e.g. 'PciRoot(0x0)/Pci(0x3,0x0)=73AF' or '...=1002:73AF' (repeatable). "
+                          "Forces the OpenCore DEBUG build on automatically. You're on your own "
+                          "if the result doesn't boot.")
     poi.set_defaults(func=cmd_offline_installer)
 
     plc = sub.add_parser("logcheck",

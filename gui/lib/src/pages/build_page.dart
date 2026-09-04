@@ -27,6 +27,7 @@ class _BuildPageState extends State<BuildPage> {
   final TextEditingController _excludeSsdtCtl = TextEditingController();
   final TextEditingController _smbiosCtl = TextEditingController();
   final TextEditingController _quirkCtl = TextEditingController();
+  final TextEditingController _spoofDeviceCtl = TextEditingController();
   final List<String> _log = <String>[];
   bool _running = false;
   bool _recovery = true;
@@ -49,6 +50,7 @@ class _BuildPageState extends State<BuildPage> {
     _excludeSsdtCtl.dispose();
     _smbiosCtl.dispose();
     _quirkCtl.dispose();
+    _spoofDeviceCtl.dispose();
     _proc?.kill();
     super.dispose();
   }
@@ -57,6 +59,15 @@ class _BuildPageState extends State<BuildPage> {
   /// names, or NAME=value quirk pairs).
   List<String> _splitNames(String raw) => raw
       .split(RegExp(r'[,\s]+'))
+      .map((String s) => s.trim())
+      .where((String s) => s.isNotEmpty)
+      .toList();
+
+  /// Splits a field one entry per line -- used only for --spoof-device,
+  /// since an OC device path itself contains commas (e.g. "Pci(0x3,0x0)"),
+  /// so comma-splitting like [_splitNames] would break a single entry apart.
+  List<String> _splitLines(String raw) => raw
+      .split('\n')
       .map((String s) => s.trim())
       .where((String s) => s.isNotEmpty)
       .toList();
@@ -103,6 +114,7 @@ class _BuildPageState extends State<BuildPage> {
     final List<String> includeKexts = _splitNames(_includeKextCtl.text);
     final List<String> excludeSsdts = _splitNames(_excludeSsdtCtl.text);
     final List<String> quirks = _splitNames(_quirkCtl.text);
+    final List<String> spoofDevices = _splitLines(_spoofDeviceCtl.text);
     final String smbios = _smbiosCtl.text.trim();
     final List<String> args = <String>[
       _offlineInstaller ? 'offline-installer' : 'build',
@@ -126,6 +138,7 @@ class _BuildPageState extends State<BuildPage> {
       for (final String name in excludeSsdts) ...<String>['--exclude-ssdt', name],
       if (smbios.isNotEmpty) ...<String>['--smbios', smbios],
       for (final String pair in quirks) ...<String>['--quirk', pair],
+      for (final String pair in spoofDevices) ...<String>['--spoof-device', pair],
     ];
     try {
       int code = await _runStreamed(c, args);
@@ -320,7 +333,7 @@ class _BuildPageState extends State<BuildPage> {
                     title: const Text('Advanced', style: TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: const Text('ACPI source, debug build, memory map, forcing an '
                         'unsupported hardware/macOS combination through anyway, kext/SSDT/'
-                        'SMBIOS/quirk overrides',
+                        'SMBIOS/quirk overrides, device ID spoofing',
                         style: TextStyle(fontSize: 12.5)),
                     children: <Widget>[
                       Padding(
@@ -541,6 +554,39 @@ class _BuildPageState extends State<BuildPage> {
                         decoration: InputDecoration(
                           labelText: 'Quirks',
                           hintText: 'e.g. DevirtualiseMmio=false',
+                          isDense: true,
+                          filled: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('Device ID spoof',
+                            style: Theme.of(context).textTheme.labelLarge),
+                      ),
+                      Text(
+                        'Present a different PCI device to macOS — e.g. an unsupported '
+                        'GPU spoofed as a supported one. Forces the OpenCore DEBUG build '
+                        'on automatically. One PATH=[VENDOR:]DEVICE per line — bypasses '
+                        'ocforge’s hardware detection, you’re on your own if it doesn’t boot.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _spoofDeviceCtl,
+                        enabled: !_running,
+                        maxLines: 3,
+                        minLines: 1,
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'Device spoofs',
+                          hintText: 'PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF',
                           isDense: true,
                           filled: true,
                           border: OutlineInputBorder(

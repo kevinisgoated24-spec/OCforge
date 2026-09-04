@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ocforge"
-version = "1.0.0"
+version = "1.1.0"
 description = "Build a bootable OpenCore EFI for a machine you can describe."
 readme = "README.md"
 requires-python = ">=3.11"

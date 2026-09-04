@@ -110,6 +110,7 @@ class BuildPlan:
     warnings: list[str] = field(default_factory=list)
     bios: list[str] = field(default_factory=list)
     quirk_overrides: dict[str, bool] = field(default_factory=dict)
+    spoof_devices: dict[str, dict[str, int]] = field(default_factory=dict)
 
     @property
     def is_amd(self) -> bool:
@@ -150,7 +151,8 @@ def make(m: Machine, *, target_major: int | None = None,
         include_kexts: frozenset[str] = frozenset(),
         exclude_ssdts: frozenset[str] = frozenset(),
         smbios_override: str | None = None,
-        quirk_overrides: dict[str, bool] | None = None) -> BuildPlan:
+        quirk_overrides: dict[str, bool] | None = None,
+        spoof_devices: dict[str, dict[str, int]] | None = None) -> BuildPlan:
     if smbios_override and not _SMBIOS_FORMAT.match(smbios_override):
         raise ValueError(
             f"'{smbios_override}' doesn't look like a real SMBIOS model (expected "
@@ -293,6 +295,15 @@ def make(m: Machine, *, target_major: int | None = None,
             "`offline-installer` (quirks aren't part of this plan); unknown quirk names "
             "are rejected when the config is assembled."
         )
+    if spoof_devices:
+        paths = ", ".join(sorted(spoof_devices))
+        warnings.append(
+            f"device-id spoof active at: {paths}. This bypasses ocforge's hardware "
+            "detection to present a different PCI device to macOS — you're on your own "
+            "if the result doesn't boot or behave correctly. Only takes effect on "
+            "`build`/`offline-installer`; the OpenCore DEBUG build is forced on "
+            "automatically so it's easier to tell whether the spoof actually took."
+        )
 
     return BuildPlan(
         machine=m,
@@ -305,4 +316,5 @@ def make(m: Machine, *, target_major: int | None = None,
         bios=bios.checklist(m),
         warnings=warnings,
         quirk_overrides=dict(quirk_overrides or {}),
+        spoof_devices={k: dict(v) for k, v in (spoof_devices or {}).items()},
     )

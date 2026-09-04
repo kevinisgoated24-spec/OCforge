@@ -187,6 +187,89 @@ def test_quirk_override_non_boolean_field_raises():
         cfgmod.assemble(plan, generate(plan.smbios_model, None))
 
 
+# --- device-id spoof --------------------------------------------------------
+
+
+def test_spoof_device_new_path():
+    plan = make(ryzen_desktop(), spoof_devices={
+        "PciRoot(0x0)/Pci(0x3,0x0)": {"device-id": 0x73AF, "vendor-id": 0x1002},
+    })
+    cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
+    props = cfg["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x3,0x0)"]
+    assert props["device-id"] == bytes.fromhex("af730000")
+    assert props["vendor-id"] == bytes.fromhex("02100000")
+
+
+def test_spoof_device_device_only_no_vendor_key():
+    plan = make(ryzen_desktop(), spoof_devices={"PciRoot(0x0)/Pci(0x3,0x0)": {"device-id": 0x73AF}})
+    cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
+    props = cfg["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x3,0x0)"]
+    assert props["device-id"] == bytes.fromhex("af730000")
+    assert "vendor-id" not in props
+
+
+def test_spoof_device_merges_into_existing_path():
+    # The iGPU path already gets AAPL,ig-platform-id from ocforge's own
+    # detection -- a spoof there should add device-id alongside it, not
+    # replace the whole entry.
+    m = intel_laptop()
+    plan = make(m, spoof_devices={"PciRoot(0x0)/Pci(0x2,0x0)": {"device-id": 0x1234}})
+    cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
+    props = cfg["DeviceProperties"]["Add"]["PciRoot(0x0)/Pci(0x2,0x0)"]
+    assert props["device-id"] == bytes.fromhex("34120000")
+    assert "AAPL,ig-platform-id" in props
+
+
+def test_spoof_device_warns_and_stored_on_plan():
+    plan = make(ryzen_desktop(), spoof_devices={"PciRoot(0x0)/Pci(0x3,0x0)": {"device-id": 0x73AF}})
+    assert plan.spoof_devices == {"PciRoot(0x0)/Pci(0x3,0x0)": {"device-id": 0x73AF}}
+    assert any("device-id spoof active" in w for w in plan.warnings)
+
+
+def test_no_spoof_devices_no_warning():
+    plan = make(ryzen_desktop())
+    assert plan.spoof_devices == {}
+    assert not any("spoof" in w for w in plan.warnings)
+
+
+def test_spoof_device_forces_debug_build(monkeypatch, tmp_path):
+    from ocforge.build import pipeline
+
+    captured: dict[str, bool] = {}
+
+    def fake_fetch(work, *, debug):
+        captured["debug"] = debug
+        raise RuntimeError("stop-here")  # short-circuit before any real network work
+
+    monkeypatch.setattr(pipeline.opencore, "fetch", fake_fetch)
+
+    plan = make(ryzen_desktop(), spoof_devices={"PciRoot(0x0)/Pci(0x3,0x0)": {"device-id": 0x73AF}})
+    import pytest
+
+    with pytest.raises(RuntimeError, match="stop-here"):
+        pipeline.build_efi(plan, tmp_path / "work", tmp_path / "out")
+    assert captured["debug"] is True
+
+
+def test_no_spoof_devices_leaves_debug_as_passed(monkeypatch, tmp_path):
+    from ocforge.build import pipeline
+
+    captured: dict[str, bool] = {}
+
+    def fake_fetch(work, *, debug):
+        captured["debug"] = debug
+        raise RuntimeError("stop-here")
+
+    monkeypatch.setattr(pipeline.opencore, "fetch", fake_fetch)
+
+    plan = make(ryzen_desktop())
+    import pytest
+
+    with pytest.raises(RuntimeError, match="stop-here"):
+        pipeline.build_efi(plan, tmp_path / "work", tmp_path / "out")
+    assert captured["debug"] is False
+
+
 # --- ACPI selection -----------------------------------------------------------
 
 

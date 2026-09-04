@@ -149,6 +149,10 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
     out.mkdir(parents=True, exist_ok=True)
     fetch_github.set_cache_dir(work / ".gh-cache")  # dedupe/persist release lookups
 
+    if plan.spoof_devices and not debug:
+        log("device-id spoof active -> forcing the OpenCore DEBUG build for easier troubleshooting")
+        debug = True
+
     log("fetching OpenCore…")
     oc_src = opencore.fetch(work, debug=debug)
     log("fetching OcBinaryData…")
