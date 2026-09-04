@@ -101,8 +101,10 @@ class _SetupGateState extends State<SetupGate> {
     final int code = await OcforgeCli.installOcforge(_python!, _say);
     _say('');
     if (code != 0) {
-      _say('pip exited $code — see the log above. You can retry, or install '
-          'it yourself:  pip install --user "${OcforgeCli.zipballUrl}"');
+      _say('Install exited $code — see the log above (already tried pip, then '
+          '--break-system-packages, then pipx). You can retry, or install it '
+          'yourself:  pipx install "${OcforgeCli.gitUrl}"  or  '
+          'pip install --user "${OcforgeCli.zipballUrl}"');
       setState(() => _phase = _Phase.needsSetup);
       return;
     }

@@ -33,7 +33,7 @@ class OcforgeCli {
 
   /// The oldest `ocforge` this GUI build is happy to drive. Bump alongside the
   /// gui-v* tag when a CLI fix needs to reach users.
-  static const String minVersion = '1.1.0';
+  static const String minVersion = '1.1.1';
 
   CliResolution? _resolved;
   String _version = '';
@@ -117,6 +117,11 @@ class OcforgeCli {
   static const String zipballUrl =
       'https://github.com/kevinisgoated24-spec/OCforge/archive/refs/heads/master.zip';
 
+  /// Same source, as a pip VCS spec -- what `pipx install` (and the README's
+  /// manual fallback) use instead of the zipball URL.
+  static const String gitUrl =
+      'git+https://github.com/kevinisgoated24-spec/OCforge.git';
+
   /// The first Python that answers `--version`, or null if none is installed.
   static Future<PythonInfo?> findPython() async {
     const List<List<String>> probes = <List<String>>[
@@ -197,7 +202,50 @@ class OcforgeCli {
         }
       }
     }
+    if (code != 0) {
+      // Last resort. Arch and its family (CachyOS, Manjaro, EndeavourOS, …)
+      // don't ship pip with Python at all -- ensurepip's own bootstrap then
+      // hits the exact same PEP 668 "externally-managed-environment" guard
+      // trying to install itself system-wide, with no --break-system-packages
+      // equivalent exposed on ensurepip's own CLI to get past it. pipx
+      // sidesteps all of this: its installs live in their own venv, never
+      // "the system Python", so PEP 668 never applies. It's also already
+      // this project's own documented manual fallback (see the demo-mode
+      // banner / README), so trying it here is the same advice, automated.
+      log('');
+      log('pip install still failing — trying pipx instead …');
+      code = await _installViaPipx(log);
+    }
     return code;
+  }
+
+  static Future<String?> _findPipx() async {
+    try {
+      final ProcessResult r =
+          await Process.run('pipx', const <String>['--version'], runInShell: true);
+      if (r.exitCode == 0) return 'pipx';
+    } on ProcessException {
+      // not on PATH
+    }
+    return null;
+  }
+
+  static Future<int> _installViaPipx(void Function(String) log) async {
+    final String? pipx = await _findPipx();
+    if (pipx == null) {
+      log('pipx isn\'t installed either. On Arch/CachyOS/Manjaro: '
+          'sudo pacman -S python-pipx — on Debian/Ubuntu: sudo apt install pipx — '
+          'then rerun, or by hand:  pipx install "$gitUrl"');
+      return 1;
+    }
+    final List<String> args = <String>['install', '--force', gitUrl];
+    log('\$ $pipx ${args.join(' ')}');
+    final Process proc = await Process.start(pipx, args,
+        runInShell: true, environment: _env, includeParentEnvironment: true);
+    const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
+    proc.stdout.transform(dec).transform(const LineSplitter()).listen(log);
+    proc.stderr.transform(dec).transform(const LineSplitter()).listen(log);
+    return await proc.exitCode;
   }
 
   /// Best-effort Python install via winget. Returns exit code, or -1 when
