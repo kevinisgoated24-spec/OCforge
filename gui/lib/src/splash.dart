@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'gui_update.dart';
 import 'widgets.dart';
 
 /// A brief credits splash shown over [child] on every launch — fades out on
@@ -63,7 +64,10 @@ class _SplashScreen extends StatelessWidget {
             const AppGlyph(size: 64),
             const SizedBox(height: 20),
             Text('OCForge', style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 28),
+            const SizedBox(height: 4),
+            Text('v$appVersion — $appCodename',
+                style: TextStyle(color: s.onSurfaceVariant, fontSize: 12.5)),
+            const SizedBox(height: 24),
             Text('Made by: KevinMayBeHere',
                 style: TextStyle(color: s.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 4),

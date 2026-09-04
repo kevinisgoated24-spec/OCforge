@@ -4,6 +4,8 @@
 
 Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 
+🎉 **v1.0.0 "Bromine" — our first public release!** See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or the Discord.
+
 ## Heres how it works
 
 * Point it at the machine (or a saved spec of one)
