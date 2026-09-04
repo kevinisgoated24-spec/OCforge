@@ -249,6 +249,16 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
             add["PciRoot(0x0)/Pci(0x2,0x0)"] = props
     # onboard audio: AppleALC layout-id 1 is the safest generic starting point
     add["PciRoot(0x0)/Pci(0x1f,0x3)"] = {"layout-id": _b("01000000")}
+
+    # Manual device-id/vendor-id spoof (--spoof-device) -- merges into
+    # whatever ocforge already computed for that path (e.g. a GPU's own
+    # AAPL,ig-platform-id survives a device-id override at the same path),
+    # or creates a fresh entry for a path ocforge wasn't already touching.
+    for path, props in plan.spoof_devices.items():
+        entry = add.setdefault(path, {})
+        for key, value in props.items():
+            entry[key] = _b(f"{value & 0xff:02x}{(value >> 8) & 0xff:02x}0000")
+
     return {"Add": add, "Delete": {}}
 
 

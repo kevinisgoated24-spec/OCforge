@@ -4,7 +4,7 @@ import 'dart:io';
 /// The GUI's own version — kept in sync by hand with pubspec.yaml's
 /// `version:` and [OcforgeCli.minVersion] (cli.dart), same manual-bump
 /// convention already used for every gui-v* tag.
-const String appVersion = '1.0.0';
+const String appVersion = '1.1.0';
 
 /// Each stable (non-beta) major/notable release gets a codename, changed by
 /// hand alongside [appVersion] -- purely cosmetic, shown in the splash

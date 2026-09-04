@@ -110,6 +110,7 @@ at build time. The tool tells you when that happens.
 | `ocforge build --spec my-pc.json --out ./EFI --exclude-ssdt SSDT-PLUG` | drop an SSDT ocforge would normally include (repeatable) |
 | `ocforge build --spec my-pc.json --out ./EFI --smbios iMac19,1` | use this SMBIOS model instead of ocforge's own pick |
 | `ocforge build --spec my-pc.json --out ./EFI --quirk DevirtualiseMmio=false` | override one Quirks on/off toggle (repeatable) |
+| `ocforge build --spec my-pc.json --out ./EFI --spoof-device "PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF"` | present a different PCI device to macOS (repeatable) |
 | `ocforge logcheck --log opencore-2026-01-01-120000.txt` | scan a boot log / panic report for known trouble signatures |
 
 Without `--dsdt` / `--dump-dsdt` the SSDTs come from Dortania's precompiled
@@ -285,6 +286,16 @@ the same detection/build pipeline:
   booleans, and those are rejected rather than silently coerced. Only
   `build`/`offline-installer` actually apply quirks (there's no
   `config.plist` to apply them to yet at `plan`/`explain` time).
+- **Device ID spoof** — `--spoof-device PATH=[VENDOR:]DEVICE` (repeatable)
+  presents a different PCI device to macOS at that OpenCore device path,
+  e.g. `--spoof-device "PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF"` to spoof an
+  unsupported GPU as a supported one — the same DeviceProperties edit
+  Hackintosh users already do by hand for hardware without a real macOS
+  driver, tied into ocforge as an override. Merges into whatever ocforge
+  already computed at that path (a GPU's own `AAPL,ig-platform-id` survives
+  a device-id override there) instead of replacing the whole entry, and
+  forces the OpenCore DEBUG build on automatically so it's easier to tell
+  whether the spoof actually took effect.
 - **Review before you trust it** — `ocforge validate --efi ./EFI` runs
   `ocvalidate` on the assembled `config.plist`, and `ocforge plist show` /
   `plist save` round-trip it to JSON for hand editing. The desktop GUI wraps

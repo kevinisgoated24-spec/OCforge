@@ -3,6 +3,28 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.1.0
+
+Device ID spoofing, for presenting a different PCI device to macOS than
+what's actually installed (e.g. an unsupported GPU spoofed as a supported
+one) — the same kind of manual DeviceProperties edit Hackintosh users
+already do by hand, now a first-class override.
+
+- **`--spoof-device PATH=[VENDOR:]DEVICE`** (repeatable, `build`/
+  `offline-installer`) injects a `device-id` (and optional `vendor-id`)
+  override at an OpenCore device path, e.g. `PciRoot(0x0)/Pci(0x3,0x0)=
+  1002:73AF`. Merges into whatever ocforge already computed for that path
+  (a GPU's own `AAPL,ig-platform-id` survives a device-id override at the
+  same path) rather than replacing the whole entry.
+- **Auto-enables the OpenCore DEBUG build** whenever a spoof is active, so
+  it's easier to tell whether the spoof actually took effect, without
+  having to remember `--debug` yourself.
+- Matching **Device ID spoof** field in the GUI's Advanced panel (Forge
+  page), one `PATH=[VENDOR:]DEVICE` per line since a device path itself
+  contains commas.
+- Like every other Expert Mode override, unknown/malformed input is
+  rejected outright and using it adds a warning to the build plan.
+
 ## gui-v1.0.0
 
 # 🎉 OCforge 1.0.0 "Bromine" — first public release
