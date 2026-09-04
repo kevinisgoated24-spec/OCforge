@@ -3,6 +3,37 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v1.0.0
+
+# 🎉 OCforge 1.0.0 "Bromine" — first public release
+
+Everything up through the beta channel's kext/SSDT/SMBIOS/quirk overrides
+(Expert Mode) and the boot-log checker has been folded into this stable
+release. This is the first `gui-v*` tag not flagged pre-release — a real,
+generally-available build, not a work-in-progress snapshot.
+
+Highlights, for anyone new here:
+
+- **Detect → Plan → Config → Forge**: probe this machine (or load a saved
+  spec), pick or auto-recommend a macOS target, preview every kext/SSDT/
+  boot-arg decision with a reason, then assemble a bootable EFI folder or
+  write straight to a USB with the recovery image staged.
+- **Broad hardware coverage**: Intel Sandy Bridge through the current
+  generation, Zen/Threadripper and pre-Zen (Bulldozer/Jaguar) AMD, laptops
+  and desktops each with generation-correct SMBIOS/quirks, not one flat
+  profile guessed at.
+- **Expert Mode**: an Advanced panel for DSDT source, forcing an
+  unsupported hardware/macOS combination through anyway, and manual
+  kext/SSDT/SMBIOS/quirk overrides when you'd rather decide yourself.
+- **Diagnose**: `ocforge logcheck` scans a boot log or panic report against
+  known trouble signatures from Dortania's own troubleshooting guide.
+- **Offline installer** staging (corpnewt/UnPlugged) for installs with no
+  internet on the target machine.
+- A **beta channel** (opt-in, off by default) for trying `gui-beta-v*`
+  builds ahead of the next stable release.
+
+See every entry below for the full history that got here.
+
 ## gui-beta-v0.4.43
 
 A boot-log checker — CLI, GUI, and a build-log summary — plus a first pass

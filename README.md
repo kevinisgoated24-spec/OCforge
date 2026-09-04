@@ -4,7 +4,7 @@
 
 Make a Bootable OpenCore EFI For Any Laptop/PC You Got.
 
-(This is the Beta version please join in the Discord OCForge For Beta Testers)
+🎉 **v1.0.0 "Bromine" shipped!** This is the beta branch, for what's next — please join the Discord OCForge For Beta Testers to help test it before it ships.
 
 ## Heres how it works
 

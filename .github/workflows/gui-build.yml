@@ -207,7 +207,9 @@ jobs:
           body_path: ${{ runner.temp }}/notes.md
           generate_release_notes: true
           fail_on_unmatched_files: true
-          # Not public yet -- flagged pre-release so it doesn't read as a
-          # finished, generally-available build. Only applies going forward;
-          # existing gui-v0.4.18..0.4.31 releases are left as they are.
-          prerelease: true
+          # gui-beta-v* is the beta channel (see checkForGuiUpdate/betaChannel
+          # in the GUI) and stays pre-release; a real gui-v* is a public
+          # release as of v1.0.0 (\"Bromine\") -- everything gui-v0.4.18..0.4.42
+          # shipped before that point is left flagged pre-release as-is,
+          # this only changes what NEW gui-v* tags get.
+          prerelease: ${{ startsWith(github.ref_name, 'gui-beta-v') }}
