@@ -11,6 +11,17 @@ pytest -q
 Both run in CI on every push and PR (`.github/workflows/ci.yml`) — a red
 check there means something's actually broken, not just style nitpicking.
 
+`pytest` mocks the network out entirely, so it proves the *decision logic*
+is right but can't catch a third-party kext renaming its release asset or
+OpenCore's own zip layout changing. `scripts/e2e_smoke.py` catches that
+class of break instead: it runs a real `ocforge build` (real downloads) for
+a few representative machines and validates the result with the real
+`ocvalidate`. It's slow (real network) and deliberately not part of the
+`pytest` run — it's its own CI job (`.github/workflows/e2e-build.yml`), on
+push to master and a daily schedule. Run it locally with
+`python scripts/e2e_smoke.py` if you're touching anything that changes what
+gets fetched or how `config.plist` gets assembled.
+
 A few conventions the existing code follows, worth matching:
 
 - Every hardware-driven decision traces back to a specific Dortania guide

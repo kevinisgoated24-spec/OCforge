@@ -1,0 +1,39 @@
+name: E2E build smoke test
+
+# ci.yml's pytest run proves the *decision logic* is right with the network
+# mocked out -- it can never catch a kext maintainer renaming their release
+# asset, a GitHub API response shape changing, or OpenCore's own zip layout
+# shifting, because it never actually asks the internet for anything. This
+# workflow does: it builds real EFI folders for a few representative
+# machines (real kext/SSDT/OpenCore downloads) and runs the real ocvalidate
+# against each one. See scripts/e2e_smoke.py.
+#
+# Runs on push to master (fast feedback on a real break) and on a daily
+# schedule (catches third-party drift on a day nobody pushed anything).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "17 9 * * *"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Build + validate real EFIs for a few representative machines
+        env:
+          # Raises the GitHub API rate limit from 60/hr to 5000/hr -- this
+          # hits several different kext repos' release APIs per machine.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/e2e_smoke.py
