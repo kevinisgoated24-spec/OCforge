@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -33,7 +34,7 @@ class OcforgeCli {
 
   /// The oldest `ocforge` this GUI build is happy to drive. Bump alongside the
   /// gui-v* tag when a CLI fix needs to reach users.
-  static const String minVersion = '1.1.1';
+  static const String minVersion = '1.1.2';
 
   CliResolution? _resolved;
   String _version = '';
@@ -64,25 +65,51 @@ class OcforgeCli {
     'PYTHONIOENCODING': 'utf-8',
   };
 
+  /// Runs [executable] [args] like [Process.run], but gives up and kills the
+  /// process after [timeout] instead of hanging forever. Needed because a
+  /// Windows "App Execution Alias" stub (the `python`/`python3`/`py.exe`
+  /// placeholders Windows ships even with no Python installed, meant to
+  /// redirect first use to the Microsoft Store) doesn't reliably exit right
+  /// away on every machine — without this, a probe hitting one just sits
+  /// there, and the setup screen's spinner never resolves either way
+  /// (reported as the whole check "keeps reloading" and never finishing).
+  /// Returns null on timeout or if the executable isn't found at all.
+  static Future<ProcessResult?> _runWithTimeout(
+    String executable,
+    List<String> args, {
+    Duration timeout = const Duration(seconds: 10),
+    Map<String, String>? environment,
+  }) async {
+    Process proc;
+    try {
+      proc = await Process.start(executable, args,
+          runInShell: true, environment: environment, includeParentEnvironment: true);
+    } on ProcessException {
+      return null;
+    }
+    const Utf8Decoder dec = Utf8Decoder(allowMalformed: true);
+    final Future<String> stdoutF = proc.stdout.transform(dec).join();
+    final Future<String> stderrF = proc.stderr.transform(dec).join();
+    try {
+      final int code = await proc.exitCode.timeout(timeout);
+      return ProcessResult(proc.pid, code, await stdoutF, await stderrF);
+    } on TimeoutException {
+      proc.kill();
+      return null;
+    }
+  }
+
   Future<bool> resolve() async {
     for (final CliResolution c in _candidates) {
-      try {
-        final ProcessResult r = await Process.run(
-          c.executable,
-          <String>[...c.prefixArgs, '--version'],
-          runInShell: true,
-          includeParentEnvironment: true,
-          environment: _env,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
-        if (r.exitCode == 0) {
-          _resolved = c;
-          _version = '${r.stdout}'.trim();
-          return true;
-        }
-      } on ProcessException {
-        // try the next candidate
+      final ProcessResult? r = await _runWithTimeout(
+        c.executable,
+        <String>[...c.prefixArgs, '--version'],
+        environment: _env,
+      );
+      if (r != null && r.exitCode == 0) {
+        _resolved = c;
+        _version = '${r.stdout}'.trim();
+        return true;
       }
     }
     return false;
@@ -130,21 +157,15 @@ class OcforgeCli {
       <String>['python'],
     ];
     for (final List<String> p in probes) {
-      try {
-        final ProcessResult r = await Process.run(
-          p.first,
-          <String>[...p.skip(1), '--version'],
-          runInShell: true,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
-        final String v = ('${r.stdout}${r.stderr}').trim();
-        // The Microsoft Store stub exits non-zero and prints an install hint.
-        if (r.exitCode == 0 && v.toLowerCase().startsWith('python')) {
-          return PythonInfo(p.first, p.skip(1).toList(), v);
-        }
-      } on ProcessException {
-        // next probe
+      final ProcessResult? r =
+          await _runWithTimeout(p.first, <String>[...p.skip(1), '--version']);
+      if (r == null) continue; // timed out, or not found at all -- next probe
+      final String v = ('${r.stdout}${r.stderr}').trim();
+      // The Microsoft Store stub usually exits non-zero and prints an install
+      // hint; on machines where it doesn't exit promptly, the timeout above
+      // catches it instead.
+      if (r.exitCode == 0 && v.toLowerCase().startsWith('python')) {
+        return PythonInfo(p.first, p.skip(1).toList(), v);
       }
     }
     return null;

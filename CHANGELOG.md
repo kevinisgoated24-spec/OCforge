@@ -3,6 +3,23 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.1.2
+
+Fixes the first-run setup screen being able to hang indefinitely on the
+"Python 3.11+" / "ocforge CLI" checks (reported on a Dell, Pentium Gold
+G5500T, Windows — [issue #3](https://github.com/kevinisgoated24-spec/OCforge/issues/3)).
+
+- `findPython()` and `OcforgeCli.resolve()` probe `python`/`python3`/`py -3`
+  by actually running them — on a machine with no real Python installed,
+  Windows' own "App Execution Alias" stubs for those names (meant to
+  redirect first use to the Microsoft Store) don't reliably exit right
+  away. Neither probe had a timeout, so a stub that didn't return left the
+  checking spinner stuck with no way to tell it apart from "still checking"
+  — reported as the setup screen never settling.
+- Both probes now give up and kill the process after 10s per candidate
+  instead of waiting forever, so the setup screen always reaches a real
+  answer (found / not found) rather than spinning indefinitely.
+
 ## gui-beta-v1.1.1
 
 Fixes the CLI auto-installer failing outright on Arch and its family
