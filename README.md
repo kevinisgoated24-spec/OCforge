@@ -57,7 +57,7 @@ For Linux:
 For MacOS:
 - Adding This Later.
 
-## Use
+## Manual Use
 
 Three commands take you from bare hardware to a bootable EFI.
 
