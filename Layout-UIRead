@@ -1,11 +1,11 @@
 ## Layout
 
-| Package | Description |
-| :--- | :--- |
-| `ocforge.model` | The `Machine` value object everything reads. |
-| `ocforge.probe` | Per-OS hardware detection -> `Machine`; ACPI-table dump for SSDTTime. |
-| `ocforge.spec` | `Machine` <-> JSON, for off-target planning. |
-| `ocforge.catalog` | macOS compatibility, kext selection, SSDT selection. |
-| `ocforge.fetch` | OpenCore / OcBinaryData / kexts / SSDTs / SSDTTime / recovery downloads. |
-| `ocforge.build` | `BuildPlan` -> SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, SSDT-GPIO from the DSDT, `rationale` (the "why"), EFI layout, pipeline. |
-| `ocforge.media` | USB enumerate / GPT+FAT32 format / write. |
+| package            | does |
+|-------------------|------|
+| `ocforge.model`    | the `Machine` value object everything reads |
+| `ocforge.probe`    | per-OS hardware detection → `Machine`; ACPI-table dump for SSDTTime |
+| `ocforge.spec`     | `Machine` ⇄ JSON, for off-target planning |
+| `ocforge.catalog`  | macOS compatibility, kext selection, SSDT selection |
+| `ocforge.fetch`    | OpenCore / OcBinaryData / kexts / SSDTs / SSDTTime / recovery downloads |
+| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, SSDT-GPIO from the DSDT, `rationale` (the "why"), EFI layout, pipeline |
+| `ocforge.media`    | USB enumerate / GPT+FAT32 format / write |
