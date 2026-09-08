@@ -52,7 +52,28 @@ For Windows:
 
 For Linux:
 
-- Adding This Later.
+- Same As Windows But This Time You Will Need To Install The Linux Version
+
+- After Unzipping You Will Find The Flutter Open It
+
+- After Opening The Flutter You Will Be Prompted To Install OCForge-CLI Install It
+
+- Go On Detect, Press Detect This PC It Will Show You Your Specs About The PC Such As: CPU, GPU, Network, Board, Storage
+
+- Then Go To Plan Press On The MacOS That You Want To Install And Then Press Generate Plan It Will Show You Everything SMBIOS, Kexts, SSDT, And The Warnings Please Scroll Down On That Page To See If Anything Is Not Working
+
+- Press Config, Generate Config
+
+- Finally Then Press Forge It Will Ask You To Where The EFI To Go (Just do a folder on the desktop copy the location of the folder on the desktop) Put it inside of the textbox then there will be some options:
+
+1. Get The Recovery Image For That MacOS (it will be kinda slow only 600mb or higher)
+
+2. Build SSDT'S From Your Machine (only works on Linux, Windows is still a work in progress for that option)
+
+3. Use The Opencore Debug Build (i would keep that off)
+
+4. Get The Offline Image For That MacOS (i would keep that off it will take ages please read on the guide) 
+
 
 For MacOS:
 - Adding This Later.
