@@ -246,13 +246,4 @@ for testers trying things out before they land in a regular `gui-v*`
 release. Off by default; toggling it re-checks for an update immediately.
 
 ## Layout
-
-| package            | does |
-|-------------------|------|
-| `ocforge.model`    | the `Machine` value object everything reads |
-| `ocforge.probe`    | per-OS hardware detection → `Machine`; ACPI-table dump for SSDTTime |
-| `ocforge.spec`     | `Machine` ⇄ JSON, for off-target planning |
-| `ocforge.catalog`  | macOS compatibility, kext selection, SSDT selection |
-| `ocforge.fetch`    | OpenCore / OcBinaryData / kexts / SSDTs / SSDTTime / recovery downloads |
-| `ocforge.build`    | `BuildPlan` → SMBIOS, config.plist, AMD_Vanilla splice, SSDTTime, SSDT-GPIO from the DSDT, `rationale` (the "why"), EFI layout, pipeline |
-| `ocforge.media`    | USB enumerate / GPT+FAT32 format / write |
+[Layout](https://github.com/kevinisgoated24-spec/OCforge/blob/master/Layout-UIRead.md)
