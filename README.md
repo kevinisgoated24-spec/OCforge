@@ -230,7 +230,6 @@ from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
 Are you In the discord server? type /report to automatically submit a report!
 
-# ICloud Fix For Unable To Sign In Nor Login In
 # iCloud Fix For Unable To Sign In Nor Log In
 
 If iCloud, iMessage, or FaceTime fail to authenticate, the most common cause is a
