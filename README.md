@@ -230,6 +230,9 @@ from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
 Are you In the discord server? type /report to automatically submit a report!
 
+# ICloud Fix For Unable To Sign In Nor Login In
+> we are going to add here the tutorial to fix this issue via SMBIOS that will change your serial number! (adding this part later)
+
 ## Desktop GUI
 
 [`gui/`](gui/) is a Flutter front-end (Windows / macOS / Linux): Material 3
