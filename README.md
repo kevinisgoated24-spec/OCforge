@@ -230,6 +230,47 @@ from the EFI partition, your `spec.json`, the relevant bit of `config.plist`.
 
 Are you In the discord server? type /report to automatically submit a report!
 
+# iCloud Fix For Unable To Sign In Nor Log In
+
+If iCloud, iMessage, or FaceTime fail to authenticate, the most common cause is a
+**burned SMBIOS identity** — a serial number that's already been used to sign into
+iCloud on another machine (real Mac, VM, or another Hackintosh).
+
+**Fix checklist:**
+- Use a Mac model (SMBIOS) that actually matches your CPU generation ([check Dortania's guide](https://dortania.github.io/OpenCore-Install-Guide/) for your CPU and confirm it supports your macOS version)
+- Generate a **fresh** Serial Number, Board Serial (MLB), and System UUID — never reuse one from a guide, video, or old config
+- Set `ROM` to your real network adapter's MAC address (not random)
+- Sign out of Apple ID, clear iCloud/account caches, and reset NVRAM before signing in again
+- Confirm system date/time is correct and set to automatic
+- Once sign-in succeeds, keep this identity permanently — don't regenerate it on reinstall
+
+- GenSMBIOS Download Page: [GenSMBIOS](https://github.com/corpnewt/gensmbios)
+- ProperTree Download Page: [ProperTree](https://github.com/corpnewt/propertree)
+
+## Where to put the SMBIOS values
+
+All SMBIOS values live inside your **EFI/OC/config.plist**, under: PlatformInfo → Generic
+
+The relevant fields are:
+
+| Field | What it is |
+|---|---|
+| `SystemProductName` | The Mac model you're spoofing (e.g. `iMac19,1`) |
+| `SystemSerialNumber` | The fresh Serial Number |
+| `MLB` | The Board Serial |
+| `SystemUUID` | The fresh System UUID |
+| `ROM` | Your real network adapter's MAC address (as raw hex) |
+
+**How to edit them:**
+- Open `config.plist` with **ProperTree** (GUI plist editor) or **OpenCore Configurator**
+- Navigate to `PlatformInfo → Generic`
+- Paste in the freshly generated Serial, MLB, UUID, and your real ROM value
+- Save the file, then copy the updated `config.plist` back onto your EFI partition (`EFI/OC/`)
+- Reboot for the new identity to take effect
+
+OCForge generates a unique, valid SMBIOS + ROM pairing per build and writes it directly into `config.plist` for you, so this step is handled automatically when using OCForge.
+Not Always OCForge Can Get A Imei Or Smtg Work
+
 ## Desktop GUI
 
 [`gui/`](gui/) is a Flutter front-end (Windows / macOS / Linux): Material 3
