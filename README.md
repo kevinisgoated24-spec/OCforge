@@ -244,6 +244,9 @@ iCloud on another machine (real Mac, VM, or another Hackintosh).
 - Confirm system date/time is correct and set to automatic
 - Once sign-in succeeds, keep this identity permanently — don't regenerate it on reinstall
 
+- GenSMBIOS Download Page: [GenSMBIOS](https://github.com/corpnewt/gensmbios)
+- ProperTree Download Page: [ProperTree](https://github.com/corpnewt/propertree)
+
 ## Where to put the SMBIOS values
 
 All SMBIOS values live inside your **EFI/OC/config.plist**, under: PlatformInfo → Generic
@@ -266,7 +269,7 @@ The relevant fields are:
 - Reboot for the new identity to take effect
 
 OCForge generates a unique, valid SMBIOS + ROM pairing per build and writes it directly into `config.plist` for you, so this step is handled automatically when using OCForge.
-Not Always OCForge Can Get A Imei Or Smtg Work If
+Not Always OCForge Can Get A Imei Or Smtg Work
 
 ## Desktop GUI
 
