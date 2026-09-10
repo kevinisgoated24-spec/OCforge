@@ -105,7 +105,6 @@ def _fake_acpi(dsdt=b"DSDT\x00rest", ssdts=(b"SSDT\x00one", b"SSDT\x00two")):
     """Build (get_table, enum_tables) stand-ins for a host with one DSDT and
     the given SSDT payloads. get_table returns the first SSDT for the repeated
     signature, matching the real Win32 limitation."""
-    tables = {b"DSDT": dsdt}
     first_ssdt = ssdts[0] if ssdts else None
 
     def get_table(sig):
