@@ -58,10 +58,11 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
     host can't dump its own tables), leaving the precompiled path in charge.
     """
     m = plan.machine
-    # Linux reads its own tables straight from sysfs; Windows can dump too,
-    # but needs acpidump.exe fetched first (see fetch/acpidump.py). macOS has
-    # no automatic path at all -- SSDTTime's own dumper doesn't implement one.
-    host_can_dump = acpi_dump.can_dump() or sys.platform == "win32"
+    # Linux reads its own tables straight from sysfs; Windows dumps them with
+    # the native GetSystemFirmwareTable call (no download) and only falls back
+    # to a fetched acpidump.exe for the complete SSDT set. macOS has no
+    # automatic path at all -- SSDTTime's own dumper doesn't implement one.
+    host_can_dump = acpi_dump.can_dump()
 
     # A laptop's I2C-HID trackpad only gets a real SSDT-GPIO when we can see
     # the DSDT (see gpio.py) — without --dsdt/--dump-dsdt that silently never
@@ -86,13 +87,25 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
         acpi_dir = acpi_dump.stage_supplied(dsdt, src)
     else:
         log("dumping this host's ACPI tables…")
+        give_up = " — no SSDT-GPIO, but the build's still fine without it" if auto_gpio else ""
         try:
-            acpidump_exe = fetch_acpidump.fetch(work) if sys.platform == "win32" else None
-            acpi_dir = acpi_dump.dump_tables(src, acpidump_exe=acpidump_exe)
+            # Native first on every OS that has a path (Linux sysfs, Windows
+            # GetSystemFirmwareTable). Nothing to download.
+            acpi_dir = acpi_dump.dump_tables(src)
         except acpi_dump.DsdtUnavailable as exc:
-            extra = " — no SSDT-GPIO, but the build's still fine without it" if auto_gpio else ""
-            log(f"  can't dump ACPI ({exc}); using precompiled SSDTs{extra}")
-            return None
+            if sys.platform != "win32":
+                log(f"  can't dump ACPI ({exc}); using precompiled SSDTs{give_up}")
+                return None
+            # The native call came up short (some OEM firmware won't hand a
+            # DSDT to GetSystemFirmwareTable) — fetch the ACPICA acpidump.exe
+            # and retry once for the full table set.
+            log("  native ACPI dump incomplete — fetching acpidump.exe for a fallback…")
+            try:
+                acpidump_exe = fetch_acpidump.fetch(work)
+                acpi_dir = acpi_dump.dump_tables(src, acpidump_exe=acpidump_exe)
+            except acpi_dump.DsdtUnavailable as exc2:
+                log(f"  can't dump ACPI ({exc2}); using precompiled SSDTs{give_up}")
+                return None
 
     st_dir = fetch_ssdttime.fetch(work)  # for iasl, to decompile/compile
     res = ssdtgen.run(st_dir, acpi_dir, ssdtgen.plan_ops(plan.machine), log=log)

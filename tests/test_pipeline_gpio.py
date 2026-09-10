@@ -23,15 +23,19 @@ def _laptop_i2c_hid():
 
 
 def _stub_ssdttime(monkeypatch, *, dumped: list, fetched: list, acpidump_fetched: list | None = None,
-                   platform: str = "linux"):
+                   platform: str = "linux", native_dump_fails: bool = False):
     if acpidump_fetched is None:
         acpidump_fetched = []
 
     def fake_can_dump():
-        return platform == "linux"
+        return platform in ("linux", "win32")
 
     def fake_dump_tables(dest, *, acpidump_exe=None):
         dumped.append((dest, acpidump_exe))
+        # The native (download-free) call is the one made with acpidump_exe=None.
+        # Simulate OEM firmware that won't hand a DSDT to GetSystemFirmwareTable.
+        if native_dump_fails and acpidump_exe is None:
+            raise pipeline.acpi_dump.DsdtUnavailable("native path: no DSDT")
         dest.mkdir(parents=True, exist_ok=True)
         (dest / "DSDT.aml").write_bytes(b"DSDT")
         return dest
@@ -78,9 +82,8 @@ def test_laptop_with_i2c_hid_trackpad_auto_dumps_on_linux(tmp_path, monkeypatch)
 
 
 def test_laptop_with_i2c_hid_trackpad_auto_dumps_on_windows(tmp_path, monkeypatch):
-    # Windows can dump too, but needs acpidump.exe fetched first (separately
-    # from SSDTTime -- see fetch/acpidump.py) -- can_dump() alone is False
-    # there; host_can_dump should still be True.
+    # Windows dumps natively now (GetSystemFirmwareTable) -- can_dump() is True
+    # there and no acpidump.exe is downloaded when the native call succeeds.
     dumped, fetched, acpidump_fetched = [], [], []
     _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched,
                    acpidump_fetched=acpidump_fetched, platform="win32")
@@ -91,9 +94,25 @@ def test_laptop_with_i2c_hid_trackpad_auto_dumps_on_windows(tmp_path, monkeypatc
     assert res is not None and res.ok
     assert dumped
     (_dump_dest, acpidump_exe), = dumped
-    assert acpidump_exe is not None  # fetched before the dump was attempted
-    assert acpidump_fetched and acpidump_fetched[0] == tmp_path
+    assert acpidump_exe is None  # native path, nothing fetched
+    assert not acpidump_fetched  # acpidump.exe download skipped entirely
     assert fetched and fetched[0] == tmp_path  # SSDTTime itself, for iasl
+
+
+def test_windows_falls_back_to_acpidump_when_native_dump_fails(tmp_path, monkeypatch):
+    # OEM firmware that won't give a DSDT to GetSystemFirmwareTable -> pipeline
+    # fetches the ACPICA acpidump.exe and retries once.
+    dumped, fetched, acpidump_fetched = [], [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, acpidump_fetched=acpidump_fetched,
+                   platform="win32", native_dump_fails=True)
+
+    plan = make(_laptop_i2c_hid())
+    res = pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=lambda _: None)
+
+    assert res is not None and res.ok
+    assert acpidump_fetched and acpidump_fetched[0] == tmp_path
+    # two dump attempts: native (None) then the acpidump.exe retry
+    assert [exe is None for _, exe in dumped] == [True, False]
 
 
 def test_laptop_with_i2c_hid_trackpad_does_not_auto_dump_on_macos(tmp_path, monkeypatch):

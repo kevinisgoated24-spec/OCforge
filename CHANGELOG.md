@@ -3,6 +3,28 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.2.0
+
+Native Windows ACPI dumping — building SSDTs on Windows no longer needs an
+`acpidump.exe` download.
+
+- Windows has had a driver-free, admin-free way to read raw ACPI tables since
+  Vista (`GetSystemFirmwareTable` / `EnumSystemFirmwareTables` with the `ACPI`
+  provider). SSDTTime's own `Scripts/dsdt.py` never uses it — it only *checks*
+  for a local `acpidump.exe` and never fetches one — so ocforge now makes the
+  Win32 call itself (`probe/acpi_dump._dump_windows_native`). A plain
+  `ocforge` run on Windows can dump its DSDT and build SSDTs with nothing
+  downloaded.
+- `acpi_dump.can_dump()` now reports `True` on Windows, and the build pipeline
+  only fetches the ACPICA `acpidump.exe` as a fallback — when the native call
+  can't produce a DSDT (some OEM firmware refuses), or when the complete SSDT
+  set is needed (the Win32 API hands back only the first table per repeated
+  signature, so a board with several SSDTs yields DSDT + one SSDT natively).
+- macOS still has no automatic path — pass `--dsdt` with a folder of tables.
+- Test coverage for the native path and the native-first / acpidump-fallback
+  pipeline logic (`tests/test_acpi_dump_windows.py`,
+  `tests/test_pipeline_gpio.py`).
+
 ## gui-beta-v1.1.2
 
 Fixes the first-run setup screen being able to hang indefinitely on the

@@ -377,7 +377,7 @@ footer.site-footer a:hover { color: var(--primary-ink); }
           <table class="m3-table">
             <tr><th>Option</th><th>Notes</th></tr>
             <tr><td>Get the recovery image for that macOS</td><td>Worth leaving on — it's only ~600MB or a bit more, but it can be slow to fetch</td></tr>
-            <tr><td>Build SSDTs from your machine</td><td>Only works on Linux right now — Windows support is still a work in progress</td></tr>
+            <tr><td>Build SSDTs from your machine</td><td>Works on Linux and Windows — Windows reads your ACPI tables natively, nothing to download. macOS needs you to supply a DSDT folder</td></tr>
             <tr><td>Use the OpenCore debug build</td><td>Leave this off unless you specifically need debug logging</td></tr>
             <tr><td>Get the offline image for that macOS</td><td>Leave this off — it takes ages; see the <a class="inline-link" href="#offline">offline installer guide</a> below if you actually need it</td></tr>
           </table>
