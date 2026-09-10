@@ -140,7 +140,7 @@ def test_native_dump_writes_dsdt_and_distinct_ssdts(tmp_path, monkeypatch):
 
 def test_native_dump_raises_when_no_dsdt(tmp_path, monkeypatch):
     monkeypatch.setattr(acpi_dump, "_get_acpi_table", lambda sig: None)
-    monkeypatch.setattr(acpi_dump, "_enum_acpi_tables", lambda: [])
+    monkeypatch.setattr(acpi_dump, "_enum_acpi_tables", list)
     with pytest.raises(acpi_dump.DsdtUnavailable, match="GetSystemFirmwareTable"):
         acpi_dump._dump_windows_native(tmp_path / "out")
 
@@ -172,7 +172,7 @@ def test_dump_tables_prefers_native_over_acpidump(tmp_path, monkeypatch):
 def test_dump_tables_falls_back_to_acpidump_when_native_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(acpi_dump.sys, "platform", "win32")
     monkeypatch.setattr(acpi_dump, "_get_acpi_table", lambda sig: None)
-    monkeypatch.setattr(acpi_dump, "_enum_acpi_tables", lambda: [])
+    monkeypatch.setattr(acpi_dump, "_enum_acpi_tables", list)
     called = {}
 
     def fake_fallback(dest, exe):
@@ -192,6 +192,6 @@ def test_dump_tables_falls_back_to_acpidump_when_native_fails(tmp_path, monkeypa
 def test_dump_tables_native_fail_no_fallback_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(acpi_dump.sys, "platform", "win32")
     monkeypatch.setattr(acpi_dump, "_get_acpi_table", lambda sig: None)
-    monkeypatch.setattr(acpi_dump, "_enum_acpi_tables", lambda: [])
+    monkeypatch.setattr(acpi_dump, "_enum_acpi_tables", list)
     with pytest.raises(acpi_dump.DsdtUnavailable, match="native ACPI dump failed"):
         acpi_dump.dump_tables(tmp_path / "out", acpidump_exe=None)
