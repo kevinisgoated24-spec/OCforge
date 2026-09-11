@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OCforge Install Guide</title>
-<meta name="description" content="Step-by-step: the regular OCforge GUI build, the offline installer for machines that can't touch the internet mid-install, and mapping your USB ports.">
+<meta name="description" content="Step-by-step: the regular OCforge GUI build, the offline installer for machines that can't touch the internet mid-install, mapping your USB ports, and fixing iCloud sign-in.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
@@ -266,6 +266,11 @@ table.m3-table td { color: var(--ink); border-top: 1px solid var(--border); back
 table.m3-table tr:hover td { background: var(--surface-muted); }
 table.m3-table code { font-size: 0.85em; }
 
+/* ---------- Plain lists in prose ---------- */
+.body-list { margin: 0 0 12px 20px; padding: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.body-list li { margin: 0 0 2px; }
+.body-list code { color: var(--ink); }
+
 footer.site-footer {
   max-width: 800px; margin: 56px auto 0; padding: 28px 24px 40px;
   color: var(--muted); font-size: 13px;
@@ -292,6 +297,7 @@ footer.site-footer a:hover { color: var(--primary-ink); }
     <a class="nav-pill" href="#regular">Regular build</a>
     <a class="nav-pill" href="#offline">Offline installer</a>
     <a class="nav-pill" href="#usbmap">USB mapping</a>
+    <a class="nav-pill" href="#icloud">iCloud fix</a>
   </nav>
   <a class="btn btn-outline" href="https://github.com/kevinisgoated24-spec/OCforge" target="_blank" rel="noopener">GitHub ↗</a>
 </div>
@@ -377,7 +383,7 @@ footer.site-footer a:hover { color: var(--primary-ink); }
           <table class="m3-table">
             <tr><th>Option</th><th>Notes</th></tr>
             <tr><td>Get the recovery image for that macOS</td><td>Worth leaving on — it's only ~600MB or a bit more, but it can be slow to fetch</td></tr>
-            <tr><td>Build SSDTs from your machine</td><td>Only works on Linux right now — Windows support is still a work in progress</td></tr>
+            <tr><td>Build SSDTs from your machine</td><td>Works on Linux and Windows — Windows reads your ACPI tables natively, nothing to download. macOS needs you to supply a DSDT folder</td></tr>
             <tr><td>Use the OpenCore debug build</td><td>Leave this off unless you specifically need debug logging</td></tr>
             <tr><td>Get the offline image for that macOS</td><td>Leave this off — it takes ages; see the <a class="inline-link" href="#offline">offline installer guide</a> below if you actually need it</td></tr>
           </table>
@@ -542,6 +548,67 @@ ls</code></pre>
       <div class="step-item__body">
         <h3 class="title">Reboot and check</h3>
         <p class="body-m">Every port you mapped should now show its correct type in <strong>About This Mac → System Report → USB</strong>, instead of the generic fallback behavior USBToolBox uses with no map at all — and the boot log shouldn't show any "no personality found" or over-the-limit warnings.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="icloud" style="margin-top:64px;">
+    <hr class="divider" style="margin-top:0;margin-bottom:40px;">
+    <div class="guide-head"><span class="chip" style="margin:0">Troubleshooting</span><h2 class="headline">iCloud Fix For Unable To Sign In Nor Log In</h2></div>
+    <p class="guide-sub">If iCloud, iMessage, or FaceTime fail to authenticate, the most common cause is a <strong>burned SMBIOS identity</strong> — a serial number that's already been used to sign into iCloud on another machine (real Mac, VM, or another Hackintosh).</p>
+
+    <div class="step-item">
+      <div class="step-item__rail"><div class="step-item__dot">1</div><div class="step-item__line"></div></div>
+      <div class="step-item__body">
+        <h3 class="title">Fix checklist</h3>
+        <p class="body-m" style="margin-bottom:6px;">Work through these together — a partial fix (e.g. new serial but old ROM) usually still fails:</p>
+        <ul class="body-list">
+          <li>Use a Mac model (SMBIOS) that actually matches your CPU generation — <a class="inline-link" href="https://dortania.github.io/OpenCore-Install-Guide/" target="_blank" rel="noopener">check Dortania's guide</a> for your CPU and confirm it supports your macOS version</li>
+          <li>Generate a <strong>fresh</strong> Serial Number, Board Serial (MLB), and System UUID — never reuse one from a guide, video, or old config</li>
+          <li>Set <code>ROM</code> to your real network adapter's MAC address (not random)</li>
+          <li>Sign out of Apple ID, clear iCloud/account caches, and reset NVRAM before signing in again</li>
+          <li>Confirm system date/time is correct and set to automatic</li>
+          <li>Once sign-in succeeds, keep this identity permanently — don't regenerate it on reinstall</li>
+        </ul>
+        <p class="body-m">Tools to generate the values above:</p>
+        <ul class="body-list">
+          <li><a class="inline-link" href="https://github.com/corpnewt/GenSMBIOS" target="_blank" rel="noopener">GenSMBIOS</a> — generates a valid Serial, MLB, and UUID</li>
+          <li><a class="inline-link" href="https://github.com/corpnewt/ProperTree" target="_blank" rel="noopener">ProperTree</a> — GUI editor for <code>config.plist</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-item__rail"><div class="step-item__dot">2</div></div>
+      <div class="step-item__body">
+        <h3 class="title">Where to put the SMBIOS values</h3>
+        <p class="body-m">All SMBIOS values live inside your EFI partition, at <code>EFI/OC/config.plist</code>, under <code>PlatformInfo → Generic</code>:</p>
+        <div class="table-card">
+          <table class="m3-table">
+            <tr><th>Field</th><th>What it is</th></tr>
+            <tr><td><code>SystemProductName</code></td><td>The Mac model you're spoofing (e.g. <code>iMac19,1</code>)</td></tr>
+            <tr><td><code>SystemSerialNumber</code></td><td>The fresh Serial Number</td></tr>
+            <tr><td><code>MLB</code></td><td>The Board Serial</td></tr>
+            <tr><td><code>SystemUUID</code></td><td>The fresh System UUID</td></tr>
+            <tr><td><code>ROM</code></td><td>Your real network adapter's MAC address (as raw hex)</td></tr>
+          </table>
+        </div>
+        <p class="body-m" style="margin-bottom:6px;"><strong>How to edit them:</strong></p>
+        <ul class="body-list">
+          <li>Open <code>config.plist</code> with ProperTree or OpenCore Configurator</li>
+          <li>Navigate to <code>PlatformInfo → Generic</code></li>
+          <li>Paste in the freshly generated Serial, MLB, UUID, and your real ROM value</li>
+          <li>Save the file, then copy the updated <code>config.plist</code> back onto your EFI partition (<code>EFI/OC/</code>)</li>
+          <li>Reboot for the new identity to take effect</li>
+        </ul>
+        <div class="banner banner--tip">
+          <span class="ic">→</span>
+          <span>OCforge generates a unique, valid SMBIOS + ROM pairing per build and writes it directly into <code>config.plist</code> for you, so this step is normally handled automatically.</span>
+        </div>
+        <div class="banner banner--warn">
+          <span class="ic">!</span>
+          <span>OCforge can't guarantee Apple-side activation — it hands you a valid, unique identity, but things outside its control (a model already flagged by Apple, a network MAC that's already registered elsewhere, or Apple's own server-side checks) can still block sign-in. If it still fails after this checklist, try a different SMBIOS model close to yours.</span>
+        </div>
       </div>
     </div>
   </section>

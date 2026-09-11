@@ -4,12 +4,12 @@ import 'dart:io';
 /// The GUI's own version — kept in sync by hand with pubspec.yaml's
 /// `version:` and [OcforgeCli.minVersion] (cli.dart), same manual-bump
 /// convention already used for every gui-v* tag.
-const String appVersion = '1.1.2';
+const String appVersion = '1.2.0';
 
 /// Each stable (non-beta) major/notable release gets a codename, changed by
 /// hand alongside [appVersion] -- purely cosmetic, shown in the splash
 /// credits and the update banner.
-const String appCodename = 'Bromine';
+const String appCodename = 'Tungsten';
 
 const String _releasesListApi =
     'https://api.github.com/repos/kevinisgoated24-spec/OCforge/releases?per_page=20';
