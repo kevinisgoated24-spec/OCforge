@@ -68,7 +68,7 @@ For Linux:
 
 1. Get The Recovery Image For That MacOS (it will be kinda slow only 600mb or higher)
 
-2. Build SSDT'S From Your Machine (works on Linux and Windows now — Windows dumps your ACPI tables natively, no extra downloads; macOS still needs you to supply a DSDT folder)
+2. Build SSDT'S From Your Machine (works on Linux and Windows now, Windows dumps your ACPI tables natively, no extra downloads; macOS still needs you to supply a DSDT folder)
 
 3. Use The Opencore Debug Build (i would keep that off)
 
