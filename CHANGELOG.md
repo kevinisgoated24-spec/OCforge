@@ -3,10 +3,15 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
-## gui-beta-v1.2.0
+## gui-v1.2.0
+
+# ⚙️ OCforge 1.2.0 "Tungsten"
 
 Native Windows ACPI dumping — building SSDTs on Windows no longer needs an
-`acpidump.exe` download.
+`acpidump.exe` download. Promoted straight to a public release: everything
+since 1.0.0 "Bromine" (Expert Mode's kext/SSDT/SMBIOS/quirk/device-spoof
+overrides, the boot-log checker, the Arch/CachyOS install fix, the setup-
+screen hang fix) is folded in alongside it.
 
 - Windows has had a driver-free, admin-free way to read raw ACPI tables since
   Vista (`GetSystemFirmwareTable` / `EnumSystemFirmwareTables` with the `ACPI`

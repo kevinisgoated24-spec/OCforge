@@ -4,7 +4,7 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-🎉 **v1.0.0 "Bromine" — our first public release!**
+⚙️ **v1.2.0 "Tungsten" is out.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 ---
