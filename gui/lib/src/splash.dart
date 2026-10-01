@@ -71,7 +71,7 @@ class _SplashScreen extends StatelessWidget {
             Text('Made by: KevinMayBeHere',
                 style: TextStyle(color: s.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 4),
-            Text('Tested by: GaM1ng',
+            Text('Tested by: helloworld',
                 style: TextStyle(color: s.onSurfaceVariant, fontSize: 13)),
           ],
         ),
