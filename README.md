@@ -1,3 +1,6 @@
+# message from riftaway7-code: i think the developers quit on this.
+
+
 <img src="docs/icon.webp" alt="OCforge icon" width="80" align="right">
 
 # OCforge
