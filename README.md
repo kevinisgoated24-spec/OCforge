@@ -1,4 +1,4 @@
-# message from riftaway7-code: i think the developers quit on this.
+# message from Knaphixis aka the owner of this project I have to say we are back baby!
 
 
 <img src="docs/icon.webp" alt="OCforge icon" width="80" align="right">
