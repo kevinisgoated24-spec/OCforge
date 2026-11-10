@@ -90,7 +90,9 @@ def test_can_dump_true_on_windows_false_on_macos(monkeypatch):
     # has no automatic path at all.
     monkeypatch.setattr(acpi_dump.sys, "platform", "win32")
     assert acpi_dump.can_dump() is True
+    # macOS reads the IORegistry; with no ACPI node (Apple Silicon) it's False.
     monkeypatch.setattr(acpi_dump.sys, "platform", "darwin")
+    monkeypatch.setattr(acpi_dump, "_ioreg_acpi_raw", lambda: b"")
     assert acpi_dump.can_dump() is False
 
 

@@ -14,14 +14,20 @@ machine with several SSDTs yields DSDT + one SSDT. That's enough for the
 DSDT-driven renames/GPRW/AWAC work; for the complete SSDT set, ocforge falls
 back to the ACPICA project's ``acpidump.exe`` (fetched by ``fetch/acpidump.py``).
 
-macOS has no automatic path at all, from ocforge or from SSDTTime itself (its
-own ``dsdt.py`` only implements Windows and Linux) — pass ``--dsdt`` with a
-folder of tables dumped some other way.
+macOS (Intel) exposes the tables in the IORegistry: the
+``AppleACPIPlatformExpert`` node carries an ``ACPI Tables`` dictionary of raw
+table data — the same source MaciASL's "New from ACPI" reads. ``ioreg -a``
+hands it back as a plist, no root needed (:func:`_dump_darwin`). SSDTTime's
+own ``dsdt.py`` has no macOS path, so this is ocforge's. Two caveats: on a
+Hackintosh these are the tables *as OpenCore delivered them* (DSDT renames
+applied, its own SSDTs injected) — see :func:`opencore_booted`; and Apple
+Silicon has no ACPI at all, so :func:`can_dump` is simply False there.
 """
 
 from __future__ import annotations
 
 import ctypes
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -41,10 +47,101 @@ def can_dump() -> bool:
     """True if this host can dump its own ACPI tables with nothing beyond
     what's already local. Linux reads ``/sys/firmware/acpi/tables``; Windows
     uses the native ``GetSystemFirmwareTable`` call (no ``acpidump.exe``
-    download needed just to get a DSDT). macOS has no local path."""
+    download needed just to get a DSDT); Intel macOS reads the IORegistry."""
     if sys.platform == "win32":
         return True
+    if sys.platform == "darwin":
+        return b"DSDT" in _darwin_tables()
     return sys.platform.startswith("linux") and _SYS_TABLES.is_dir()
+
+
+# --- macOS: IORegistry ---------------------------------------------------------
+
+# OpenCore publishes its version under its own NVRAM GUID; present => the
+# running tables went through OpenCore's ACPI patching first.
+_OC_NVRAM_VAR = "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version"
+
+
+def _ioreg_acpi_raw() -> bytes:
+    try:
+        return subprocess.run(
+            ["ioreg", "-a", "-r", "-c", "AppleACPIPlatformExpert", "-d", "1"],
+            capture_output=True, timeout=30, check=False,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return b""
+
+
+def parse_ioreg_acpi(raw: bytes) -> dict[bytes, list[bytes]]:
+    """``ioreg -a`` plist -> {signature: [table bytes, ...]} for every table in
+    the ``ACPI Tables`` dict, keyed by the table's *own* 4-byte signature
+    (the dict keys are "SSDT", "SSDT-1", "SSDT-CpuPm"... and not reliable).
+    Identical payloads are dropped."""
+    from xml.parsers.expat import ExpatError
+
+    if not raw.strip():
+        return {}
+    try:
+        root = plistlib.loads(raw)
+    except (plistlib.InvalidFileException, ValueError, ExpatError):
+        return {}
+
+    def find(node):
+        if isinstance(node, dict):
+            if isinstance(node.get("ACPI Tables"), dict):
+                return node["ACPI Tables"]
+            children = node.values()
+        elif isinstance(node, list):
+            children = node
+        else:
+            return None
+        for v in children:
+            hit = find(v)
+            if hit is not None:
+                return hit
+        return None
+
+    tables = find(root) or {}
+    out: dict[bytes, list[bytes]] = {}
+    for key in sorted(tables, key=lambda k: (k != "DSDT", len(k), k)):
+        data = tables[key]
+        if not isinstance(data, bytes) or len(data) < 36:  # shorter than an ACPI header
+            continue
+        bucket = out.setdefault(data[:4], [])
+        if data not in bucket:
+            bucket.append(data)
+    return out
+
+
+def _darwin_tables() -> dict[bytes, list[bytes]]:
+    return parse_ioreg_acpi(_ioreg_acpi_raw())
+
+
+def opencore_booted() -> bool:
+    """True when this macOS was booted by OpenCore (i.e. a Hackintosh), so the
+    IORegistry tables are post-patch, not what the firmware shipped."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        p = subprocess.run(["nvram", _OC_NVRAM_VAR], capture_output=True,
+                           timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return p.returncode == 0
+
+
+def _dump_darwin(dest: Path) -> Path:
+    tables = _darwin_tables()
+    if b"DSDT" not in tables:
+        raise DsdtUnavailable(
+            "no ACPI tables in the IORegistry (Apple Silicon has no ACPI) — pass "
+            "--dsdt with a folder of tables from the target PC"
+        )
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "DSDT.aml").write_bytes(tables[b"DSDT"][0])
+    for i, data in enumerate(tables.get(b"SSDT", []), 1):
+        (dest / f"SSDT-{i}.aml").write_bytes(data)
+    return dest
 
 
 def _sig_dword(sig: bytes) -> int:
@@ -116,7 +213,7 @@ def dump_tables(dest: Path, *, acpidump_exe: Path | None = None) -> Path:
 
     On Windows the native ``GetSystemFirmwareTable`` path is tried first (no
     download); ``acpidump_exe``, if given, is used as a fallback and for the
-    complete SSDT set. Ignored on Linux/macOS."""
+    complete SSDT set. Ignored on Linux/macOS (macOS reads the IORegistry)."""
     if sys.platform.startswith("linux"):
         return _dump_linux(dest)
     if sys.platform == "win32":
@@ -129,10 +226,9 @@ def dump_tables(dest: Path, *, acpidump_exe: Path | None = None) -> Path:
                     "for a fallback (see fetch.acpidump.fetch)"
                 ) from native_exc
             return _dump_windows(dest, acpidump_exe)
-    raise DsdtUnavailable(
-        "ACPI table dump has no automatic path on macOS — pass --dsdt with "
-        "a folder of tables dumped some other way"
-    )
+    if sys.platform == "darwin":
+        return _dump_darwin(dest)
+    raise DsdtUnavailable(f"no ACPI table dump path on {sys.platform} — pass --dsdt")
 
 
 def _dump_linux(dest: Path) -> Path:
