@@ -1,7 +1,7 @@
 """Assemble an OpenCore config.plist (as a dict, ready for ``plistlib.dump``).
 
 ``assemble(plan, smbios)`` returns a complete, ocvalidate-shaped config for
-OpenCore 1.0.x. Kext ``ExecutablePath`` values are best-guesses here and get
+OpenCore 1.0.x. Key ``ExecutablePath`` values are best-guesses here and get
 corrected by :func:`ocforge.build.layout.fixup_kext_paths` once the bundles
 are on disk.
 """
@@ -20,18 +20,18 @@ from ocforge.probe.base import is_legacy_amd
 # Each generation's own guide often lists several values by exact screen
 # resolution / iGPU model / NUC-vs-laptop -- ocforge doesn't probe that level
 # of detail, so the laptop slot is the guide's own "start here, normally
-# enough" pick, not an exhaustive per-panel match. `None` means no confirmed
+# enough" pick, not an exhaustive per-panel match. ``None`` means no confirmed
 # value at all for that slot (no confirmed Broadwell desktop-headless id).
 _IG_PLATFORM = {
     # gen: (laptop, desktop-with-display, desktop-connectorless)
     3: ("03006601", "0A006601", "07006201"),  # Ivy Bridge
     4: ("0500260A", "0300220D", "04001204"),  # Haswell
-    5: ("06002616", "07002216", None),        # Broadwell
+    5: ("06002616", "07002216", None),         # Broadwell
     6: ("00001619", "00001219", "01001219"),  # Skylake
     7: ("00001B59", "00001259", "03001259"),  # Kaby Lake
     8: ("00009B3E", "07009B3E", "0300913E"),  # Coffee Lake / Whiskey Lake
     9: ("00009B3E", "07009B3E", "0300913E"),  # Coffee Lake Refresh
-    10: ("00009B3E", "07009B3E", "0300C89B"),  # Comet Lake -- Ice Lake overridden below
+    10: ("0000528A", "00009B3E", "0300C89B"), # Comet Lake -- Ice Lake overridden below
 }
 
 # Ice Lake is also "10th gen" in Intel's marketing but different silicon
@@ -53,11 +53,11 @@ def _b(hex_le: str) -> bytes:
 # i3 of the same generation via Emulate. Values are the target i3's CPUID EAX
 # (little-endian), padded to 16 bytes; the mask covers only those 4 bytes.
 _I3_CPUID_EAX = {
-    6:  "e3060500",   # i3-6100  (Skylake,     0x000506E3)
-    7:  "e9060900",   # i3-7100  (Kaby Lake,   0x000906E9)
-    8:  "ea060900",   # i3-8100  (Coffee Lake, 0x000906EA)
-    9:  "ec060900",   # i3-9100  (CFL Refresh, 0x000906EC)
-    10: "55060a00",   # i3-10100 (Comet Lake,  0x000A0655)
+    6:  "e3060500",    # i3-6100 (Skylake,     0x000506E3)
+    7:  "e9060900",    # i3-7100 (Kaby Lake,   0x000906E9)
+    8:  "ea060900",    # i3-8100 (Coffee Lake, 0x000906EA)
+    9:  "ec060900",    # i3-9100 (CFL Refresh, 0x000906EC)
+    10: "55060a00",    # i3-10100 (Comet Lake, 0x000A0655)
 }
 
 
@@ -119,13 +119,14 @@ def _apply_quirk_overrides(quirks: dict[str, Any], overrides: dict[str, bool],
 
 
 def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
-         patch: list[dict[str, Any]] | None = None,
-         delete: list[dict[str, Any]] | None = None, *,
-         quirk_overrides: dict[str, bool], applied: set[str],
-         wrong_type: set[str]) -> dict[str, Any]:
+          patch: list[dict[str, Any]] | None = None,
+          delete: list[dict[str, Any]] | None = None, *,
+          quirk_overrides: dict[str, bool], applied: set[str],
+          wrong_type: set[str]) -> dict[str, Any]:
     if add is None:
         add = [
-            {"Comment": s.name, "Enabled": True, "Path": f"{s.name}.aml"} for s in plan.ssdts
+            {"Comment": s.name, "Enabled": True, "Path": f"{s.name}.aml"}
+            for s in plan.ssdts
         ]
     delete = list(delete or [])
     m = plan.machine
@@ -149,8 +150,8 @@ def _acpi(plan: BuildPlan, add: list[dict[str, Any]] | None = None,
 
 
 def _booter(plan: BuildPlan, *, legacy_mmap: bool = False,
-           quirk_overrides: dict[str, bool], applied: set[str],
-           wrong_type: set[str]) -> dict[str, Any]:
+            quirk_overrides: dict[str, bool], applied: set[str],
+            wrong_type: set[str]) -> dict[str, Any]:
     m = plan.machine
     gen = m.cpu.intel_gen
     intel = m.cpu.vendor is Vendor.INTEL
@@ -172,7 +173,8 @@ def _booter(plan: BuildPlan, *, legacy_mmap: bool = False,
     # Bulldozer/Jaguar-era AMD boards are old enough that legacy is the
     # Dortania-documented default there too, not just an OEM-firmware fallback.
     modern_mmap = not legacy_mmap and (
-        (plan.is_amd and not legacy_amd) or (intel and gen >= 8))
+        (plan.is_amd and not legacy_amd) or (intel and gen >= 8)
+    )
     quirks = {
         "AllowRelocationBlock": False,
         "AvoidRuntimeDefrag": True,
@@ -233,7 +235,7 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
                 if not m.is_laptop:
                     # desktop iGPU driving the display: WhateverGreen patching + a
                     # 19MB stolen-mem floor, for boards with DVMT locked in
-                    # firmware (most OEM boxes). Dortania Coffee Lake -> DeviceProperties.
+                    # firmware (most OEM boxes).
                     props["framebuffer-patch-enable"] = _b("01000000")
                     props["framebuffer-stolenmem"] = _b("00003001")
                     if gen in _NEEDS_FBMEM:
@@ -262,9 +264,9 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
     return {"Add": add, "Delete": {}}
 
 
-def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None, *,
-           quirk_overrides: dict[str, bool], applied: set[str],
-           wrong_type: set[str]) -> dict[str, Any]:
+def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None = None, *,
+            quirk_overrides: dict[str, bool], applied: set[str],
+            wrong_type: set[str]) -> dict[str, Any]:
     adds = []
     for s in plan.kexts:
         entry = {
@@ -284,7 +286,8 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None, *,
     # XCPM (and its CFG-Lock quirk) only exists from Haswell on; Sandy/Ivy
     # Bridge use the older pm-timer-based power management instead and need
     # the other CFG-Lock quirk. Dortania Sandy/Ivy Bridge -> Kernel Quirks.
-    pre_haswell = plan.machine.cpu.vendor is Vendor.INTEL and 0 < plan.machine.cpu.intel_gen < 4
+    pre_haswell = (plan.machine.cpu.vendor is Vendor.INTEL
+                   and 0 < plan.machine.cpu.intel_gen < 4)
     quirks = {
         "AppleCpuPmCfgLock": pre_haswell,
         "AppleXcpmCfgLock": not plan.is_amd and not pre_haswell,
@@ -292,7 +295,7 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None, *,
         "AppleXcpmForceBoost": False,
         "CustomPciSerialDevice": False,
         "CustomSMBIOSGuid": False,
-        "DisableIoMapper": not plan.is_amd,   # AMD has no VT-d/DMAR — irrelevant there
+        "DisableIoMapper": not plan.is_amd,    # AMD has no VT-d/DMAR — irrelevant there
         "DisableIoMapperMapping": False,
         "DisableLinkeditJettison": True,
         "DisableRtcChecksum": False,
@@ -475,9 +478,9 @@ def _uefi(plan: BuildPlan, *, quirk_overrides: dict[str, bool], applied: set[str
         },
         "ConnectDrivers": True,
         "Drivers": [
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "OpenRuntime.efi"},
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "HfsPlus.efi"},
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "ResetNvramEntry.efi"},
+            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "OpenRuntime.efi"},
+            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "HfsPlus.efi"},
+            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "ResetNvramEntry.efi"},
         ],
         "Input": {
             "KeyFiltering": False,
@@ -566,14 +569,14 @@ def assemble(plan: BuildPlan, sm: SmbiosData, *,
              acpi_delete: list[dict[str, Any]] | None = None,
              legacy_mmap: bool = False,
              quirk_overrides: dict[str, bool] | None = None) -> dict[str, Any]:
-    # Defaults to whatever the plan itself carries (set via `make(...,
-    # quirk_overrides=...)`) -- explicit here only lets a caller (tests,
+    # Defaults to whatever the plan itself carries (set via ``make(...,
+    # quirk_overrides=...)``) -- explicit here only lets a caller (tests,
     # mainly) override that without building a whole new plan.
     overrides = plan.quirk_overrides if quirk_overrides is None else quirk_overrides
     applied: set[str] = set()
     wrong_type: set[str] = set()
     acpi_ = _acpi(plan, acpi_add, acpi_patch, acpi_delete,
-                 quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
+                  quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
     booter = _booter(plan, legacy_mmap=legacy_mmap,
                      quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
     kernel = _kernel(plan, amd_patches, quirk_overrides=overrides, applied=applied, wrong_type=wrong_type)
