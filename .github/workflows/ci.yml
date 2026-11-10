@@ -83,6 +83,18 @@ jobs:
           assert (out / "DSDT.aml").read_bytes()[:4] == b"DSDT"
           PY
 
+      - name: IORegistry ACPI diagnostics
+        if: failure() && runner.arch == 'X64'
+        shell: bash
+        run: |
+          set +e
+          echo "== platform expert classes"; ioreg -l -w0 -d 2 | grep -E "^\+-o|class" | head -20
+          echo "== who has 'ACPI Tables'"; ioreg -l -w0 | grep -n "ACPI Tables" | cut -c1-300 | head
+          echo "== -a -r -c AppleACPIPlatformExpert -d 1"; ioreg -a -r -c AppleACPIPlatformExpert -d 1 | head -c 3000
+          echo; echo "== IOACPIPlane"; ioreg -p IOACPIPlane -w0 | head -20
+          echo "== acpi node keys"; ioreg -a -r -n acpi -d 1 | grep "<key>" | head -40
+          system_profiler SPHardwareDataType | head -20
+
   gui-analyze:
     runs-on: ubuntu-latest
     defaults:
