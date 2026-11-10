@@ -42,9 +42,9 @@ Runs on Linux, Windows, or macOS as the host.
 
 ## Guide
 
-📖 **[Read the full guide](https://kevinisgoated24-spec.github.io/OCforge/)** — covers everything from first-time setup to USB mapping and offline installers.
+📖 **[Read the full guide](https://kevinisgoated24-spec.github.io/OCforge/)** covers everything from first-time setup to USB mapping and offline installers.
 
-**Changelog:** [CHANGELOG.md](CHANGELOG.md) — now with Linux and macOS support.
+**Changelog:** [CHANGELOG.md](CHANGELOG.md) now with Linux and macOS support.
 
 **License:** MIT, built on public OpenCore / Dortania documentation. See [LICENSE](LICENSE).
 
@@ -99,15 +99,15 @@ See [Other-Commands.md](https://github.com/kevinisgoated24-spec/OCforge/blob/mas
 
 ### Expert mode
 
-Everything above is OCforge deciding for you. If you'd rather do it yourself — the way the [Dortania guide](https://dortania.github.io/OpenCore-Install-Guide/) walks through it, decision by decision — a few manual overrides sit on top of the same detection/build pipeline:
+Everything above is OCforge deciding for you. If you'd rather do it yourself — the way the [Dortania guide](https://dortania.github.io/OpenCore-Install-Guide/) walks through it, decision by decision a few manual overrides sit on top of the same detection/build pipeline:
 
-- **ACPI source** — `--dsdt PATH` (a DSDT/folder of tables you already have) or `--dump-dsdt` (dump this host's own live tables) instead of Dortania's precompiled SSDT set.
-- **Force through an unsupported build** — `--force-unsupported-gpu` / `--force-unsupported-os` skip the "continue anyway?" prompt outright, instead of only being reachable after a build fails once.
+- **ACPI source** `--dsdt PATH` (a DSDT/folder of tables you already have) or `--dump-dsdt` (dump this host's own live tables) instead of Dortania's precompiled SSDT set.
+- **Force through an unsupported build** `--force-unsupported-gpu` / `--force-unsupported-os` skip the "continue anyway?" prompt outright, instead of only being reachable after a build fails once.
 - **Kext overrides** — `--exclude-kext NAME` drops a kext OCforge would otherwise add; `--include-kext NAME` forces one in that it wouldn't otherwise pick (both repeatable). Unknown `--include-kext` names are rejected with an error rather than silently ignored, and any override adds a warning to `ocforge plan`'s output so it's clear the pick was manual.
-- **SSDT overrides** — `--exclude-ssdt NAME` drops one of the precompiled SSDTs OCforge would otherwise add (repeatable), e.g. `--exclude-ssdt SSDT-PLUG` if you're handling XCPM some other way. There's no `--include-ssdt` — an arbitrary SSDT name doesn't map onto a real Dortania asset the way a kext name maps onto a real kext, so adding one OCforge doesn't already know about still means supplying it yourself (drop the `.aml` into the built `EFI/OC/ACPI/` folder and add it to `config.plist`'s `ACPI → Add` by hand, or via `ocforge plist save`).
+- **SSDT overrides** `--exclude-ssdt NAME` drops one of the precompiled SSDTs OCforge would otherwise add (repeatable), e.g. `--exclude-ssdt SSDT-PLUG` if you're handling XCPM some other way. There's no `--include-ssdt` — an arbitrary SSDT name doesn't map onto a real Dortania asset the way a kext name maps onto a real kext, so adding one OCforge doesn't already know about still means supplying it yourself (drop the `.aml` into the built `EFI/OC/ACPI/` folder and add it to `config.plist`'s `ACPI → Add` by hand, or via `ocforge plist save`).
 - **SMBIOS override** — `--smbios MODEL` (e.g. `iMac19,1`) replaces OCforge's own board-generation pick outright. Only checked for the right *shape* (`Name123,4`) up front; `macserial` is the real authority and fails loudly during the build if the model doesn't actually exist.
-- **Quirk overrides** — `--quirk NAME=true|false` (repeatable) flips one ACPI/Booter/Kernel/UEFI Quirks toggle directly, e.g. `--quirk DevirtualiseMmio=false`. On/off toggles only — a handful of Quirks entries are numeric settings (a slide count, a timeout) rather than booleans, and those are rejected rather than silently coerced. Only `build`/`offline-installer` actually apply quirks (there's no `config.plist` to apply them to yet at `plan`/`explain` time).
-- **Device ID spoof** — `--spoof-device PATH=[VENDOR:]DEVICE` (repeatable) presents a different PCI device to macOS at that OpenCore device path, e.g. `--spoof-device "PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF"` to spoof an unsupported GPU as a supported one — the same DeviceProperties edit Hackintosh users already do by hand for hardware without a real macOS driver, tied into OCforge as an override. Merges into whatever OCforge already computed at that path (a GPU's own `AAPL,ig-platform-id` survives a device-id override there) instead of replacing the whole entry, and forces the OpenCore DEBUG build on automatically so it's easier to tell whether the spoof actually took effect.
+- **Quirk overrides** — `--quirk NAME=true|false` (repeatable) flips one ACPI/Booter/Kernel/UEFI Quirks toggle directly, e.g. `--quirk DevirtualiseMmio=false`. On/off toggles only a handful of Quirks entries are numeric settings (a slide count, a timeout) rather than booleans, and those are rejected rather than silently coerced. Only `build`/`offline-installer` actually apply quirks (there's no `config.plist` to apply them to yet at `plan`/`explain` time).
+- **Device ID spoof** — `--spoof-device PATH=[VENDOR:]DEVICE` (repeatable) presents a different PCI device to macOS at that OpenCore device path, e.g. `--spoof-device "PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF"` to spoof an unsupported GPU as a supported one the same DeviceProperties edit Hackintosh users already do by hand for hardware without a real macOS driver, tied into OCforge as an override. Merges into whatever OCforge already computed at that path (a GPU's own `AAPL,ig-platform-id` survives a device-id override there) instead of replacing the whole entry, and forces the OpenCore DEBUG build on automatically so it's easier to tell whether the spoof actually took effect.
 - **Review before you trust it** — `ocforge validate --efi ./EFI` runs `ocvalidate` on the assembled `config.plist`, and `ocforge plist show` / `plist save` round-trip it to JSON for hand editing. The desktop GUI wraps both behind a "Validate this EFI" / "Review in Editor" pair right after a build finishes.
 
 None of this changes what OCforge *detects* — only what it does with that detection. If a manual pick makes a machine unbootable, that's on you; the warning in `plan`'s output is there so you know which parts were manual before you go looking for what to fix.
