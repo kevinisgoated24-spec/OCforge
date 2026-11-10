@@ -1,6 +1,3 @@
-# message from Knaphixis aka the owner of this project I have to say we are back baby!
-
-
 <img src="docs/icon.webp" alt="OCforge icon" width="80" align="right">
 
 # OCforge
@@ -9,6 +6,11 @@
 
 ⚙️ **v1.2.0 "Tungsten" is out.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
+
+> [!WARNING]
+> This project OCForge was created with AI-assisted / "vibecoded" tooling and is still an experimental work in progress And Was Built By Hand 
+> It may contain bugs when building an EFI or Kext Like Keyboard And Touchpad Not Working (this may happen or not)
+> Please keep feedback constructive. Rants, rage bait, or comments focused only on "AI"/"vibecoded" drama will not be helpful and will be ignored.
 
 ---
 
