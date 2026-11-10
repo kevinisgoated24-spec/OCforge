@@ -478,9 +478,9 @@ def _uefi(plan: BuildPlan, *, quirk_overrides: dict[str, bool], applied: set[str
         },
         "ConnectDrivers": True,
         "Drivers": [
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "OpenRuntime.efi"},
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "HfsPlus.efi"},
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "ResetNvramEntry.efi"},
+            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "OpenRuntime.efi"},
+            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "HfsPlus.efi"},
+            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "ResetNvramEntry.efi"},
         ],
         "Input": {
             "KeyFiltering": False,
