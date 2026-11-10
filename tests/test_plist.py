@@ -20,7 +20,8 @@ SAMPLE = {
     }},
     "NVRAM": {"Add": {"7C4-guid": {"boot-args": "-v debug=0x100", "csr-active-config": b"\x00\x00\x00\x00"}}},
     "Misc": {"Boot": {"Timeout": 8, "PickerVariant": "Auto"}},
-    "when": datetime.datetime(2026, 1, 2, 3, 4, 5),  # noqa: DTZ001 - plist dates are naive
+    # Plist dates are naive; parse the ISO value without attaching a timezone.
+    "when": datetime.datetime.fromisoformat("2026-01-02T03:04:05"),
 }
 
 
