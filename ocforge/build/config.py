@@ -31,7 +31,7 @@ _IG_PLATFORM = {
     7: ("00001B59", "00001259", "03001259"),  # Kaby Lake
     8: ("00009B3E", "07009B3E", "0300913E"),  # Coffee Lake / Whiskey Lake
     9: ("00009B3E", "07009B3E", "0300913E"),  # Coffee Lake Refresh
-    10: ("0000528A", "00009B3E", "0300C89B"), # Comet Lake -- Ice Lake overridden below
+    10: ("00009B3E", "00009B3E", "0300C89B"),  # Comet Lake -- Ice Lake overridden below
 }
 
 # Ice Lake is also "10th gen" in Intel's marketing but different silicon
@@ -478,9 +478,6 @@ def _uefi(plan: BuildPlan, *, quirk_overrides: dict[str, bool], applied: set[str
         },
         "ConnectDrivers": True,
         "Drivers": [
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "OpenRuntime.efi"},
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "HfsPlus.efi"},
-            {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "Path": "ResetNvramEntry.efi"},
             {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "OpenRuntime.efi"},
             {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "HfsPlus.efi"},
             {"Arguments": "", "Comment": "", "Enabled": True, "LoadEarly": False, "HideVerbose": False, "Path": "ResetNvramEntry.efi"},

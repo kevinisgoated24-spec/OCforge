@@ -47,6 +47,19 @@ jobs:
           mv .stash/lib .stash/pubspec.yaml .stash/analysis_options.yaml .
           rmdir .stash
 
+      # `flutter create` turns on the App Sandbox. ocforge can't work inside
+      # one: it runs the user's own Python, downloads OpenCore/kexts, writes
+      # the EFI wherever they pick, and calls diskutil to make a USB. Every one
+      # of those fails sandboxed. Not a Mac App Store app, so no sandbox.
+      - name: macOS entitlements (no App Sandbox)
+        if: matrix.target == 'macos'
+        run: |
+          set -e
+          for f in macos/Runner/DebugProfile.entitlements macos/Runner/Release.entitlements; do
+            /usr/libexec/PlistBuddy -c "Set :com.apple.security.app-sandbox false" "$f"
+          done
+          cat macos/Runner/Release.entitlements
+
       - name: Deps
         run: |
           flutter config --enable-${{ matrix.target }}-desktop
@@ -72,6 +85,15 @@ jobs:
             macos)
               APP=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -1)
               echo "app: $APP"
+              # No Developer ID, so ad-hoc sign the whole bundle (Apple Silicon
+              # won't launch unsigned code at all) and prove the sandbox is off
+              # and the binary is universal (Intel Hackintosh + Apple Silicon).
+              codesign --force --deep --preserve-metadata=entitlements --sign - "$APP"
+              codesign -d --entitlements - "$APP" 2>&1 | tee ents.txt
+              if grep -A2 "app-sandbox" ents.txt | grep -q "true"; then
+                echo "::error::App Sandbox still enabled"; exit 1
+              fi
+              lipo -archs "$APP/Contents/MacOS/"*
               ditto -c -k --keepParent --sequesterRsrc "$APP" "$OUT"
               ;;
           esac

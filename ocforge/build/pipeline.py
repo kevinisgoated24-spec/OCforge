@@ -60,8 +60,8 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
     m = plan.machine
     # Linux reads its own tables straight from sysfs; Windows dumps them with
     # the native GetSystemFirmwareTable call (no download) and only falls back
-    # to a fetched acpidump.exe for the complete SSDT set. macOS has no
-    # automatic path at all -- SSDTTime's own dumper doesn't implement one.
+    # to a fetched acpidump.exe for the complete SSDT set. Intel macOS reads
+    # the IORegistry's "ACPI Tables" (Apple Silicon has none -> False).
     host_can_dump = acpi_dump.can_dump()
 
     # A laptop's I2C-HID trackpad only gets a real SSDT-GPIO when we can see
@@ -90,8 +90,12 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
         give_up = " — no SSDT-GPIO, but the build's still fine without it" if auto_gpio else ""
         try:
             # Native first on every OS that has a path (Linux sysfs, Windows
-            # GetSystemFirmwareTable). Nothing to download.
+            # GetSystemFirmwareTable, macOS IORegistry). Nothing to download.
             acpi_dir = acpi_dump.dump_tables(src)
+            if acpi_dump.opencore_booted():
+                log("  note: this Mac was booted by OpenCore, so these are the tables *after* "
+                    "its ACPI patches (renames applied, its SSDTs injected). For a clean set, "
+                    "boot once with Misc > Debug > SysReport and pass --dsdt EFI/SysReport/ACPI")
         except acpi_dump.DsdtUnavailable as exc:
             if sys.platform != "win32":
                 log(f"  can't dump ACPI ({exc}); using precompiled SSDTs{give_up}")

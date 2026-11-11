@@ -25,12 +25,22 @@ class PythonInfo {
 /// Locates and runs the `ocforge` CLI. If nothing on the machine answers
 /// `--version`, [available] stays false and the UI drops into demo mode.
 class OcforgeCli {
-  static const List<CliResolution> _candidates = <CliResolution>[
-    CliResolution('ocforge', <String>[], 'ocforge (on PATH)'),
-    CliResolution('py', <String>['-3', '-m', 'ocforge'], 'py -3 -m ocforge'),
-    CliResolution('python', <String>['-m', 'ocforge'], 'python -m ocforge'),
-    CliResolution('python3', <String>['-m', 'ocforge'], 'python3 -m ocforge'),
-  ];
+  static List<CliResolution> get _candidates => <CliResolution>[
+        const CliResolution('ocforge', <String>[], 'ocforge (on PATH)'),
+        if (Platform.isWindows)
+          const CliResolution('py', <String>['-3', '-m', 'ocforge'], 'py -3 -m ocforge'),
+        // Versioned names first off Windows: on macOS a bare `python3` is
+        // usually Apple's /usr/bin/python3 (3.9, too old for ocforge), while
+        // Homebrew/python.org install `python3.12` & co. alongside it.
+        if (!Platform.isWindows)
+          for (final String v in _pythonVersions)
+            CliResolution('python$v', <String>['-m', 'ocforge'], 'python$v -m ocforge'),
+        const CliResolution('python', <String>['-m', 'ocforge'], 'python -m ocforge'),
+        const CliResolution('python3', <String>['-m', 'ocforge'], 'python3 -m ocforge'),
+      ];
+
+  /// Newest first. ocforge needs 3.11+ (pyproject `requires-python`).
+  static const List<String> _pythonVersions = <String>['3.14', '3.13', '3.12', '3.11'];
 
   /// The oldest `ocforge` this GUI build is happy to drive. Bump alongside the
   /// gui-v* tag when a CLI fix needs to reach users.
@@ -60,10 +70,67 @@ class OcforgeCli {
     return false;
   }
 
-  static const Map<String, String> _env = <String, String>{
-    'PYTHONUTF8': '1',
-    'PYTHONIOENCODING': 'utf-8',
-  };
+  static Map<String, String> get _env => processEnv;
+
+  /// Environment for every child process the GUI starts (ocforge, Python,
+  /// pip/pipx, claude). Rebuilt on each call so a `~/Library/Python/3.x/bin`
+  /// created by an install moments ago is picked up without a restart.
+  ///
+  /// The PATH part matters on macOS: an app opened from Finder/the Dock gets
+  /// launchd's bare `/usr/bin:/bin:/usr/sbin:/sbin`, not the shell's PATH, so
+  /// Homebrew, python.org Python, `pip install --user` scripts and pipx are
+  /// all invisible. Those dirs are *appended*, so a PATH the user did pass
+  /// (launched from a terminal) still wins.
+  static Map<String, String> get processEnv {
+    final Map<String, String> env = <String, String>{
+      'PYTHONUTF8': '1',
+      'PYTHONIOENCODING': 'utf-8',
+    };
+    if (Platform.isWindows) return env;
+    final List<String> cur =
+        (Platform.environment['PATH'] ?? '').split(':').where((String p) => p.isNotEmpty).toList();
+    final List<String> extra =
+        _extraPathDirs().where((String d) => !cur.contains(d)).toList();
+    if (extra.isNotEmpty) env['PATH'] = <String>[...cur, ...extra].join(':');
+    return env;
+  }
+
+  static List<String> _extraPathDirs() {
+    final String home = Platform.environment['HOME'] ?? '';
+    final List<String> dirs = <String>[
+      if (Platform.isMacOS) ...<String>[
+        '/opt/homebrew/bin', // Homebrew on Apple Silicon
+        '/usr/local/bin', // Homebrew on Intel, python.org's symlinks
+        '/Library/Frameworks/Python.framework/Versions/Current/bin', // python.org
+        ..._userPythonBins(home), // pip install --user scripts
+      ],
+      if (home.isNotEmpty) '$home/.local/bin', // pipx (both), pip --user (Linux)
+    ];
+    return dirs.where((String d) => Directory(d).existsSync()).toList();
+  }
+
+  static List<String> _userPythonBins(String home) {
+    if (home.isEmpty) return const <String>[];
+    try {
+      final Directory d = Directory('$home/Library/Python');
+      if (!d.existsSync()) return const <String>[];
+      return d
+          .listSync()
+          .whereType<Directory>()
+          .map((Directory e) => '${e.path}/bin')
+          .toList();
+    } on FileSystemException {
+      return const <String>[];
+    }
+  }
+
+  /// "Python 3.12.8" -> true for 3.11+.
+  static bool _pythonNewEnough(String versionLine) {
+    final Match? m = RegExp(r'(\d+)\.(\d+)').firstMatch(versionLine);
+    if (m == null) return false;
+    final int major = int.parse(m[1]!), minor = int.parse(m[2]!);
+    return major > 3 || (major == 3 && minor >= 11);
+  }
 
   /// Runs [executable] [args] like [Process.run], but gives up and kills the
   /// process after [timeout] instead of hanging forever. Needed because a
@@ -149,22 +216,32 @@ class OcforgeCli {
   static const String gitUrl =
       'git+https://github.com/kevinisgoated24-spec/OCforge.git';
 
-  /// The first Python that answers `--version`, or null if none is installed.
-  static Future<PythonInfo?> findPython() async {
-    const List<List<String>> probes = <List<String>>[
-      <String>['py', '-3'],
+  /// The first Python 3.11+ that answers `--version`, or null if there's none.
+  /// Older ones are skipped (and reported through [tooOld]) rather than
+  /// returned: pip would just refuse ocforge's `requires-python` later with
+  /// a far less obvious error.
+  static Future<PythonInfo?> findPython({void Function(String)? tooOld}) async {
+    final List<List<String>> probes = <List<String>>[
+      if (Platform.isWindows) <String>['py', '-3'],
+      if (!Platform.isWindows)
+        for (final String v in _pythonVersions) <String>['python$v'],
       <String>['python3'],
       <String>['python'],
     ];
     for (final List<String> p in probes) {
-      final ProcessResult? r =
-          await _runWithTimeout(p.first, <String>[...p.skip(1), '--version']);
+      final ProcessResult? r = await _runWithTimeout(
+          p.first, <String>[...p.skip(1), '--version'],
+          environment: _env);
       if (r == null) continue; // timed out, or not found at all -- next probe
       final String v = ('${r.stdout}${r.stderr}').trim();
       // The Microsoft Store stub usually exits non-zero and prints an install
       // hint; on machines where it doesn't exit promptly, the timeout above
       // catches it instead.
       if (r.exitCode == 0 && v.toLowerCase().startsWith('python')) {
+        if (!_pythonNewEnough(v)) {
+          tooOld?.call('${p.first}: $v is too old (ocforge needs 3.11+) — skipping');
+          continue;
+        }
         return PythonInfo(p.first, p.skip(1).toList(), v);
       }
     }
@@ -214,6 +291,7 @@ class OcforgeCli {
         py.executable,
         py.cmd(<String>['-m', 'ensurepip', '--default-pip']),
         runInShell: true,
+        environment: _env,
       );
       log('${ep.stdout}${ep.stderr}'.trim());
       if (ep.exitCode == 0) {
@@ -243,7 +321,8 @@ class OcforgeCli {
   static Future<String?> _findPipx() async {
     try {
       final ProcessResult r =
-          await Process.run('pipx', const <String>['--version'], runInShell: true);
+          await Process.run('pipx', const <String>['--version'],
+              runInShell: true, environment: _env);
       if (r.exitCode == 0) return 'pipx';
     } on ProcessException {
       // not on PATH
@@ -254,8 +333,9 @@ class OcforgeCli {
   static Future<int> _installViaPipx(void Function(String) log) async {
     final String? pipx = await _findPipx();
     if (pipx == null) {
-      log('pipx isn\'t installed either. On Arch/CachyOS/Manjaro: '
-          'sudo pacman -S python-pipx — on Debian/Ubuntu: sudo apt install pipx — '
+      log('pipx isn\'t installed either. On macOS: brew install pipx — '
+          'on Arch/CachyOS/Manjaro: sudo pacman -S python-pipx — '
+          'on Debian/Ubuntu: sudo apt install pipx — '
           'then rerun, or by hand:  pipx install "$gitUrl"');
       return 1;
     }

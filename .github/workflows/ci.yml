@@ -31,6 +31,79 @@ jobs:
       - name: Pytest
         run: pytest -q
 
+  # The only real Macs this project gets. Nobody on the team has one, so the
+  # macOS probe/ACPI code is otherwise only ever run against synthetic
+  # fixtures. Intel runner: probe + IORegistry ACPI dump must actually work.
+  # Apple Silicon runner: probe must refuse cleanly and point at --spec.
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Pytest
+        run: pytest -q
+
+      - name: Real-host probe
+        shell: bash
+        run: |
+          set -u
+          if [ "$(uname -m)" = "arm64" ]; then
+            if python -m ocforge probe 2>err.txt; then
+              echo "::error::probe should refuse an Apple Silicon host"; exit 1
+            fi
+            cat err.txt
+            grep -q "Apple Silicon" err.txt
+          else
+            python -m ocforge probe
+            python -m ocforge probe --save host.json && cat host.json
+          fi
+
+      - name: Real-host ACPI dump (Intel only)
+        if: runner.arch == 'X64'
+        shell: bash
+        run: |
+          python - <<'PY'
+          # Not every macOS publishes "ACPI Tables" (these runner VMs don't),
+          # so the contract checked here is: can_dump() and dump_tables()
+          # agree, and a "no" is a clean DsdtUnavailable, never a crash.
+          from pathlib import Path
+          from ocforge.probe import acpi_dump
+          if acpi_dump.can_dump():
+              out = acpi_dump.dump_tables(Path("acpi-out"))
+              print(sorted(p.name for p in out.iterdir()))
+              assert (out / "DSDT.aml").read_bytes()[:4] == b"DSDT"
+          else:
+              try:
+                  acpi_dump.dump_tables(Path("acpi-out"))
+              except acpi_dump.DsdtUnavailable as exc:
+                  print(f"::notice::no IORegistry ACPI tables on this host: {exc}")
+              else:
+                  raise AssertionError("can_dump() said no but dump_tables() succeeded")
+          PY
+
+      - name: IORegistry ACPI diagnostics
+        if: failure() && runner.arch == 'X64'
+        shell: bash
+        run: |
+          set +e
+          echo "== platform expert classes"; ioreg -l -w0 -d 2 | grep -E "^\+-o|class" | head -20
+          echo "== who has 'ACPI Tables'"; ioreg -l -w0 | grep -n "ACPI Tables" | cut -c1-300 | head
+          echo "== -a -r -c AppleACPIPlatformExpert -d 1"; ioreg -a -r -c AppleACPIPlatformExpert -d 1 | head -c 3000
+          echo; echo "== IOACPIPlane"; ioreg -p IOACPIPlane -w0 | head -20
+          echo "== acpi node keys"; ioreg -a -r -n acpi -d 1 | grep "<key>" | head -40
+          system_profiler SPHardwareDataType | head -20
+
   gui-analyze:
     runs-on: ubuntu-latest
     defaults:

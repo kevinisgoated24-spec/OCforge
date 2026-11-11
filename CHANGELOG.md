@@ -3,6 +3,39 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.3.0
+
+macOS as a host. Until now the macOS build existed but couldn't really be
+used: the GUI was sandboxed and couldn't find Python, the probe was a stub,
+and SSDTs needed a hand-dumped DSDT.
+
+- **GUI no longer sandboxed.** `flutter create` turns on the App Sandbox,
+  which blocked running the user's Python, writing the EFI anywhere they pick,
+  and `diskutil`. `gui-build.yml` now turns it off, ad-hoc signs the bundle,
+  and checks that the app is universal (Intel + Apple Silicon).
+- **GUI finds Python and ocforge on macOS.** An app opened from Finder gets
+  launchd's bare `PATH`, so Homebrew, python.org, `pip install --user`
+  scripts, and pipx were all invisible. Those directories are now appended
+  for every child process. `python3.14`…`python3.11` are tried before bare
+  `python3`, and anything older than 3.11 (like Apple's `/usr/bin/python3`
+  3.9) is skipped with a message instead of failing later inside pip.
+- **Real macOS probe.** The PCI bus comes from `ioreg -a` and goes through the
+  same mapper as Linux, so GPUs, NICs (Wi-Fi vs wired), and NVMe come back
+  with real PCI ids. CPU feature flags (AVX2 etc.) come from `sysctl`.
+  Laptops are detected by a battery, not just a `MacBook*` SMBIOS, and the
+  trackpad bus comes from the loaded Voodoo* kexts.
+- **Apple Silicon is refused clearly.** OpenCore can't boot it, so `probe`
+  now explains that and points to `--spec` instead of returning an empty
+  machine.
+- **SSDTs from macOS, where possible.** ACPI tables are read from the
+  IORegistry (`AppleACPIPlatformExpert` → `ACPI Tables`, the same source as
+  MaciASL's "New from ACPI") when macOS publishes them. Not every macOS does
+  (GitHub's Intel macOS 15 VMs don't), and then the build falls back to
+  precompiled SSDTs. On an OpenCore-booted Mac the build log notes that the
+  tables are already patched and how to get a clean set (SysReport).
+- New CI job on real macOS runners (Intel + Apple Silicon): pytest, a real
+  `probe`, and the IORegistry ACPI path's fallback behavior.
+
 ## gui-v1.2.0
 
 # ⚙️ OCforge 1.2.0 "Tungsten"

@@ -41,7 +41,9 @@ class _SetupGateState extends State<SetupGate> {
 
   String get _pythonHint {
     if (Platform.isMacOS) {
-      return 'Install Python 3.11+ (brew install python, or python.org), then reopen OCForge.';
+      // macOS ships /usr/bin/python3 at 3.9 -- present, but too old.
+      return 'Install Python 3.11+ (brew install python@3.12, or the installer from '
+          'python.org), then reopen OCForge. The python3 that comes with macOS is too old.';
     }
     if (Platform.isLinux) {
       return 'Install Python 3.11+ (e.g. sudo apt install python3 python3-pip), then reopen OCForge.';
@@ -86,7 +88,8 @@ class _SetupGateState extends State<SetupGate> {
         }
         _say('found ${_python!.version}');
       } else {
-        _say('Python not found.');
+        await OcforgeCli.findPython(tooOld: _say); // say *why* a present one was skipped
+        _say('Python 3.11+ not found.');
         _say(_pythonHint);
         setState(() => _phase = _Phase.restartNeeded);
         return;

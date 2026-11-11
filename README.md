@@ -68,7 +68,7 @@ Got it working on something not listed? Let us know on Discord so we can add it.
 6. Go to **Config** → **Generate Config**.
 7. Go to **Forge**. You'll be asked where to write the EFI (e.g. a folder on your desktop — copy that folder's path into the textbox). You'll then see a few options:
    - **Get the recovery image** for that macOS version (~600 MB+, can be slow).
-   - **Build SSDTs from your machine** (works on Linux and Windows; on macOS you'll still need to supply a DSDT folder).
+   - **Build SSDTs from your machine** (works on Windows and Linux; on macOS only when the system exposes its ACPI tables, otherwise supply a DSDT folder).
    - **Use the OpenCore debug build** (recommended off).
    - **Get the offline image** for that macOS version (recommended off — see the guide, it takes a while).
 
@@ -85,7 +85,16 @@ Same flow as Windows, but grab the Linux build instead:
 
 ### macOS
 
-Coming soon.
+Two reasons to run OCforge on a Mac: you're **on a working Hackintosh** and want to rebuild or upgrade its EFI, or you're on **any Mac (including Apple Silicon) building for a different PC**.
+
+1. Install **Python 3.11+** first — the `python3` that ships with macOS is 3.9, too old. `brew install python@3.12`, or the installer from [python.org](https://www.python.org/downloads/macos/).
+2. Download `OCForge-GUI-macos.zip` from the [Releases](../../releases) page and unzip it. It's one universal app (Intel + Apple Silicon).
+3. The app isn't notarized (no paid Apple Developer ID), so the first launch is blocked. Right-click it → **Open**, or on macOS 15+ go to **System Settings → Privacy & Security** and click **Open Anyway**. Or from Terminal: `xattr -dr com.apple.quarantine OCForge.app`
+4. You'll be prompted to install **OCForge-CLI** — install it. If pip refuses Homebrew's Python, it falls back to pipx (`brew install pipx`).
+5. Then it's the same flow as Windows:
+   - **On a Hackintosh:** **Detect → Detect This PC** scans the machine. **Build SSDTs from your machine** reads the ACPI tables from the IORegistry when macOS exposes them (the same place MaciASL's "New from ACPI" reads). Not every macOS does, and either way they're already patched by OpenCore, so the most reliable source is booting once with `Misc → Debug → SysReport` and passing `--dsdt EFI/SysReport/ACPI`. Without tables, the build just uses precompiled SSDTs.
+   - **On Apple Silicon** (or any Mac building for another PC): there's no PC hardware here to detect, so Detect tells you that instead of guessing. Run `ocforge probe --save my-pc.json` **on the target PC** (Windows/Linux), copy the file over, then **Detect → Open spec file** (CLI: `ocforge build --spec my-pc.json`). Everything after that works normally. For custom SSDTs, also bring that PC's ACPI tables (`--dsdt`).
+6. Writing straight to a USB stick (`ocforge build --usb /dev/diskN`, see `ocforge usb`) uses `diskutil`, so macOS formats it natively. No extra tools needed.
 
 ---
 
