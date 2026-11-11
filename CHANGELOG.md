@@ -3,6 +3,41 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v1.3.1
+
+# 🔎 OCforge 1.3.1 "Rhodium"
+
+A detection fix, found live on a real Intel Core 3 100U (Raptor Lake):
+Intel's late-2023+ naming for non-"Ultra" chips — "Core 3/5/7/9" with no
+generation digit at all, just a 3-digit model number — matched none of
+ocforge's CPU-generation rules, so it came back unrecognized and got
+planned as a 2011 Sandy Bridge MacBookPro8,1.
+
+- **Post-2023 Intel naming recognized.** `Core 3/5/7/9 1XX[U/H/P]` is now
+  matched to the right generation (the 100-series is a Raptor Lake rebrand).
+- **A broader, previously-invisible bug fixed alongside it:** the existing
+  `Core Ultra` detection (Meteor Lake, Arrow Lake) never actually matched a
+  *single* real Windows CPU name string, on any generation — Windows'
+  own CIM/WMI name always carries `(TM)`/`(R)` glyphs with no space before
+  them (`Core(TM) Ultra 5 125U`), which the old regex didn't account for.
+  Every Core Ultra laptop running ocforge on Windows was silently hitting
+  this too.
+- **iGPU-id fallback extended** with Tiger Lake, Alder Lake, and Raptor
+  Lake device ids, for brand strings neither rule can parse at all (VMs,
+  odd OEM strings).
+- **Clearer dead-end messaging.** Xe-generation iGPUs (Tiger Lake and
+  newer) have no macOS driver at all — `catalog/macos.py` already knew
+  this once detection worked, but the auto-pick path's error used to be a
+  bare "no supported macOS release" with no explanation. It now names the
+  generation, points at `--force-unsupported-os`, and mentions the two
+  relevant third-party Xe driver projects (WhateverXe, WTLIntelGfx) —
+  neither of which ocforge bundles or configures.
+- `ocforge explain`'s DeviceProperties section had the same hardcoded gen
+  range config.py doesn't use internally, silently skipping its
+  explanation for Ivy Bridge/Haswell/Broadwell (gen 3-5) even though an
+  ig-platform-id is set for them; fixed, and a matching note added for
+  gen 11+.
+
 ## gui-v1.3.0
 
 # 🖥️ OCforge 1.3.0 "Silicon"

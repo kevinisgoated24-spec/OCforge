@@ -4,7 +4,7 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-🖥️ **v1.3.0 "Silicon" is out — macOS support.**
+🔎 **v1.3.1 "Rhodium" is out — fixes newer Intel CPUs (Core 3/5/7/9) being mis-detected as 2011-era Sandy Bridge.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 > [!WARNING]
