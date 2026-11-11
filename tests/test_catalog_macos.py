@@ -86,6 +86,29 @@ def test_11th_gen_laptop_is_a_dead_end():
     )
 
 
+def test_core_3_100u_is_a_dead_end_via_real_detection_not_just_a_manual_gen():
+    # test_11th_gen_laptop_is_a_dead_end above sets intel_gen=11 by hand --
+    # proves catalog.macos's own gen>=11 branch works, but not that a real
+    # probe ever actually reaches it. Before probe/base.py learned the
+    # post-2023 "Core 3/5/7/9" naming, a brand string like this one came
+    # back gen=0 ("unknown -- treat as tentative"), which is *supported*,
+    # masking the dead-end entirely behind a silently-wrong build instead.
+    from ocforge.probe.base import intel_generation
+    gen, family = intel_generation("Intel(R) Core(TM) 3 100U")
+    m = Machine(
+        chassis=Chassis.LAPTOP,
+        cpu=Cpu(brand="Intel(R) Core(TM) 3 100U", vendor=Vendor.INTEL,
+                intel_gen=gen, family=family, flags=frozenset({"avx2"})),
+        igpu=Gpu(name="Intel(R) Graphics", vendor=Vendor.INTEL, discrete=False),
+    )
+    assert gen == 13  # sanity: this is what made the old behavior wrong
+    assert macos.recommended(m) is None
+    assert not any(c.supported for c in macos.evaluate(m))
+    # the escape hatch (ocforge's own "continue anyway?" flow) still works
+    forced = {c.release.major: c for c in macos.evaluate(m, ignore_gpu=True)}
+    assert forced[26].supported and "forced through anyway" in forced[26].note
+
+
 def test_11th_gen_desktop_with_amd_dgpu_is_ok():
     m = Machine(
         chassis=Chassis.DESKTOP,

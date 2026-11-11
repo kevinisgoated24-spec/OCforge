@@ -85,10 +85,23 @@ def powershell(script: str, *, timeout: int = 25) -> str:
 # --- Intel Core generation from a brand string ------------------------------
 
 _INTEL_GEN_RULES: tuple[tuple[re.Pattern[str], int, str], ...] = (
-    (re.compile(r"\bcore\s+ultra\s+\d\s+2\d\d"), 15, "Arrow Lake"),
-    (re.compile(r"\bcore\s+ultra\s+\d\s+1\d\d"), 14, "Meteor Lake"),
+    # `\s*(?:\(tm\))?\s+` rather than a plain `\s+` after "core" -- Windows'
+    # own CIM/WMI CPU name always carries the registered/trademark glyphs
+    # with no space before them ("Core(TM) Ultra 5 125U", "Core(TM) 3
+    # 100U"), so a bare `\bcore\s+` never matched a single real brand string
+    # here, on any generation -- only ocforge's own plain test fixtures.
+    (re.compile(r"\bcore\s*(?:\(tm\))?\s+ultra\s+\d\s+2\d\d"), 15, "Arrow Lake"),
+    (re.compile(r"\bcore\s*(?:\(tm\))?\s+ultra\s+\d\s+1\d\d"), 14, "Meteor Lake"),
     (re.compile(r"\bi[3579]-14\d\d\d"), 14, "Raptor Lake Refresh"),
     (re.compile(r"\bi[3579]-13\d\d\d"), 13, "Raptor Lake"),
+    # Late 2023+: Intel dropped "i3/i5/i7" for non-Ultra parts too -- "Core
+    # 3/5/7/9" with no generation digit in the name at all, just a 3-digit
+    # model number. The 100-series is a Raptor Lake rebrand (same silicon,
+    # same gen number, same lack of an ig-platform-id entry below, as the
+    # old-naming i3579-13xxx rule above) -- confirmed e.g. by the Core 3
+    # 100U, whose own iGPU (8086:a7ad) is one of WhateverXe's documented
+    # Raptor Lake-U ids, not a classic Gen9.5 UHD 6xx one.
+    (re.compile(r"\bcore\s*(?:\(tm\))?\s+[3579]\s+1\d\d[uhp]?\b"), 13, "Raptor Lake"),
     (re.compile(r"\bi[3579]-12\d\d\d"), 12, "Alder Lake"),
     (re.compile(r"\bi[3579]-11\d\d\d"), 11, "Rocket/Tiger Lake"),
     # Both "10th gen" in Intel's own marketing, but different silicon needing
@@ -128,20 +141,30 @@ def intel_generation(brand: str) -> tuple[int, str]:
     return 0, ""
 
 
-# Intel iGPU PCI device-id ranges -> Core generation. A fallback for when the
-# brand string can't be parsed (odd OEM strings, VMs, generic CPUID names) but
-# an Intel iGPU is present.
-_IGPU_GEN_RANGES: tuple[tuple[int, int, int, str], ...] = (
-    (0x0100, 0x0130, 2,  "Sandy Bridge"),
-    (0x0150, 0x017F, 3,  "Ivy Bridge"),
-    (0x0400, 0x0D3F, 4,  "Haswell"),
-    (0x1600, 0x163F, 5,  "Broadwell"),
-    (0x1900, 0x193F, 6,  "Skylake"),
-    (0x5900, 0x593F, 7,  "Kaby Lake"),
-    (0x87C0, 0x87CF, 7,  "Kaby Lake"),
-    (0x3E90, 0x3EAF, 8,  "Coffee Lake"),
-    (0x9B00, 0x9BFF, 10, "Comet Lake"),
-    (0x8A50, 0x8A7F, 10, "Ice Lake"),
+# Intel iGPU PCI device ids -> Core generation. A fallback for when the brand
+# string can't be parsed (odd OEM strings, VMs, generic CPUID names, or a
+# naming scheme _INTEL_GEN_RULES doesn't know yet) but an Intel iGPU is
+# present. Each selector is either a contiguous `range` or, for generations
+# whose ids Intel didn't allocate contiguously (Alder Lake's H/P/U parts,
+# Raptor Lake-U), a `frozenset` of the exact ids -- both support `in`
+# identically, so `intel_gen_from_igpu` doesn't need to care which.
+_IGPU_GEN_IDS: tuple[tuple[range | frozenset[int], int, str], ...] = (
+    (range(0x0100, 0x0131), 2,  "Sandy Bridge"),
+    (range(0x0150, 0x0180), 3,  "Ivy Bridge"),
+    (range(0x0400, 0x0D40), 4,  "Haswell"),
+    (range(0x1600, 0x1640), 5,  "Broadwell"),
+    (range(0x1900, 0x1940), 6,  "Skylake"),
+    (range(0x5900, 0x5940), 7,  "Kaby Lake"),
+    (range(0x87C0, 0x87D0), 7,  "Kaby Lake"),
+    (range(0x3E90, 0x3EB0), 8,  "Coffee Lake"),
+    (range(0x9B00, 0x9C00), 10, "Comet Lake"),
+    (range(0x8A50, 0x8A80), 10, "Ice Lake"),
+    (range(0x9A40, 0x9A79), 11, "Tiger Lake"),
+    (frozenset({0x4626, 0x4628, 0x462A, *range(0x46A0, 0x46A4), 0x46A6, 0x46A8,
+                0x46AA, *range(0x46B0, 0x46B4), *range(0x46C0, 0x46C4)}),
+     12, "Alder Lake"),
+    (range(0x46D0, 0x46D5), 12, "Alder Lake-N"),
+    (frozenset({0xA721, 0xA7A1, 0xA7A9, 0xA7AC, 0xA7AD}), 13, "Raptor Lake"),
 )
 
 
@@ -151,8 +174,8 @@ def intel_gen_from_igpu(device_hex: str) -> tuple[int, str]:
         dev = int(device_hex, 16)
     except (TypeError, ValueError):
         return 0, ""
-    for lo, hi, gen, family in _IGPU_GEN_RANGES:
-        if lo <= dev <= hi:
+    for ids, gen, family in _IGPU_GEN_IDS:
+        if dev in ids:
             return gen, family
     return 0, ""
 
