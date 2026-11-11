@@ -74,13 +74,22 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          # Not every macOS publishes "ACPI Tables" (these runner VMs don't),
+          # so the contract checked here is: can_dump() and dump_tables()
+          # agree, and a "no" is a clean DsdtUnavailable, never a crash.
           from pathlib import Path
           from ocforge.probe import acpi_dump
-          assert acpi_dump.can_dump(), "ioreg reported no ACPI tables"
-          out = acpi_dump.dump_tables(Path("acpi-out"))
-          files = sorted(p.name for p in out.iterdir())
-          print(files)
-          assert (out / "DSDT.aml").read_bytes()[:4] == b"DSDT"
+          if acpi_dump.can_dump():
+              out = acpi_dump.dump_tables(Path("acpi-out"))
+              print(sorted(p.name for p in out.iterdir()))
+              assert (out / "DSDT.aml").read_bytes()[:4] == b"DSDT"
+          else:
+              try:
+                  acpi_dump.dump_tables(Path("acpi-out"))
+              except acpi_dump.DsdtUnavailable as exc:
+                  print(f"::notice::no IORegistry ACPI tables on this host: {exc}")
+              else:
+                  raise AssertionError("can_dump() said no but dump_tables() succeeded")
           PY
 
       - name: IORegistry ACPI diagnostics

@@ -62,10 +62,18 @@ def can_dump() -> bool:
 _OC_NVRAM_VAR = "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version"
 
 
-def _ioreg_acpi_raw() -> bytes:
+# Where "ACPI Tables" lives: AppleACPIPlatformExpert is what MaciASL reads;
+# the platform-expert device is a fallback. Not every macOS publishes the
+# property at all -- GitHub's Intel macOS 15 VMs don't, anywhere in the
+# registry -- and then can_dump() is simply False and builds use the
+# precompiled SSDTs.
+_ACPI_TABLE_CLASSES = ("AppleACPIPlatformExpert", "IOPlatformExpertDevice")
+
+
+def _ioreg_acpi_raw(cls: str = _ACPI_TABLE_CLASSES[0]) -> bytes:
     try:
         return subprocess.run(
-            ["ioreg", "-a", "-r", "-c", "AppleACPIPlatformExpert", "-d", "1"],
+            ["ioreg", "-a", "-r", "-c", cls, "-d", "1"],
             capture_output=True, timeout=30, check=False,
         ).stdout
     except (OSError, subprocess.SubprocessError):
@@ -114,7 +122,11 @@ def parse_ioreg_acpi(raw: bytes) -> dict[bytes, list[bytes]]:
 
 
 def _darwin_tables() -> dict[bytes, list[bytes]]:
-    return parse_ioreg_acpi(_ioreg_acpi_raw())
+    for cls in _ACPI_TABLE_CLASSES:
+        tables = parse_ioreg_acpi(_ioreg_acpi_raw(cls))
+        if b"DSDT" in tables:
+            return tables
+    return {}
 
 
 def opencore_booted() -> bool:
@@ -134,8 +146,9 @@ def _dump_darwin(dest: Path) -> Path:
     tables = _darwin_tables()
     if b"DSDT" not in tables:
         raise DsdtUnavailable(
-            "no ACPI tables in the IORegistry (Apple Silicon has no ACPI) — pass "
-            "--dsdt with a folder of tables from the target PC"
+            "this macOS doesn't publish its ACPI tables in the IORegistry (Apple "
+            "Silicon has none at all) — pass --dsdt with a folder of tables, e.g. "
+            "from OpenCore's SysReport or the target PC"
         )
     dest.mkdir(parents=True, exist_ok=True)
     (dest / "DSDT.aml").write_bytes(tables[b"DSDT"][0])

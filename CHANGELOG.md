@@ -27,13 +27,14 @@ and SSDTs needed a hand-dumped DSDT.
 - **Apple Silicon is refused clearly.** OpenCore can't boot it, so `probe`
   now explains that and points to `--spec` instead of returning an empty
   machine.
-- **SSDTs from macOS.** ACPI tables are read from the IORegistry
-  (`AppleACPIPlatformExpert` → `ACPI Tables`, the same source as MaciASL's
-  "New from ACPI"), no root or extra tools. On an OpenCore-booted Mac the
-  build log notes that those tables are already patched and how to get a
-  clean set (SysReport).
+- **SSDTs from macOS, where possible.** ACPI tables are read from the
+  IORegistry (`AppleACPIPlatformExpert` → `ACPI Tables`, the same source as
+  MaciASL's "New from ACPI") when macOS publishes them. Not every macOS does
+  (GitHub's Intel macOS 15 VMs don't), and then the build falls back to
+  precompiled SSDTs. On an OpenCore-booted Mac the build log notes that the
+  tables are already patched and how to get a clean set (SysReport).
 - New CI job on real macOS runners (Intel + Apple Silicon): pytest, a real
-  `probe`, and a real IORegistry ACPI dump.
+  `probe`, and the IORegistry ACPI path's fallback behavior.
 
 ## gui-v1.2.0
 

@@ -141,7 +141,7 @@ def test_parse_ioreg_acpi_finds_nested_dict_and_handles_empty():
 def test_dump_darwin_writes_dsdt_and_ssdts(monkeypatch, tmp_path):
     monkeypatch.setattr(acpi_dump.sys, "platform", "darwin")
     monkeypatch.setattr(acpi_dump, "_ioreg_acpi_raw",
-                        lambda: _acpi_plist({"DSDT": _DSDT, "SSDT": _SSDT_A, "SSDT-1": _SSDT_B}))
+                        lambda cls="": _acpi_plist({"DSDT": _DSDT, "SSDT": _SSDT_A, "SSDT-1": _SSDT_B}))
     assert acpi_dump.can_dump() is True
     out = acpi_dump.dump_tables(tmp_path / "acpi")
     assert sorted(f.name for f in out.iterdir()) == ["DSDT.aml", "SSDT-1.aml", "SSDT-2.aml"]
@@ -150,7 +150,14 @@ def test_dump_darwin_writes_dsdt_and_ssdts(monkeypatch, tmp_path):
 
 def test_dump_darwin_apple_silicon_has_no_tables(monkeypatch, tmp_path):
     monkeypatch.setattr(acpi_dump.sys, "platform", "darwin")
-    monkeypatch.setattr(acpi_dump, "_ioreg_acpi_raw", lambda: b"")
+    monkeypatch.setattr(acpi_dump, "_ioreg_acpi_raw", lambda cls="": b"")
     assert acpi_dump.can_dump() is False
     with pytest.raises(acpi_dump.DsdtUnavailable, match="Apple Silicon"):
         acpi_dump.dump_tables(tmp_path / "acpi")
+
+
+def test_darwin_tables_falls_back_to_platform_expert_device(monkeypatch):
+    raws = {"AppleACPIPlatformExpert": _acpi_plist({}),
+            "IOPlatformExpertDevice": _acpi_plist({"DSDT": _DSDT})}
+    monkeypatch.setattr(acpi_dump, "_ioreg_acpi_raw", lambda cls="": raws[cls])
+    assert acpi_dump._darwin_tables()[b"DSDT"] == [_DSDT]
