@@ -161,3 +161,37 @@ def test_coffee_lake_laptop_gets_device_id_fake_for_unsupported_igpu():
 
 def test_ivy_bridge_laptop_igpu_only_recommends_big_sur_not_monterey():
     assert macos.recommended(_laptop(3)).major == 11
+
+
+# --- Xe-architecture generations (Tiger/Alder/Raptor Lake, gen 11-13): no --
+# --- ig-platform-id entry exists, and the laptop SMBIOS ceiling catches ----
+# --- them the same way it already catches Comet Lake (gen 10). ------------
+
+
+def test_raptor_lake_laptop_gets_no_igpu_platform_id():
+    # _IG_PLATFORM only goes up to gen 10 (Comet Lake) -- Tiger Lake and
+    # newer are a completely different (Xe) display pipeline that
+    # WhateverGreen's framebuffer patches don't cover at all, so ocforge
+    # should leave DeviceProperties alone here rather than apply a
+    # Coffee/Comet-Lake-style fake meant for the old Gen9.5 UHD 6xx chips.
+    # An AMD dGPU drives the display -- iGPU-only gen 11+ has no supported
+    # display path at all (see test_catalog_macos.py's dead-end tests) and
+    # needs --force-unsupported-os just to reach config assembly.
+    m = _laptop(13, family="Raptor Lake", dgpu=_amd_dgpu())
+    m.igpu.pci = PciId("8086", "a7ad")  # the Core 3 100U's own iGPU id
+    _, cfg = _config_for(m)
+    props = cfg["DeviceProperties"]["Add"].get("PciRoot(0x0)/Pci(0x2,0x0)", {})
+    assert "AAPL,ig-platform-id" not in props
+    assert "device-id" not in props
+
+
+def test_raptor_lake_laptop_smbios_is_the_newest_real_intel_mac_not_sandy_bridges():
+    # Before the gen-13-via-new-naming detection fix, an unrecognized brand
+    # string meant gen=0, which this same code treats as Sandy Bridge
+    # (`gen <= 2`) -- MacBookPro8,1, a 2011 model, wildly wrong for a 2024+
+    # CPU. Once correctly detected, it must fall through to the real
+    # ceiling instead (Apple's Intel MacBook Pro line never shipped
+    # anything past Comet Lake). An AMD dGPU drives the display, same as
+    # the test above -- see that test's note on why.
+    plan_dgpu, _ = _config_for(_laptop(13, family="Raptor Lake", dgpu=_amd_dgpu()))
+    assert plan_dgpu.smbios_model == "MacBookPro16,1"

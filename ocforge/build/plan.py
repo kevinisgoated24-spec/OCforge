@@ -78,7 +78,13 @@ def _intel_laptop_smbios(gen: int, target_major: int, *, ice_lake: bool) -> tupl
         return "MacBookPro14,1", "MacBookPro14,3"
     if gen in (8, 9):  # Coffee Lake / Whiskey Lake, Coffee Lake Refresh
         return "MacBookPro15,2", "MacBookPro15,1"
-    return "MacBookPro16,3", "MacBookPro16,1"  # Comet Lake (10)
+    # Comet Lake (10), and the ceiling for every gen past it too (11+:
+    # Tiger/Rocket/Alder/Raptor/Meteor/Arrow Lake) -- Apple's real Intel
+    # MacBook Pro line ended at Comet Lake, so MacBookPro16,x is simply the
+    # newest real board-id/SMBIOS there is to spoof as, whatever CPU
+    # generation is actually in the laptop. See rationale.py for the matching
+    # "no ig-platform-id for this generation" DeviceProperties note.
+    return "MacBookPro16,3", "MacBookPro16,1"
 
 
 def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
@@ -212,6 +218,23 @@ def make(m: Machine, *, target_major: int | None = None,
             why = "no supported macOS release for this machine"
             if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 3:
                 why += " (pre-Ivy-Bridge Intel — try --macos 11/12 at your own risk)"
+            elif (m.cpu.vendor is Vendor.INTEL and m.cpu.intel_gen >= 11
+                  and not (m.dgpu and m.dgpu.vendor is Vendor.AMD)):
+                # The auto-pick path above (recommended()) doesn't surface
+                # _release_ok's own reason the way the explicit --macos path
+                # does (compat.note, used for `forced_note` below) -- without
+                # this, a Tiger/Alder/Raptor/Meteor/Arrow Lake laptop with no
+                # AMD dGPU just gets the bare generic message above, with no
+                # hint that it's a known, named dead end rather than
+                # something ocforge simply doesn't recognize.
+                why += (
+                    f" (Intel gen-{m.cpu.intel_gen} Xe graphics has no macOS driver, "
+                    "and there's no AMD dGPU here to drive the display instead — pick "
+                    "an explicit --macos release with --force-unsupported-os to build "
+                    "anyway with no display acceleration, or look into a third-party "
+                    "Xe driver project such as WhateverXe or WTLIntelGfx, neither of "
+                    "which ocforge bundles or configures)"
+                )
             raise ValueError(why)
 
     warnings: list[str] = []

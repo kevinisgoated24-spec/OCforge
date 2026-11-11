@@ -398,6 +398,23 @@ def test_nvidia_only_dgpu_with_no_igpu_is_rejected_even_with_macos_forced():
         make(m, target_major=12)
 
 
+def test_gen11plus_igpu_only_laptop_names_the_dead_end_not_just_a_bare_error():
+    # The bare "no supported macOS release" message the pre-Ivy-Bridge case
+    # gets isn't useful here -- unlike a truly unrecognized machine, this is
+    # a known, named situation (see test_catalog_macos.py's dead-end tests),
+    # so the auto-pick path should say so and point at the escape hatch /
+    # third-party option, not just shrug.
+    import pytest
+
+    m = intel_laptop()
+    m.cpu.intel_gen = 13
+    m.cpu.family = "Raptor Lake"
+    with pytest.raises(ValueError, match="Xe graphics has no macOS driver") as exc:
+        make(m)
+    assert "--force-unsupported-os" in str(exc.value)
+    assert "WhateverXe" in str(exc.value)
+
+
 def test_nvidia_dgpu_alongside_a_working_igpu_just_gets_disabled():
     m = intel_laptop()
     m.dgpu = Gpu(name="RTX 3050", vendor=Vendor.NVIDIA, discrete=True)
@@ -480,6 +497,37 @@ def test_pentium_gold_is_detected_as_coffee_lake():
     assert intel_generation("Pentium Gold G6400")[0] == 10
     assert intel_generation("Celeron G3930")[0] == 6
     assert intel_generation("Intel Core i5-8400")[0] == 8   # unchanged
+
+
+def test_core_ultra_and_post2023_core_naming_handle_the_real_tm_glyph():
+    # Windows' own CIM/WMI CPU name always carries "(TM)"/"(R)" with no
+    # space before them -- a brand string with no such glyphs at all (as
+    # every other test here uses) never actually exercises that path.
+    from ocforge.probe.base import intel_generation
+    assert intel_generation("Intel(R) Core(TM) Ultra 5 125U") == (14, "Meteor Lake")
+    assert intel_generation("Intel(R) Core(TM) Ultra 9 285K") == (15, "Arrow Lake")
+    # Late-2023+ non-Ultra naming: "Core 3/5/7/9", no generation digit at
+    # all in the name, just a 3-digit model number -- the Core 3 100U
+    # (confirmed via its own 8086:a7ad iGPU, a documented Raptor Lake-U id).
+    assert intel_generation("Intel(R) Core(TM) 3 100U") == (13, "Raptor Lake")
+    assert intel_generation("Intel(R) Core(TM) 7 150H") == (13, "Raptor Lake")
+    assert intel_generation("Intel(R) Core(TM) 5 120U") == (13, "Raptor Lake")
+    # same naming scheme without the glyph (CLI-typed, a spec sheet, etc.)
+    assert intel_generation("Core 3 100U") == (13, "Raptor Lake")
+    # must not cross-match "Core 3 N355" (Alder-Lake-N/Twin Lake, unrelated)
+    assert intel_generation("Intel(R) Core(TM) 3 N355")[0] == 0
+
+
+def test_igpu_fallback_recognizes_tiger_alder_raptor_lake_ids():
+    # Same fallback path odd OEM/VM brand strings already rely on, now
+    # covering the generations _INTEL_GEN_RULES gained above.
+    from ocforge.probe.base import intel_gen_from_igpu
+    assert intel_gen_from_igpu("9a49") == (11, "Tiger Lake")        # TGL-U
+    assert intel_gen_from_igpu("46a6") == (12, "Alder Lake")        # ADL-P
+    assert intel_gen_from_igpu("46d1") == (12, "Alder Lake-N")
+    assert intel_gen_from_igpu("a7ad") == (13, "Raptor Lake")       # the Core 3 100U
+    assert intel_gen_from_igpu("a721") == (13, "Raptor Lake")
+    assert intel_gen_from_igpu("ffff") == (0, "")                   # unknown id -> no match
 
 
 def test_pentium_gets_cpuid_spoof_to_the_gen_i3():
