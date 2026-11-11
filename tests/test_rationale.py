@@ -121,3 +121,19 @@ def test_intel_laptop_decisions_match_the_config():
     assert "npci=0x3000" not in bootargs
 
     assert any(d.section == "ACPI" and d.setting == "SSDT-PNLF" for d in decs)
+
+
+def test_raptor_lake_laptop_explains_why_there_is_no_igpu_platform_id():
+    # An AMD dGPU drives the display -- iGPU-only gen 11+ has no supported
+    # display path at all (see test_catalog_macos.py's dead-end tests).
+    m = _intel_laptop()
+    m.cpu = Cpu(brand="Intel(R) Core(TM) 3 100U", vendor=Vendor.INTEL,
+                intel_gen=13, family="Raptor Lake", cores=6, threads=8,
+                flags=frozenset({"avx2"}))
+    m.igpu = Gpu(name="Intel(R) Graphics", vendor=Vendor.INTEL, pci=PciId("8086", "a7ad"))
+    m.dgpu = Gpu(name="RX 6500M", vendor=Vendor.AMD, discrete=True)
+    decs = explain(make(m))
+
+    assert not _find(decs, "DeviceProperties", "ig-platform-id")
+    note = _find(decs, "DeviceProperties", "PciRoot(0x0)/Pci(0x2,0x0)")
+    assert note and "no WhateverGreen" in note[0].reason and "WhateverXe" in note[0].reason
