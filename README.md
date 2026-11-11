@@ -4,7 +4,7 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-⚙️ **v1.2.0 "Tungsten" is out.**
+🖥️ **v1.3.0 "Silicon" is out — macOS support.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 > [!WARNING]

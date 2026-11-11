@@ -3,7 +3,9 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
-## gui-beta-v1.3.0
+## gui-v1.3.0
+
+# 🖥️ OCforge 1.3.0 "Silicon"
 
 macOS as a host. Until now the macOS build existed but couldn't really be
 used: the GUI was sandboxed and couldn't find Python, the probe was a stub,
