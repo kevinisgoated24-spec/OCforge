@@ -4,12 +4,17 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-This is the **beta branch** — for what's next after v1.2.0, ahead of the
+This is the **beta branch** — for what's next after v1.3.0, ahead of the
 following stable release. Join the Discord OCForge For Beta Testers to help
 test it.
 
-⚙️ **v1.2.0 "Tungsten" is out.**
+🖥️ **v1.3.0 "Silicon" is out — macOS support.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
+
+> [!WARNING]
+> This project OCForge was created with AI-assisted / "vibecoded" tooling and is still an experimental EFI Maker in progress And Was Built By Hand 
+> It may contain bugs when building an EFI or Kext Like Keyboard And Touchpad Not Working (this may happen or not)
+> Please keep feedback constructive. Rants, rage bait, or comments focused only on "AI"/"vibecoded" drama will not be helpful and will be ignored.
 
 ---
 
@@ -41,9 +46,9 @@ Runs on Linux, Windows, or macOS as the host.
 
 ## Guide
 
-📖 **[Read the full guide](https://kevinisgoated24-spec.github.io/OCforge/)** — covers everything from first-time setup to USB mapping and offline installers.
+📖 **[Read the full guide](https://kevinisgoated24-spec.github.io/OCforge/)** covers everything from first-time setup to USB mapping and offline installers.
 
-**Changelog:** [CHANGELOG.md](CHANGELOG.md) — now with Linux and macOS support.
+**Changelog:** [CHANGELOG.md](CHANGELOG.md) now with Linux and macOS support.
 
 **License:** MIT, built on public OpenCore / Dortania documentation. See [LICENSE](LICENSE).
 
@@ -67,7 +72,7 @@ Got it working on something not listed? Let us know on Discord so we can add it.
 6. Go to **Config** → **Generate Config**.
 7. Go to **Forge**. You'll be asked where to write the EFI (e.g. a folder on your desktop — copy that folder's path into the textbox). You'll then see a few options:
    - **Get the recovery image** for that macOS version (~600 MB+, can be slow).
-   - **Build SSDTs from your machine** (works on Linux and Windows; on macOS you'll still need to supply a DSDT folder).
+   - **Build SSDTs from your machine** (works on Windows and Linux; on macOS only when the system exposes its ACPI tables, otherwise supply a DSDT folder).
    - **Use the OpenCore debug build** (recommended off).
    - **Get the offline image** for that macOS version (recommended off — see the guide, it takes a while).
 
@@ -84,7 +89,16 @@ Same flow as Windows, but grab the Linux build instead:
 
 ### macOS
 
-Coming soon.
+Two reasons to run OCforge on a Mac: you're **on a working Hackintosh** and want to rebuild or upgrade its EFI, or you're on **any Mac (including Apple Silicon) building for a different PC**.
+
+1. Install **Python 3.11+** first — the `python3` that ships with macOS is 3.9, too old. `brew install python@3.12`, or the installer from [python.org](https://www.python.org/downloads/macos/).
+2. Download `OCForge-GUI-macos.zip` from the [Releases](../../releases) page and unzip it. It's one universal app (Intel + Apple Silicon).
+3. The app isn't notarized (no paid Apple Developer ID), so the first launch is blocked. Right-click it → **Open**, or on macOS 15+ go to **System Settings → Privacy & Security** and click **Open Anyway**. Or from Terminal: `xattr -dr com.apple.quarantine OCForge.app`
+4. You'll be prompted to install **OCForge-CLI** — install it. If pip refuses Homebrew's Python, it falls back to pipx (`brew install pipx`).
+5. Then it's the same flow as Windows:
+   - **On a Hackintosh:** **Detect → Detect This PC** scans the machine. **Build SSDTs from your machine** reads the ACPI tables from the IORegistry when macOS exposes them (the same place MaciASL's "New from ACPI" reads). Not every macOS does, and either way they're already patched by OpenCore, so the most reliable source is booting once with `Misc → Debug → SysReport` and passing `--dsdt EFI/SysReport/ACPI`. Without tables, the build just uses precompiled SSDTs.
+   - **On Apple Silicon** (or any Mac building for another PC): there's no PC hardware here to detect, so Detect tells you that instead of guessing. Run `ocforge probe --save my-pc.json` **on the target PC** (Windows/Linux), copy the file over, then **Detect → Open spec file** (CLI: `ocforge build --spec my-pc.json`). Everything after that works normally. For custom SSDTs, also bring that PC's ACPI tables (`--dsdt`).
+6. Writing straight to a USB stick (`ocforge build --usb /dev/diskN`, see `ocforge usb`) uses `diskutil`, so macOS formats it natively. No extra tools needed.
 
 ---
 
@@ -98,15 +112,15 @@ See [Other-Commands.md](https://github.com/kevinisgoated24-spec/OCforge/blob/mas
 
 ### Expert mode
 
-Everything above is OCforge deciding for you. If you'd rather do it yourself — the way the [Dortania guide](https://dortania.github.io/OpenCore-Install-Guide/) walks through it, decision by decision — a few manual overrides sit on top of the same detection/build pipeline:
+Everything above is OCforge deciding for you. If you'd rather do it yourself — the way the [Dortania guide](https://dortania.github.io/OpenCore-Install-Guide/) walks through it, decision by decision a few manual overrides sit on top of the same detection/build pipeline:
 
-- **ACPI source** — `--dsdt PATH` (a DSDT/folder of tables you already have) or `--dump-dsdt` (dump this host's own live tables) instead of Dortania's precompiled SSDT set.
-- **Force through an unsupported build** — `--force-unsupported-gpu` / `--force-unsupported-os` skip the "continue anyway?" prompt outright, instead of only being reachable after a build fails once.
+- **ACPI source** `--dsdt PATH` (a DSDT/folder of tables you already have) or `--dump-dsdt` (dump this host's own live tables) instead of Dortania's precompiled SSDT set.
+- **Force through an unsupported build** `--force-unsupported-gpu` / `--force-unsupported-os` skip the "continue anyway?" prompt outright, instead of only being reachable after a build fails once.
 - **Kext overrides** — `--exclude-kext NAME` drops a kext OCforge would otherwise add; `--include-kext NAME` forces one in that it wouldn't otherwise pick (both repeatable). Unknown `--include-kext` names are rejected with an error rather than silently ignored, and any override adds a warning to `ocforge plan`'s output so it's clear the pick was manual.
-- **SSDT overrides** — `--exclude-ssdt NAME` drops one of the precompiled SSDTs OCforge would otherwise add (repeatable), e.g. `--exclude-ssdt SSDT-PLUG` if you're handling XCPM some other way. There's no `--include-ssdt` — an arbitrary SSDT name doesn't map onto a real Dortania asset the way a kext name maps onto a real kext, so adding one OCforge doesn't already know about still means supplying it yourself (drop the `.aml` into the built `EFI/OC/ACPI/` folder and add it to `config.plist`'s `ACPI → Add` by hand, or via `ocforge plist save`).
+- **SSDT overrides** `--exclude-ssdt NAME` drops one of the precompiled SSDTs OCforge would otherwise add (repeatable), e.g. `--exclude-ssdt SSDT-PLUG` if you're handling XCPM some other way. There's no `--include-ssdt` — an arbitrary SSDT name doesn't map onto a real Dortania asset the way a kext name maps onto a real kext, so adding one OCforge doesn't already know about still means supplying it yourself (drop the `.aml` into the built `EFI/OC/ACPI/` folder and add it to `config.plist`'s `ACPI → Add` by hand, or via `ocforge plist save`).
 - **SMBIOS override** — `--smbios MODEL` (e.g. `iMac19,1`) replaces OCforge's own board-generation pick outright. Only checked for the right *shape* (`Name123,4`) up front; `macserial` is the real authority and fails loudly during the build if the model doesn't actually exist.
-- **Quirk overrides** — `--quirk NAME=true|false` (repeatable) flips one ACPI/Booter/Kernel/UEFI Quirks toggle directly, e.g. `--quirk DevirtualiseMmio=false`. On/off toggles only — a handful of Quirks entries are numeric settings (a slide count, a timeout) rather than booleans, and those are rejected rather than silently coerced. Only `build`/`offline-installer` actually apply quirks (there's no `config.plist` to apply them to yet at `plan`/`explain` time).
-- **Device ID spoof** — `--spoof-device PATH=[VENDOR:]DEVICE` (repeatable) presents a different PCI device to macOS at that OpenCore device path, e.g. `--spoof-device "PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF"` to spoof an unsupported GPU as a supported one — the same DeviceProperties edit Hackintosh users already do by hand for hardware without a real macOS driver, tied into OCforge as an override. Merges into whatever OCforge already computed at that path (a GPU's own `AAPL,ig-platform-id` survives a device-id override there) instead of replacing the whole entry, and forces the OpenCore DEBUG build on automatically so it's easier to tell whether the spoof actually took effect.
+- **Quirk overrides** — `--quirk NAME=true|false` (repeatable) flips one ACPI/Booter/Kernel/UEFI Quirks toggle directly, e.g. `--quirk DevirtualiseMmio=false`. On/off toggles only a handful of Quirks entries are numeric settings (a slide count, a timeout) rather than booleans, and those are rejected rather than silently coerced. Only `build`/`offline-installer` actually apply quirks (there's no `config.plist` to apply them to yet at `plan`/`explain` time).
+- **Device ID spoof** — `--spoof-device PATH=[VENDOR:]DEVICE` (repeatable) presents a different PCI device to macOS at that OpenCore device path, e.g. `--spoof-device "PciRoot(0x0)/Pci(0x3,0x0)=1002:73AF"` to spoof an unsupported GPU as a supported one the same DeviceProperties edit Hackintosh users already do by hand for hardware without a real macOS driver, tied into OCforge as an override. Merges into whatever OCforge already computed at that path (a GPU's own `AAPL,ig-platform-id` survives a device-id override there) instead of replacing the whole entry, and forces the OpenCore DEBUG build on automatically so it's easier to tell whether the spoof actually took effect.
 - **Review before you trust it** — `ocforge validate --efi ./EFI` runs `ocvalidate` on the assembled `config.plist`, and `ocforge plist show` / `plist save` round-trip it to JSON for hand editing. The desktop GUI wraps both behind a "Validate this EFI" / "Review in Editor" pair right after a build finishes.
 
 None of this changes what OCforge *detects* — only what it does with that detection. If a manual pick makes a machine unbootable, that's on you; the warning in `plan`'s output is there so you know which parts were manual before you go looking for what to fix.

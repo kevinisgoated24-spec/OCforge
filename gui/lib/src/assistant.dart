@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'cli.dart';
+
 /// One backend answer for the in-GUI assistant. Two ways to get one:
 ///
 /// 1. **A local `claude` CLI**, if the user already has Claude Code
@@ -29,7 +31,8 @@ class AiAssistant {
   /// The first `claude` that answers `--version`, or null if none is on PATH.
   static Future<bool> claudeCliAvailable() async {
     try {
-      final ProcessResult r = await Process.run('claude', <String>['--version']);
+      final ProcessResult r = await Process.run('claude', <String>['--version'],
+          environment: OcforgeCli.processEnv);
       return r.exitCode == 0;
     } on ProcessException {
       return false;
@@ -60,7 +63,7 @@ class AiAssistant {
     late final ProcessResult r;
     try {
       r = await Process.run('claude', <String>['-p', prompt],
-          stdoutEncoding: utf8, stderrEncoding: utf8);
+          environment: OcforgeCli.processEnv, stdoutEncoding: utf8, stderrEncoding: utf8);
     } on ProcessException catch (e) {
       throw Exception('could not run the claude CLI: $e');
     }
