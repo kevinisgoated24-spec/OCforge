@@ -4,7 +4,7 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-💡 **v1.3.2 "Xenon" is out — build-log fixes: no more duplicate warnings, SSDTs-from-your-PC is easier to find on laptops, and SSDTTime failures now say why.**
+⚗️ **v1.3.3 "Palladium" is out — fixes SSDTTime producing zero SSDTs on Windows (ACPICA dropped Windows binaries upstream; ocforge now fetches `iasl.exe` itself).**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 > [!WARNING]
