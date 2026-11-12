@@ -38,8 +38,28 @@ class _BuildPageState extends State<BuildPage> {
   bool _forceUnsupportedGpu = false;
   bool _forceUnsupportedOs = false;
   bool _advancedOpen = false;
+  bool _checkedLaptopDsdtDefault = false;
   int? _lastExit;
   Process? _proc;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Runs once per instance -- initState() can't reach an InheritedWidget
+    // yet (see editor_page.dart's pendingEditorPath for the same pattern).
+    // A laptop's trackpad (SSDT-GPIO) and, on some boards, display/power
+    // fixups only come from this PC's own ACPI tables -- Dortania's
+    // precompiled set alone was silently leaving it unbuilt with no
+    // explicit error, since "zero candidates found" and "never attempted
+    // a dump at all" look identical from the outside. Only a laptop gets
+    // nudged; desktops are fine with precompiled by default.
+    if (_checkedLaptopDsdtDefault) return;
+    _checkedLaptopDsdtDefault = true;
+    final OcforgeController c = ControllerScope.of(context);
+    if (c.machine?['chassis'] == 'laptop' && _dsdtSource == _DsdtSource.none) {
+      _dsdtSource = _DsdtSource.autoDump;
+    }
+  }
 
   @override
   void dispose() {
@@ -323,6 +343,69 @@ class _BuildPageState extends State<BuildPage> {
                       ? null
                       : (bool v) => setState(() => _recovery = v),
                 ),
+                const SizedBox(height: 12),
+                // Not tucked under Advanced -- a laptop with no SSDT-GPIO
+                // (trackpad) or other DSDT-only fixup silently gets none of
+                // it from the precompiled set, with no error at all to
+                // signal that's what happened, so this needs to be seen and
+                // changed without first having to know to go looking for it.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('SSDTs from', style: Theme.of(context).textTheme.labelLarge),
+                ),
+                RadioListTile<_DsdtSource>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Dortania\u2019s precompiled set (default)'),
+                  value: _DsdtSource.none,
+                  groupValue: _dsdtSource,
+                  onChanged: (_running || _offlineInstaller)
+                      ? null
+                      : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
+                ),
+                RadioListTile<_DsdtSource>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('This PC\u2019s own ACPI tables'),
+                  subtitle: const Text(
+                      'Runs SSDTTime against a live dump \u2014 --dump-dsdt',
+                      style: TextStyle(fontSize: 12)),
+                  value: _DsdtSource.autoDump,
+                  groupValue: _dsdtSource,
+                  onChanged: (_running || _offlineInstaller)
+                      ? null
+                      : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
+                ),
+                RadioListTile<_DsdtSource>(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('A DSDT I already have'),
+                  subtitle: const Text(
+                      'A .aml file or a folder of dumped ACPI tables \u2014 --dsdt PATH',
+                      style: TextStyle(fontSize: 12)),
+                  value: _DsdtSource.supplied,
+                  groupValue: _dsdtSource,
+                  onChanged: (_running || _offlineInstaller)
+                      ? null
+                      : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
+                ),
+                if (_dsdtSource == _DsdtSource.supplied)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8, top: 4),
+                    child: TextField(
+                      controller: _dsdtPathCtl,
+                      enabled: !_running,
+                      decoration: InputDecoration(
+                        hintText: r'e.g. C:\Users\you\Desktop\my-pc-acpi',
+                        isDense: true,
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
                 Theme(
                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
@@ -331,69 +414,11 @@ class _BuildPageState extends State<BuildPage> {
                     initiallyExpanded: _advancedOpen,
                     onExpansionChanged: (bool v) => setState(() => _advancedOpen = v),
                     title: const Text('Advanced', style: TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: const Text('ACPI source, debug build, memory map, forcing an '
-                        'unsupported hardware/macOS combination through anyway, kext/SSDT/'
-                        'SMBIOS/quirk overrides, device ID spoofing',
+                    subtitle: const Text('Debug build, memory map, forcing an unsupported '
+                        'hardware/macOS combination through anyway, kext/SSDT/SMBIOS/quirk '
+                        'overrides, device ID spoofing',
                         style: TextStyle(fontSize: 12.5)),
                     children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text('SSDTs from', style: Theme.of(context).textTheme.labelLarge),
-                      ),
-                      RadioListTile<_DsdtSource>(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: const Text('Dortania\u2019s precompiled set (default)'),
-                        value: _DsdtSource.none,
-                        groupValue: _dsdtSource,
-                        onChanged: (_running || _offlineInstaller)
-                            ? null
-                            : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
-                      ),
-                      RadioListTile<_DsdtSource>(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: const Text('This PC\u2019s own ACPI tables'),
-                        subtitle: const Text(
-                            'Runs SSDTTime against a live dump \u2014 --dump-dsdt',
-                            style: TextStyle(fontSize: 12)),
-                        value: _DsdtSource.autoDump,
-                        groupValue: _dsdtSource,
-                        onChanged: (_running || _offlineInstaller)
-                            ? null
-                            : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
-                      ),
-                      RadioListTile<_DsdtSource>(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: const Text('A DSDT I already have'),
-                        subtitle: const Text(
-                            'A .aml file or a folder of dumped ACPI tables \u2014 --dsdt PATH',
-                            style: TextStyle(fontSize: 12)),
-                        value: _DsdtSource.supplied,
-                        groupValue: _dsdtSource,
-                        onChanged: (_running || _offlineInstaller)
-                            ? null
-                            : (_DsdtSource? v) => setState(() => _dsdtSource = v!),
-                      ),
-                      if (_dsdtSource == _DsdtSource.supplied)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8, top: 4),
-                          child: TextField(
-                            controller: _dsdtPathCtl,
-                            enabled: !_running,
-                            decoration: InputDecoration(
-                              hintText: r'e.g. C:\Users\you\Desktop\my-pc-acpi',
-                              isDense: true,
-                              filled: true,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                      const Divider(height: 24),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         dense: true,
