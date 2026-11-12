@@ -3,6 +3,35 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v1.3.2
+
+# 💡 OCforge 1.3.2 "Xenon"
+
+Three fixes, all found live debugging one real laptop build (HP, Core 3
+100U) whose trackpad SSDT never got built — each one was hiding
+information that would have explained why, not a hardware limitation:
+
+- **`ocforge build`/`offline-installer` printed every manual-ACPI note
+  twice** (SSDT-GPIO for an I2C-HID trackpad, the Sandy/Ivy Bridge
+  SSDT-PM note, any HEDT note) — the plan summary and the final build
+  report both showed the same plan-level list, the second one just
+  folding it back in redundantly. Not specific to any one machine; every
+  laptop build with a non-empty `manual_acpi` list hit this.
+- **GUI: "SSDTs from" (Dortania's precompiled set / this PC's own ACPI
+  tables / a DSDT you already have) lived entirely inside the collapsed
+  Advanced panel**, and always defaulted to precompiled regardless of
+  chassis — even though a laptop's trackpad fixup specifically needs a
+  live dump. Now always visible, and defaults to "this PC's own ACPI
+  tables" the first time the page builds, if the detected machine is a
+  laptop.
+- **SSDTTime's actual output was captured and then thrown away.** When
+  SSDTTime produces zero `.aml` files, `ssdtgen.run()` already captures
+  its real stdout+stderr (an `iasl` error, a traceback, anything) into
+  `SsdtResult.log_text` — the build log only ever showed the generic
+  "did not produce usable output" message. Now writes the full output to
+  `work/ssdttime-output.log` and says so, so the next time this happens
+  there's finally something concrete to look at.
+
 ## gui-v1.3.1
 
 # 🔎 OCforge 1.3.1 "Rhodium"
