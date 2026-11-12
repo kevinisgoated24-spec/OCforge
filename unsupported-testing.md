@@ -3,4 +3,4 @@ Unsupported Devices Testing List:
 
 - HP 255 G7 (AMD Chipset Stuff Idk Testing From GaM1ngN0tDev)
 
--RX 9060 XT with Ryzen 5600X (Booted into Mac OS recovery Tested By Knaphixis)
+- RX 9060 XT with Ryzen 5600X (Booted into Mac OS recovery Tested By Knaphixis)
