@@ -4,11 +4,11 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-This is the **beta branch** — for what's next after v1.3.1, ahead of the
+This is the **beta branch** — for what's next after v1.3.2, ahead of the
 following stable release. Join the Discord OCForge For Beta Testers to help
 test it.
 
-🔎 **v1.3.1 "Rhodium" is out — fixes newer Intel CPUs (Core 3/5/7/9) being mis-detected as 2011-era Sandy Bridge.**
+💡 **v1.3.2 "Xenon" is out — build-log fixes: no more duplicate warnings, SSDTs-from-your-PC is easier to find on laptops, and SSDTTime failures now say why.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 > [!WARNING]

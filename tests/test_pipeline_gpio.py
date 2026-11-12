@@ -115,6 +115,33 @@ def test_windows_falls_back_to_acpidump_when_native_dump_fails(tmp_path, monkeyp
     assert [exe is None for _, exe in dumped] == [True, False]
 
 
+def test_ssdttime_failure_writes_its_real_output_to_a_log_file(tmp_path, monkeypatch):
+    # Real-world report: SSDTTime produced zero .aml files on a real laptop
+    # (dump succeeded, SSDTTime ran, but "SSDTTime produced no .aml files" was
+    # the only information anyone had -- res.log_text, SSDTTime's actual
+    # stdout+stderr and the one thing that would say *why*, was captured by
+    # ssdtgen.run() and then silently discarded.
+    dumped, fetched = [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="win32")
+    monkeypatch.setattr(
+        pipeline.ssdtgen, "run",
+        lambda *a, **kw: SsdtResult(error="SSDTTime produced no .aml files",
+                                    log_text="Traceback (most recent call last):\n"
+                                             "  (this is SSDTTime's own real output)\n"),
+    )
+
+    logs = []
+    plan = make(_laptop_i2c_hid())
+    res = pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=logs.append)
+
+    assert res is None
+    log_path = tmp_path / "ssdttime-output.log"
+    assert log_path.is_file()
+    assert "SSDTTime's own real output" in log_path.read_text()
+    assert any(str(log_path) in line for line in logs)
+    assert any("SSDTTime did not produce usable output" in line for line in logs)
+
+
 def test_laptop_with_i2c_hid_trackpad_does_not_auto_dump_on_macos(tmp_path, monkeypatch):
     # macOS has no automatic ACPI dump path at all, from ocforge or SSDTTime.
     dumped, fetched = [], []

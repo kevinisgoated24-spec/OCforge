@@ -171,7 +171,7 @@ def _print_machine(m: Machine) -> None:
         print(f"board     {m.firmware.board_vendor} {m.firmware.board_name}".strip())
 
 
-def _print_plan(p) -> None:
+def _print_plan(p, *, show_manual_acpi: bool = True) -> None:
     print(f"\ntarget    macOS {p.target.name} ({p.target.major})  darwin {p.target.darwin}")
     print(f"smbios    {p.smbios_model}")
     print(f"boot-args {' '.join(p.boot_args)}")
@@ -185,7 +185,12 @@ def _print_plan(p) -> None:
     print(f"\nSSDTs ({len(p.ssdts)})")
     for s in p.ssdts:
         print(f"  {s.name}  — {s.reason}")
-    if p.manual_acpi:
+    # cmd_build/cmd_offline_installer pass False here: their own final build
+    # report prints the complete "still to do by hand" list (plan.manual_acpi
+    # plus whatever the build itself turned up, e.g. SSDT-GPIO either
+    # confirmed generated or needing to be done by hand) -- printing it here
+    # too just showed every plan-level item twice, verbatim, for no reason.
+    if show_manual_acpi and p.manual_acpi:
         print("\nmanual ACPI (needs the target's DSDT)")
         for t in p.manual_acpi:
             print(f"  ! {t}")
@@ -409,7 +414,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     if plan is None:
         return 130
     _print_machine(m)
-    _print_plan(plan)
+    _print_plan(plan, show_manual_acpi=False)
     print()
 
     work = Path(args.work or "ocforge-work").resolve()
@@ -464,7 +469,7 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
     if plan is None:
         return 130
     _print_machine(m)
-    _print_plan(plan)
+    _print_plan(plan, show_manual_acpi=False)
     print("\noffline installer: downloads the full macOS installer via gibMacOS and a "
           "recovery boot image — both large, this is the slow part.")
 
