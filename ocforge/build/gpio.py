@@ -52,12 +52,28 @@ DefinitionBlock ("", "SSDT", 2, "OCFORG", "GPIO", 0x00000000)
 @dataclass
 class GpioFinding:
     path: str          # full ACPI path of the touchpad device
-    pin: int
-    controller: str     # GPIO controller ACPI path
-    hid: str
+    pin: int = 0
+    controller: str = ""     # GPIO controller ACPI path
+    hid: str = ""
     generated: Path | None = None   # compiled SSDT-GPIO.aml, if we made one
+    # A device matching the known I2C-HID touchpad vendor hints was found,
+    # but it builds its _CRS programmatically (helper methods, concatenated
+    # buffers computed from board-variant globals) instead of a static
+    # literal GpioInt/I2cSerialBus descriptor -- some OEM firmware shares
+    # one DSDT across several board SKUs this way. Not something a text
+    # scan of decompiled source can ever resolve (it would need a real ACPI
+    # interpreter evaluating the method calls); distinct from "nothing
+    # matching found at all" so the TODO says precisely what's going on
+    # instead of looking identical to a DSDT with no touchpad device.
+    dynamic: bool = False
 
     def todo(self) -> str:
+        if self.dynamic:
+            return (f"SSDT-GPIO: touchpad {self.path} ({self.hid}) found, but its ACPI "
+                    "resources are computed at runtime (helper methods / concatenated "
+                    "buffers), not a static descriptor -- can't be generated from "
+                    "decompiled source; see Dortania's manual SSDT-GPIO guide "
+                    "(Getting-Started-With-ACPI > Laptops > trackpad-methods > manual)")
         made = f"; wrote {self.generated.name}" if self.generated else ""
         return (f"SSDT-GPIO: touchpad {self.path} ({self.hid}) -> GpioInt pin "
                 f"0x{self.pin:02X} on {self.controller}{made}")
@@ -164,6 +180,39 @@ def _scan(dsl: str) -> list[GpioFinding]:
             if not any(p != c.path and p.startswith(c.path + ".") for p in paths)]
 
 
+def _find_hid_hint_devices(dsl: str) -> list[tuple[str, str]]:
+    """Devices matching a known I2C-HID touchpad vendor ID, with no
+    I2cSerialBus/GpioInt requirement at all -- used only when :func:`_scan`
+    finds nothing, to tell "no touchpad device in this DSDT" apart from
+    "found one, but its resources aren't a static descriptor" (see
+    GpioFinding.dynamic). Stricter than _scan's own HID match (no bare
+    "PNP"/"ACPI" prefix) since there's no GpioInt/I2cSerialBus match to
+    narrow things down first here -- those generic prefixes would catch
+    far too much."""
+    found: list[tuple[str, str]] = []
+    for dm in re.finditer(r'Device\s*\(\s*([\\^A-Za-z0-9_.]+)\s*\)\s*\{', dsl):
+        start = dm.end()
+        d, j = 1, start
+        while j < len(dsl) and d:
+            d += (dsl[j] == "{") - (dsl[j] == "}")
+            j += 1
+        body = dsl[start:j]
+        shallow = body[: (m.start() if (m := re.search(r'\n\s*Device\s*\(', body)) else len(body))]
+        hm = _HID_RE.search(shallow)
+        if not hm:
+            continue
+        hid = (hm.group(1) or hm.group(2) or "").strip()
+        if not hid or not (any(h in hid.upper() for h in _HID_HINTS)
+                           or hid.upper().startswith(("ELAN", "SYNA"))):
+            continue
+        path = _resolve_device_path(dsl, dm.start())
+        if path is None:
+            continue
+        found.append((path, hid))
+    paths = {p for p, _ in found}
+    return [(p, h) for p, h in found if not any(q != p and q.startswith(p + ".") for q in paths)]
+
+
 def _resolve_device_path(dsl: str, dev_pos: int) -> str | None:
     stack: list[str] = []
     depth = 0
@@ -197,7 +246,13 @@ def generate(dsdt_dir: Path, ssdttime_dir: Path, out_dir: Path) -> GpioFinding |
         return None
     found = _scan(dsl)
     if len(found) != 1:   # 0 = nothing; >1 = ambiguous, leave it manual
-        return found[0] if found else None
+        if found:
+            return found[0]
+        hinted = _find_hid_hint_devices(dsl)
+        if hinted:
+            path, hid = hinted[0]
+            return GpioFinding(path=path, hid=hid, dynamic=True)
+        return None
     f = found[0]
 
     out_dir = out_dir.resolve()

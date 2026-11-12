@@ -45,6 +45,42 @@ DefinitionBlock ("", "DSDT", 2, "X", "Y", 1)
 }
 '''
 
+# Real-world shape (an actual HP laptop's DSDT, not a hypothetical): the
+# touchpad device exists and its _HID/_CID correctly say "I2C-HID touchpad",
+# but its _CRS computes the GpioInt/I2cSerialBus descriptor at runtime from
+# helper methods and concatenated buffers (board-variant globals like BADR/
+# SPED/TPDM/I2CX) instead of a static ResourceTemplate literal -- so neither
+# "GpioInt" nor "I2cSerialBus" appears anywhere as plain text. No regex
+# rewrite can recover this; it needs an actual ACPI interpreter. Distinct
+# from "no touchpad device at all" (_NO_TOUCHPAD below).
+_DYNAMIC_CRS = r'''
+DefinitionBlock ("", "DSDT", 2, "X", "Y", 1)
+{
+    Scope (_SB)
+    {
+        Device (PC00)
+        {
+            Device (I2C0)
+            {
+                Device (TPD0)
+                {
+                    Name (_HID, "XPNP0C50")
+                    Name (_CID, "PNP0C50" /* HID Protocol Device (I2C bus) */)
+                    Method (_CRS, 0, NotSerialized)
+                    {
+                        If ((TPDM == Zero))
+                        {
+                            Return (ConcatenateResTemplate (I2CM (I2CX, BADR, SPED), SBFG))
+                        }
+                        Return (ConcatenateResTemplate (I2CM (I2CX, BADR, SPED), SBFI))
+                    }
+                }
+            }
+        }
+    }
+}
+'''
+
 _NO_TOUCHPAD = r'''
 DefinitionBlock ("", "DSDT", 2, "X", "Y", 1)
 {
@@ -80,6 +116,64 @@ def test_scan_is_ambiguous_with_two_trackpads():
     doubled = _DSL + _DSL.replace("TPD0", "TPD1").replace("0x0049", "0x0055")
     found = gpio._scan(doubled)
     assert len(found) == 2
+
+
+def test_scan_finds_nothing_for_a_dynamically_computed_crs():
+    # Confirms the premise of the dynamic-detection tests below: _scan()'s
+    # literal GpioInt/I2cSerialBus text match genuinely can't see this one,
+    # same as if there were no touchpad device at all.
+    assert gpio._scan(_DYNAMIC_CRS) == []
+
+
+def test_hid_hint_scan_finds_the_dynamic_crs_device():
+    found = gpio._find_hid_hint_devices(_DYNAMIC_CRS)
+    assert found == [(r"\_SB.PC00.I2C0.TPD0", "XPNP0C50")]
+
+
+def test_hid_hint_scan_finds_nothing_without_a_touchpad():
+    assert gpio._find_hid_hint_devices(_NO_TOUCHPAD) == []
+
+
+def test_hid_hint_scan_ignores_unrelated_devices_with_pnp_ids():
+    # The bare "PNP"/"ACPI" prefix _scan() allows (once GpioInt+I2cSerialBus
+    # already narrowed things down) would be far too loose here, with no
+    # such narrowing -- a generic ACPI device must not show up as a
+    # "found a touchpad, just not a static one" false positive.
+    generic = r'''
+    DefinitionBlock ("", "DSDT", 2, "X", "Y", 1)
+    {
+        Scope (_SB)
+        {
+            Device (PCI0)
+            {
+                Name (_HID, EisaId ("PNP0A08"))
+            }
+        }
+    }
+    '''
+    assert gpio._find_hid_hint_devices(generic) == []
+
+
+def test_generate_reports_dynamic_crs_distinctly_from_nothing_found(monkeypatch, tmp_path):
+    # generate() needs a real iasl to decompile/compile; stub both steps so
+    # this test exercises just the _scan-found-nothing -> hid-hint-fallback
+    # wiring, not iasl itself (which test_pipeline_gpio.py's stubs already
+    # keep out of every other test here too).
+    monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
+    monkeypatch.setattr(gpio, "_decompile", lambda dsdt_dir, iasl: _DYNAMIC_CRS)
+
+    finding = gpio.generate(tmp_path, tmp_path, tmp_path / "out")
+
+    assert finding is not None and finding.dynamic and finding.generated is None
+    assert finding.path == r"\_SB.PC00.I2C0.TPD0" and finding.hid == "XPNP0C50"
+    assert "computed at runtime" in finding.todo()
+    assert "manual SSDT-GPIO guide" in finding.todo()
+
+
+def test_generate_returns_none_when_truly_nothing_is_there(monkeypatch, tmp_path):
+    monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
+    monkeypatch.setattr(gpio, "_decompile", lambda dsdt_dir, iasl: _NO_TOUCHPAD)
+    assert gpio.generate(tmp_path, tmp_path, tmp_path / "out") is None
 
 
 def test_todo_line_shape():
