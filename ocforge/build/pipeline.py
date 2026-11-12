@@ -114,8 +114,19 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
     st_dir = fetch_ssdttime.fetch(work)  # for iasl, to decompile/compile
     res = ssdtgen.run(st_dir, acpi_dir, ssdtgen.plan_ops(plan.machine), log=log)
     if not res.ok:
+        # res.log_text is SSDTTime's actual stdout+stderr -- the one thing
+        # that would say *why* it produced nothing (an iasl error, a
+        # traceback, its menu having moved under us) -- previously
+        # discarded outright, leaving "it failed" as the only information
+        # anyone (the user, or us debugging their report) ever had to go on.
+        log_path = work / "ssdttime-output.log"
+        try:
+            log_path.write_text(res.log_text, errors="replace")
+            where = f" (full output: {log_path})"
+        except OSError:
+            where = ""
         log(f"  SSDTTime did not produce usable output ({res.error}); "
-            "using precompiled SSDTs")
+            f"using precompiled SSDTs{where}")
         return None
     log(f"  SSDTTime built {len(res.aml)} SSDT(s): "
         f"{', '.join(p.name for p in res.aml)}")
