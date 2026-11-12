@@ -14,6 +14,10 @@ See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? 
 
 ---
 
+Discord OCForge Group Coming Soon Stay Tuned👀
+
+---
+
 ## Table of contents
 
 - [How it works](#how-it-works)
