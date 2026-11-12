@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -23,6 +24,7 @@ from ocforge.build.smbios import generate as gen_smbios
 from ocforge.fetch import acpi as fetch_acpi
 from ocforge.fetch import acpidump as fetch_acpidump
 from ocforge.fetch import github as fetch_github
+from ocforge.fetch import iasl as fetch_iasl
 from ocforge.fetch import kexts as fetch_kexts
 from ocforge.fetch import ocbinary, opencore
 from ocforge.fetch import ssdttime as fetch_ssdttime
@@ -112,6 +114,28 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
                 return None
 
     st_dir = fetch_ssdttime.fetch(work)  # for iasl, to decompile/compile
+
+    # SSDTTime bootstraps its own iasl.exe on first run, but its current
+    # fetch-and-blacklist dance is broken on every Windows machine right
+    # now, not just this one: ACPICA's newest release dropped Windows
+    # binaries entirely, SSDTTime's own blacklist rejects the one older
+    # release that still has them, and its "legacy" fallback has a bug --
+    # it extracts iasl-legacy.exe into Scripts/, then still fails its own
+    # "does iasl.exe exist" check and aborts, producing zero SSDTs with no
+    # menu ever run (see fetch/iasl.py). Pre-placing a working iasl.exe
+    # ourselves, straight from the same ACPICA releases, means SSDTTime's
+    # bootstrap finds it already there and never touches its own fetch path.
+    if sys.platform == "win32":
+        iasl_dest = st_dir / "Scripts" / "iasl.exe"
+        if not iasl_dest.is_file():
+            try:
+                iasl_exe = fetch_iasl.fetch(work)
+                iasl_dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(iasl_exe, iasl_dest)
+            except (OSError, LookupError) as exc:
+                log(f"  couldn't pre-fetch iasl.exe ({exc}); "
+                    "SSDTTime will try to fetch its own")
+
     res = ssdtgen.run(st_dir, acpi_dir, ssdtgen.plan_ops(plan.machine), log=log)
     if not res.ok:
         # res.log_text is SSDTTime's actual stdout+stderr -- the one thing
