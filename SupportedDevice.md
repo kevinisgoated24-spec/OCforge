@@ -6,6 +6,6 @@
 
 - B450M DS3H Wifi Rev 1.5 with RX 580 Machine (Status: Worked Booted To MacOS No Issues Only CPU That MacOS Refuses To See But On Apps It Shows Up) (Tested By: tinyboxstudiosyt)
 
-List Of Unsupported Testing Devices: [Unsupported-List][https://github.com/kevinisgoated24-spec/OCforge/blob/master/Unsupported-testing.md]
+List Of Unsupported Testing Devices: [Unsupported-List](https://github.com/kevinisgoated24-spec/OCforge/blob/master/Unsupported-testing.md)
 
 Hi if your seeing this could you help us find out if more devices does work the automatic EFI that OCForge makes? thank you:D
