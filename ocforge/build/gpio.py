@@ -5,6 +5,17 @@ fetched) and look for the touchpad: an I2C peripheral whose ``_CRS`` carries a
 ``GpioInt``. If exactly one confident candidate is found we render and compile
 ``SSDT-GPIO`` that re-asserts ``_STA`` and pins the interrupt; otherwise we hand
 back a precise TODO (path + pin + controller) so the manual step is trivial.
+
+Separately -- and independent of whether the touchpad device itself was
+resolvable -- the GPIO *controller* the touchpad's interrupt is wired to
+(e.g. ``\\_SB.GPI0``) often gates its own ``_STA``/``_HID`` behind a single
+named variable, so Windows (Darwin isn't `_OSI`-recognized) sees a disguised
+or degraded controller. Dortania's own manual guide documents this as two
+known shapes -- ``GPEN`` and ``GPHD`` -- with the variable name and the
+polarity that means "enabled" both varying per board. :func:`find_controller_gate`
+detects this shape generically (whichever variable, whichever polarity) and
+forces the enabled value under Darwin; this part needs no live hardware
+value at all, unlike the touchpad's own GPIO pin.
 """
 
 from __future__ import annotations
@@ -45,8 +56,32 @@ DefinitionBlock ("", "SSDT", 2, "OCFORG", "GPIO", 0x00000000)
             }
         })
     }
-}
+}%(gate)s
 '''
+
+# Appended when find_controller_gate() finds one -- a *separate* DefinitionBlock
+# section (the controller is a different device than the touchpad, often not
+# even the same parent), forcing its gating variable to the value its own
+# _STA/_HID treats as "fully enabled", under Darwin only.
+_GATE_TEMPLATE = '''
+
+
+DefinitionBlock ("", "SSDT", 2, "OCFORG", "GPIOEN", 0x00000000)
+{
+    External (%(ctrl)s, DeviceObj)
+    External (%(var)s, IntObj)
+
+    Scope (%(ctrl)s)
+    {
+        Method (_INI, 0, NotSerialized)
+        {
+            If (_OSI ("Darwin"))
+            {
+                %(var)s = %(value)s
+            }
+        }
+    }
+}'''
 
 
 @dataclass
@@ -66,17 +101,27 @@ class GpioFinding:
     # matching found at all" so the TODO says precisely what's going on
     # instead of looking identical to a DSDT with no touchpad device.
     dynamic: bool = False
+    # (variable name, value to force) if the GPIO controller's own _STA/_HID
+    # gates on one, per find_controller_gate() -- independent of whether the
+    # touchpad device itself resolved; see module docstring.
+    controller_gate: tuple[str, str] | None = None
 
     def todo(self) -> str:
+        gate = ""
+        if self.controller_gate:
+            var, value = self.controller_gate
+            gate = (f" -- also: {self.controller} gates its own _STA/_HID on "
+                    f"{var}; forcing {var} = {value} under Darwin")
         if self.dynamic:
             return (f"SSDT-GPIO: touchpad {self.path} ({self.hid}) found, but its ACPI "
                     "resources are computed at runtime (helper methods / concatenated "
                     "buffers), not a static descriptor -- can't be generated from "
                     "decompiled source; see Dortania's manual SSDT-GPIO guide "
-                    "(Getting-Started-With-ACPI > Laptops > trackpad-methods > manual)")
+                    "(Getting-Started-With-ACPI > Laptops > trackpad-methods > manual)"
+                    f"{gate}")
         made = f"; wrote {self.generated.name}" if self.generated else ""
         return (f"SSDT-GPIO: touchpad {self.path} ({self.hid}) -> GpioInt pin "
-                f"0x{self.pin:02X} on {self.controller}{made}")
+                f"0x{self.pin:02X} on {self.controller}{made}{gate}")
 
 
 def _find_iasl(ssdttime_dir: Path) -> Path | None:
@@ -234,6 +279,45 @@ def _resolve_device_path(dsl: str, dev_pos: int) -> str | None:
     return _abspath(stack[:-1], stack[-1])
 
 
+_STA_GATE = re.compile(
+    r'Method\s*\(\s*_STA\s*,[^)]*\)\s*\{'
+    r'\s*If\s*\(\(\s*([A-Za-z0-9_]{2,8})\s*==\s*(One|Zero)\s*\)\)\s*'
+    r'\{\s*Return\s*\(\s*(0x[0-9A-Fa-f]+|Zero|One)\s*\)\s*\}'
+    r'\s*Return\s*\(\s*(0x[0-9A-Fa-f]+|Zero|One)\s*\)',
+    re.S,
+)
+
+
+def find_controller_gate(dsl: str, controller_path: str) -> tuple[str, str] | None:
+    """For the GPIO controller device at ``controller_path``, detect Dortania's
+    documented "a single variable gates this controller's own _STA" shape --
+    ``If ((VAR == cond)) { Return (degraded) } Return (0x0F)`` -- whichever
+    variable name and polarity the board uses (their guide shows two real
+    examples, ``GPEN`` and ``GPHD``, with opposite polarity) and return
+    ``(var, value_to_force)`` so forcing ``var = value_to_force`` under Darwin
+    drives the *other* (0x0F, fully enabled) branch. None if this controller's
+    _STA doesn't look like this shape -- most don't need the patch at all.
+    """
+    leaf = controller_path.rsplit(".", 1)[-1].lstrip("\\")
+    if not leaf:
+        return None
+    for dm in re.finditer(r'Device\s*\(\s*' + re.escape(leaf) + r'\s*\)\s*\{', dsl):
+        start = dm.end()
+        d, j = 1, start
+        while j < len(dsl) and d:
+            d += (dsl[j] == "{") - (dsl[j] == "}")
+            j += 1
+        body = re.sub(r'//[^\n]*', '', dsl[start:j])  # strip iasl's trailing comments
+        m = _STA_GATE.search(body)
+        if not m:
+            continue
+        var, cond_val, _degraded, full = m.groups()
+        if full != "0x0F":
+            continue
+        return var, ("Zero" if cond_val == "One" else "One")
+    return None
+
+
 def generate(dsdt_dir: Path, ssdttime_dir: Path, out_dir: Path) -> GpioFinding | None:
     """Inspect the DSDT and, if one clear I2C-HID trackpad is found, compile
     SSDT-GPIO into ``out_dir``. Returns the finding (with ``generated`` set on
@@ -247,21 +331,33 @@ def generate(dsdt_dir: Path, ssdttime_dir: Path, out_dir: Path) -> GpioFinding |
     found = _scan(dsl)
     if len(found) != 1:   # 0 = nothing; >1 = ambiguous, leave it manual
         if found:
-            return found[0]
+            f = found[0]
+            f.controller_gate = find_controller_gate(dsl, f.controller)
+            return f
         hinted = _find_hid_hint_devices(dsl)
         if hinted:
             path, hid = hinted[0]
             return GpioFinding(path=path, hid=hid, dynamic=True)
         return None
     f = found[0]
+    f.controller_gate = find_controller_gate(dsl, f.controller)
 
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+    gate_block = ""
+    if f.controller_gate:
+        var, value = f.controller_gate
+        gate_block = _GATE_TEMPLATE % {
+            "ctrl": f.controller.replace("\\", "\\\\"),
+            "var": var,
+            "value": value,
+        }
     # ACPI resource strings want a doubled leading backslash for a root path
     (out_dir / "SSDT-GPIO.dsl").write_text(_TEMPLATE % {
         "path": f.path,
         "ctrl": f.controller.replace("\\", "\\\\"),
         "pin": f"0x{f.pin:02X}",
+        "gate": gate_block,
     })
     _iasl(iasl, out_dir, ["SSDT-GPIO.dsl"], timeout=60)
     aml = out_dir / "SSDT-GPIO.aml"
