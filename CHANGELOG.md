@@ -3,6 +3,36 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v1.3.3
+
+# ⚗️ OCforge 1.3.3 "Palladium"
+
+The real fix behind v1.3.2's new `ssdttime-output.log` diagnostic: on a
+real laptop build, that log revealed SSDTTime was producing **zero**
+SSDTs on Windows, not just missing the trackpad one — tracing why
+turned up a three-part chain, none of it specific to that one machine:
+
+- ACPICA (SSDTTime's own upstream for `iasl`/`acpidump.exe`) stopped
+  publishing Windows binaries entirely on its newest release — Unix-only
+  now. The last release with the full set is from April 2026.
+- SSDTTime's own blacklist rejects that last Windows-capable release's
+  `iasl.exe` (a known-bad build), with no newer Windows release upstream
+  to fall back to.
+- SSDTTime's own "legacy" fallback — bundled for exactly this situation —
+  has a bug: it downloads and extracts a working `iasl-legacy.exe` into
+  its `Scripts/` folder, then still fails its own "does `iasl.exe` exist"
+  check and aborts, despite the working binary sitting right there.
+
+Net effect: SSDTTime aborted before its menu ever ran, on every Windows
+machine, since this started — not a hardware-specific issue.
+
+- **ocforge now fetches a working `iasl.exe` itself**, straight from
+  ACPICA's own releases (the same mechanism already used for
+  `acpidump.exe`): "latest" tried first, falling back to the last known
+  Windows-capable release when latest has none. Placed directly into
+  SSDTTime's `Scripts/` before it ever runs, so its own broken bootstrap
+  never gets a chance to trip over itself.
+
 ## gui-v1.3.2
 
 # 💡 OCforge 1.3.2 "Xenon"

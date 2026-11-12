@@ -4,11 +4,11 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-This is the **beta branch** — for what's next after v1.3.2, ahead of the
+This is the **beta branch** — for what's next after v1.3.3, ahead of the
 following stable release. Join the Discord OCForge For Beta Testers to help
 test it.
 
-💡 **v1.3.2 "Xenon" is out — build-log fixes: no more duplicate warnings, SSDTs-from-your-PC is easier to find on laptops, and SSDTTime failures now say why.**
+⚗️ **v1.3.3 "Palladium" is out — fixes SSDTTime producing zero SSDTs on Windows (ACPICA dropped Windows binaries upstream; ocforge now fetches `iasl.exe` itself).**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 > [!WARNING]

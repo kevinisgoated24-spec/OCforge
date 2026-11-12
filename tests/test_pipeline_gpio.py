@@ -51,11 +51,18 @@ def _stub_ssdttime(monkeypatch, *, dumped: list, fetched: list, acpidump_fetched
     def fake_run(ssdttime_dir, acpi_dir, ops, *, log=lambda _: None, timeout=600):
         return SsdtResult(aml=[acpi_dir / "SSDT-FAKE.aml"])
 
+    def fake_fetch_iasl(work):
+        dest = work / "iasl-stub" / "iasl.exe"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"fake iasl.exe")
+        return dest
+
     monkeypatch.setattr(pipeline.sys, "platform", platform)
     monkeypatch.setattr(pipeline.acpi_dump, "can_dump", fake_can_dump)
     monkeypatch.setattr(pipeline.acpi_dump, "dump_tables", fake_dump_tables)
     monkeypatch.setattr(pipeline.fetch_ssdttime, "fetch", fake_fetch)
     monkeypatch.setattr(pipeline.fetch_acpidump, "fetch", fake_fetch_acpidump)
+    monkeypatch.setattr(pipeline.fetch_iasl, "fetch", fake_fetch_iasl)
     monkeypatch.setattr(pipeline.ssdtgen, "run", fake_run)
     # This laptop also picks up prebuilt SSDTs SSDTTime can't generate (XOSI at
     # minimum, every Intel laptop gets it) -- fetch_all is a real network call
@@ -113,6 +120,54 @@ def test_windows_falls_back_to_acpidump_when_native_dump_fails(tmp_path, monkeyp
     assert acpidump_fetched and acpidump_fetched[0] == tmp_path
     # two dump attempts: native (None) then the acpidump.exe retry
     assert [exe is None for _, exe in dumped] == [True, False]
+
+
+def test_windows_prefetches_iasl_before_ssdttime_ever_runs(tmp_path, monkeypatch):
+    # Real-world motivation: SSDTTime's own iasl bootstrap is broken right
+    # now on every Windows machine (ACPICA dropped Windows binaries from its
+    # newest release, SSDTTime's own blacklist rejects the one older release
+    # that still has them, and its "legacy" fallback has a bug that aborts
+    # anyway) -- pre-placing a working iasl.exe ourselves means SSDTTime's
+    # bootstrap finds it already there and never touches its own fetch path.
+    dumped, fetched = [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="win32")
+
+    plan = make(_laptop_i2c_hid())
+    res = pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=lambda _: None)
+
+    assert res is not None and res.ok
+    iasl_dest = tmp_path / "ssdttime-stub" / "Scripts" / "iasl.exe"
+    assert iasl_dest.is_file()
+    assert iasl_dest.read_bytes() == b"fake iasl.exe"
+
+
+def test_prefetch_skipped_if_iasl_already_there(tmp_path, monkeypatch):
+    dumped, fetched = [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="win32")
+    # pre-existing iasl.exe, e.g. from an earlier build reusing --work
+    iasl_dest = tmp_path / "ssdttime-stub" / "Scripts" / "iasl.exe"
+    iasl_dest.parent.mkdir(parents=True)
+    iasl_dest.write_bytes(b"already here")
+    fetch_calls = []
+    monkeypatch.setattr(pipeline.fetch_iasl, "fetch", lambda work: fetch_calls.append(work) or iasl_dest)
+
+    plan = make(_laptop_i2c_hid())
+    pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=lambda _: None)
+
+    assert not fetch_calls  # never re-fetched
+    assert iasl_dest.read_bytes() == b"already here"  # never overwritten
+
+
+def test_no_iasl_prefetch_on_non_windows(tmp_path, monkeypatch):
+    dumped, fetched = [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="linux")
+    fetch_calls = []
+    monkeypatch.setattr(pipeline.fetch_iasl, "fetch", lambda work: fetch_calls.append(work))
+
+    plan = make(_laptop_i2c_hid())
+    pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=lambda _: None)
+
+    assert not fetch_calls
 
 
 def test_ssdttime_failure_writes_its_real_output_to_a_log_file(tmp_path, monkeypatch):
