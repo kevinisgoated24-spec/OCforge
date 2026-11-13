@@ -271,6 +271,24 @@ def test_generate_populates_controller_gate_on_the_success_path(monkeypatch, tmp
     assert finding is not None and finding.controller_gate == ("GPHD", "Zero")
     assert "GPHD" in finding.todo() and "forcing GPHD = Zero" in finding.todo()
 
+    # Regression guard: two DefinitionBlocks concatenated into one .dsl file
+    # fail to compile at all with real iasl (every External resolution turns
+    # into a hard error), even though each compiles fine alone -- so the gate
+    # must land in its own sibling file, not appended to SSDT-GPIO.dsl.
+    out = tmp_path / "out"
+    assert (out / "SSDT-GPIO.dsl").is_file()
+    gate_dsl = (out / "SSDT-GPIOEN.dsl").read_text()
+    assert "SSDT-GPIO.dsl" not in gate_dsl  # didn't get merged into the other file
+    assert gate_dsl.count("DefinitionBlock") == 1
+    # Regression guard: the controller path here is a *bare* ACPI namestring
+    # (External(...)/Scope(...)), which wants a single leading backslash --
+    # unlike _TEMPLATE's GpioInt controller arg, which sits inside a quoted
+    # ASL string and needs the doubled, escaped form. Mixing the two up is a
+    # syntax error iasl refuses to compile.
+    assert r"External (\_SB.PCI0.GPI0, DeviceObj)" in gate_dsl
+    assert r"Scope (\_SB.PCI0.GPI0)" in gate_dsl
+    assert "\\\\_SB.PCI0.GPI0" not in gate_dsl
+
 
 def test_generate_populates_controller_gate_on_the_dynamic_path(monkeypatch, tmp_path):
     monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
