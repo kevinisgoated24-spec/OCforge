@@ -3,6 +3,16 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.4.1
+
+# ⚗️ OCforge 1.4.1 "Germanium"
+
+v1.4.0 shipped `--experimental-xe-gfx` CLI-only — this adds the GUI side:
+a switch on the Build page's Advanced section (alongside the other
+force-unsupported-* toggles), threaded into the Plan/Explain preview
+pages too so they reflect it without needing a duplicate control on
+every page.
+
 ## gui-beta-v1.4.0
 
 # ⚗️ OCforge 1.4.0 "Gallium"
