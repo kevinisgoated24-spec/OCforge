@@ -87,7 +87,8 @@ def _resolve_plan(m: Machine, target_major: int | None, *,
                   exclude_ssdts: frozenset[str] = frozenset(),
                   smbios_override: str | None = None,
                   quirk_overrides: dict[str, bool] | None = None,
-                  spoof_devices: dict[str, dict[str, int]] | None = None):
+                  spoof_devices: dict[str, dict[str, int]] | None = None,
+                  experimental_xe_gfx: bool = False):
     """make() a BuildPlan, handling UnsupportedGpuError/UnsupportedReleaseError:
 
     - already forced (--force-unsupported-gpu / --force-unsupported-os) ->
@@ -119,6 +120,7 @@ def _resolve_plan(m: Machine, target_major: int | None, *,
         "exclude_kexts": exclude_kexts, "include_kexts": include_kexts,
         "exclude_ssdts": exclude_ssdts, "smbios_override": smbios_override,
         "quirk_overrides": quirk_overrides, "spoof_devices": spoof_devices,
+        "experimental_xe_gfx": experimental_xe_gfx,
     }
     try:
         return make(m, target_major=target_major,
@@ -239,7 +241,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
                              exclude_kexts=frozenset(args.exclude_kext or ()),
                              include_kexts=frozenset(args.include_kext or ()),
                              exclude_ssdts=frozenset(args.exclude_ssdt or ()),
-                             smbios_override=args.smbios)
+                             smbios_override=args.smbios,
+                             experimental_xe_gfx=args.experimental_xe_gfx)
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
@@ -262,7 +265,8 @@ def cmd_explain(args: argparse.Namespace) -> int:
                              exclude_kexts=frozenset(args.exclude_kext or ()),
                              include_kexts=frozenset(args.include_kext or ()),
                              exclude_ssdts=frozenset(args.exclude_ssdt or ()),
-                             smbios_override=args.smbios)
+                             smbios_override=args.smbios,
+                             experimental_xe_gfx=args.experimental_xe_gfx)
     except ValueError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 1
@@ -407,7 +411,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                              exclude_ssdts=frozenset(args.exclude_ssdt or ()),
                              smbios_override=args.smbios,
                              quirk_overrides=quirk_overrides,
-                             spoof_devices=spoof_devices)
+                             spoof_devices=spoof_devices,
+                             experimental_xe_gfx=args.experimental_xe_gfx)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -462,7 +467,8 @@ def cmd_offline_installer(args: argparse.Namespace) -> int:
                              exclude_ssdts=frozenset(args.exclude_ssdt or ()),
                              smbios_override=args.smbios,
                              quirk_overrides=quirk_overrides,
-                             spoof_devices=spoof_devices)
+                             spoof_devices=spoof_devices,
+                             experimental_xe_gfx=args.experimental_xe_gfx)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -614,6 +620,13 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--smbios", metavar="MODEL",
                     help="use this SMBIOS model instead of ocforge's own pick, e.g. "
                          "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
+    pl.add_argument("--experimental-xe-gfx", action="store_true",
+                    help="Tiger/Alder/Raptor Lake (gen 11-13) only: use the third-party "
+                         "WhateverXe project for graphics instead of leaving the iGPU "
+                         "unsupported. Experimental -- see WhateverXe's own README for "
+                         "current limitations. Swaps WhateverGreen for WhateverXe + a "
+                         "pinned AMFIPass build, relaxes SIP, and still needs a manual "
+                         "post-boot .pkg install ocforge can't automate")
     pl.set_defaults(func=cmd_plan)
 
     pe = sub.add_parser("explain",
@@ -643,6 +656,13 @@ def build_parser() -> argparse.ArgumentParser:
     pe.add_argument("--smbios", metavar="MODEL",
                     help="use this SMBIOS model instead of ocforge's own pick, e.g. "
                          "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
+    pe.add_argument("--experimental-xe-gfx", action="store_true",
+                    help="Tiger/Alder/Raptor Lake (gen 11-13) only: use the third-party "
+                         "WhateverXe project for graphics instead of leaving the iGPU "
+                         "unsupported. Experimental -- see WhateverXe's own README for "
+                         "current limitations. Swaps WhateverGreen for WhateverXe + a "
+                         "pinned AMFIPass build, relaxes SIP, and still needs a manual "
+                         "post-boot .pkg install ocforge can't automate")
     pe.set_defaults(func=cmd_explain)
 
     prep = sub.add_parser("report",
@@ -708,6 +728,13 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--smbios", metavar="MODEL",
                     help="use this SMBIOS model instead of ocforge's own pick, e.g. "
                          "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
+    pb.add_argument("--experimental-xe-gfx", action="store_true",
+                    help="Tiger/Alder/Raptor Lake (gen 11-13) only: use the third-party "
+                         "WhateverXe project for graphics instead of leaving the iGPU "
+                         "unsupported. Experimental -- see WhateverXe's own README for "
+                         "current limitations. Swaps WhateverGreen for WhateverXe + a "
+                         "pinned AMFIPass build, relaxes SIP, and still needs a manual "
+                         "post-boot .pkg install ocforge can't automate")
     pb.add_argument("--quirk", action="append", metavar="NAME=true|false",
                     help="override one ACPI/Booter/Kernel/UEFI Quirks toggle, e.g. "
                          "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "
@@ -753,6 +780,13 @@ def build_parser() -> argparse.ArgumentParser:
     poi.add_argument("--smbios", metavar="MODEL",
                      help="use this SMBIOS model instead of ocforge's own pick, e.g. "
                           "'iMac19,1' -- macserial fails loudly if it doesn't actually exist")
+    poi.add_argument("--experimental-xe-gfx", action="store_true",
+                     help="Tiger/Alder/Raptor Lake (gen 11-13) only: use the third-party "
+                          "WhateverXe project for graphics instead of leaving the iGPU "
+                          "unsupported. Experimental -- see WhateverXe's own README for "
+                          "current limitations. Swaps WhateverGreen for WhateverXe + a "
+                          "pinned AMFIPass build, relaxes SIP, and still needs a manual "
+                          "post-boot .pkg install ocforge can't automate")
     poi.add_argument("--quirk", action="append", metavar="NAME=true|false",
                      help="override one ACPI/Booter/Kernel/UEFI Quirks toggle, e.g. "
                           "DevirtualiseMmio=false (repeatable; on/off toggles only -- a few "

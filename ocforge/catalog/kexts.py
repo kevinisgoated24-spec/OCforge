@@ -45,6 +45,17 @@ MANIFEST: tuple[Kext, ...] = (
     _ac("Lilu", order=0),
     _ac("VirtualSMC", order=5),
     _ac("WhateverGreen", order=10),
+    # Xe-LP (Tiger/Alder/Raptor Lake) graphics, opt-in via --experimental-xe-gfx
+    # (catalog/macos.py, build/plan.py) -- mutually exclusive with
+    # WhateverGreen, never both in the same build. AMFIPass here is
+    # specifically b00t0x's modified build WhateverXe depends on, not
+    # upstream AMFIPass -- pinned to a specific commit, not "latest", since
+    # it's a raw repo file with no release/versioning of its own.
+    Kext("WhateverXe", "b00t0x/WhateverXe", r"^WhateverXe-[\d.]+-RELEASE\.zip$", order=10),
+    Kext("AMFIPass", "", r"",
+         url="https://raw.githubusercontent.com/b00t0x/WhateverXe-Graphics/"
+             "3e5ca0385db0db3490e03864fd1f1076fb5a53a2/extras/AMFIPass-v1.4.1-Mod-RELEASE.zip",
+         order=11),
     _ac("AppleALC", order=15),
     _ac("RestrictEvents", order=20),
     _ac("NVMeFix", order=25),
