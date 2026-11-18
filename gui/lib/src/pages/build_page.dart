@@ -143,6 +143,7 @@ class _BuildPageState extends State<BuildPage> {
       '--out',
       out,
       if (c.macosOverride != null) ...<String>['--macos', '${c.macosOverride}'],
+      if (c.experimentalXeGfx) '--experimental-xe-gfx',
       // offline-installer always stages its own recovery boot image (with
       // the Sonoma+ older-BaseSystem split) and doesn't take these flags.
       if (!_offlineInstaller && _recovery) '--recovery',
@@ -466,6 +467,19 @@ class _BuildPageState extends State<BuildPage> {
                         onChanged: _running
                             ? null
                             : (bool v) => setState(() => _forceUnsupportedOs = v),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text('WhateverXe graphics (experimental)'),
+                        subtitle: const Text(
+                            'Tiger/Alder/Raptor Lake iGPUs only \u2014 swaps WhateverGreen for '
+                            'WhateverXe + AMFIPass, relaxes SIP, still needs a manual post-boot '
+                            '.pkg install \u2014 --experimental-xe-gfx',
+                            style: TextStyle(fontSize: 12)),
+                        value: c.experimentalXeGfx,
+                        onChanged:
+                            _running ? null : (bool v) => c.setExperimentalXeGfx(v),
                       ),
                       const Divider(height: 24),
                       Padding(

@@ -49,6 +49,9 @@ class _PlanPageState extends State<PlanPage> {
         if (c.macosOverride != null) {
           args.addAll(<String>['--macos', '${c.macosOverride}']);
         }
+        if (c.experimentalXeGfx) {
+          args.add('--experimental-xe-gfx');
+        }
         var r = await c.cli.run(args);
         if (r.exitCode == unsupportedGpuExitCode) {
           final String detail = '${r.stderr}'.trim();

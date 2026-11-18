@@ -26,6 +26,11 @@ class OcforgeController extends ChangeNotifier {
   /// null == "Auto (recommended)".
   int? macosOverride;
 
+  /// --experimental-xe-gfx: opt-in WhateverXe support for Tiger/Alder/Raptor
+  /// Lake (Xe-LP) iGPUs. Off by default, same spirit as [betaChannel] --
+  /// never silently applied.
+  bool experimentalXeGfx = false;
+
   /// Set by Forge's "Review in Editor" button after a successful build --
   /// the Editor tab picks this up on its next build() (see [consumeTabJump]),
   /// pre-fills its path field, and opens it automatically. Lets a user
@@ -180,6 +185,11 @@ class OcforgeController extends ChangeNotifier {
 
   void setMacos(int? major) {
     macosOverride = major;
+    notifyListeners();
+  }
+
+  void setExperimentalXeGfx(bool v) {
+    experimentalXeGfx = v;
     notifyListeners();
   }
 }
