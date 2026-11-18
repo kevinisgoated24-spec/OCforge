@@ -3,6 +3,35 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-beta-v1.4.0
+
+# ⚗️ OCforge 1.4.0 "Gallium"
+
+- **`--experimental-xe-gfx`**: opt-in support for the third-party
+  [WhateverXe](https://github.com/b00t0x/WhateverXe) project, for
+  Tiger/Alder/Raptor Lake (Xe-LP, gen 11-13) iGPUs — previously an
+  unconditional dead end unless an AMD dGPU drove the display. Never
+  automatic; pass the flag to `plan`/`explain`/`build`/`offline-installer`.
+  Swaps `WhateverGreen` for `WhateverXe` + a pinned build of `AMFIPass`
+  (the two must never coexist), adds the required boot-args and a
+  relaxed SIP byte, and adds the DVMT `DeviceProperties` fallback. Still
+  needs a **manual** post-boot install of `WhateverXe-Graphics.pkg` —
+  ocforge builds EFIs, it has no mechanism for a post-boot step — and
+  the build log says so plainly, along with the per-macOS-version floor
+  and WhateverXe's own stated limitations (experimental sleep/wake, no
+  Thunderbolt, etc). Meteor/Arrow Lake (Xe-LPG/Xe2) is explicitly out of
+  scope here — a different, much earlier-stage project (WTLIntelGfx).
+- **SSDT-GPIO now also detects and fixes a GPIO *controller's* own
+  enable gate**, separately from the touchpad device fix added in
+  v1.3.3's line of work. Some OEM firmware gates the GPIO controller's
+  own `_STA`/`_HID` behind a single variable (Dortania's own documented
+  `GPEN`/`GPHD` pattern) so it reports a disguised or degraded
+  controller to anything other than Windows. Detected generically
+  (whichever variable, whichever polarity means "enabled") and patched
+  via a second, separate SSDT when found — fully static, no live
+  hardware access needed, unlike the touchpad pin itself on boards
+  whose firmware computes it at runtime.
+
 ## gui-v1.3.3
 
 # ⚗️ OCforge 1.3.3 "Palladium"
