@@ -242,17 +242,25 @@ def explain(plan: BuildPlan, *, amd_patches: list[dict[str, Any]] | None = None)
         # Tiger Lake and newer are Xe-architecture iGPUs -- a different
         # display pipeline from the Gen9.5 UHD 6xx WhateverGreen's framebuffer
         # patches target, so there's no ig-platform-id to set here at all.
-        # Xe-LP (Tiger/Alder/Raptor Lake) has its own third-party project,
-        # WhateverXe (not bundled/configured by ocforge); Xe-LPG/Xe2+
-        # (Meteor Lake, Arrow Lake, Arc) has WTLIntelGfx, labeled
-        # experimental by its own authors. Either is a manual add, same as
-        # the GUI's bug-report link -- ocforge doesn't pick one for you.
-        out.append(Decision(
-            "DeviceProperties", "PciRoot(0x0)/Pci(0x2,0x0)", "untouched",
-            f"Intel gen-{gen} ({m.cpu.family or 'Xe'}) iGPU - no WhateverGreen "
-            "framebuffer entry exists for this generation; graphics "
-            "acceleration needs a separate, non-bundled project (WhateverXe "
-            "for Tiger/Alder/Raptor Lake, WTLIntelGfx for Meteor/Arrow Lake)"))
+        if plan.experimental_xe_gfx:
+            out.append(Decision(
+                "DeviceProperties", "PciRoot(0x0)/Pci(0x2,0x0)",
+                "framebuffer-patch-enable + framebuffer-stolenmem",
+                f"Intel gen-{gen} ({m.cpu.family or 'Xe-LP'}) iGPU via WhateverXe "
+                "(--experimental-xe-gfx) -- DVMT fallback only, no ig-platform-id "
+                "or device-id override; WhateverXe handles GPU selection itself"))
+        else:
+            # Xe-LP (Tiger/Alder/Raptor Lake) has its own third-party project,
+            # WhateverXe, offered via --experimental-xe-gfx; Xe-LPG/Xe2+
+            # (Meteor Lake, Arrow Lake, Arc) has WTLIntelGfx instead, labeled
+            # experimental by its own authors and not wired into ocforge at all.
+            out.append(Decision(
+                "DeviceProperties", "PciRoot(0x0)/Pci(0x2,0x0)", "untouched",
+                f"Intel gen-{gen} ({m.cpu.family or 'Xe'}) iGPU - no WhateverGreen "
+                "framebuffer entry exists for this generation; pass "
+                "--experimental-xe-gfx for WhateverXe if this is Tiger/Alder/Raptor "
+                "Lake (gen 11-13), or look into WTLIntelGfx for Meteor/Arrow Lake "
+                "(not bundled/configured by ocforge either way)"))
     out.append(Decision("DeviceProperties",
                         "PciRoot(0x0)/Pci(0x1f,0x3) > layout-id", "1",
                         "generic AppleALC layout - swap for your codec's tested layout-id"))

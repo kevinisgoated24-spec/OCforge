@@ -117,3 +117,39 @@ def test_11th_gen_desktop_with_amd_dgpu_is_ok():
         dgpu=Gpu(name="RX 6600", vendor=Vendor.AMD, discrete=True),
     )
     assert macos.recommended(m).major == 26
+
+
+# --- experimental_xe_gfx (WhateverXe): opts Xe-LP (gen 11-13) laptops back in
+
+def test_experimental_xe_gfx_lifts_the_dead_end_for_xe_lp_gens():
+    for gen in (11, 12, 13):
+        m = _intel_laptop(gen)
+        rel = macos.recommended(m, experimental_xe_gfx=True)
+        assert rel is not None, f"gen {gen} should be buildable with the flag on"
+        note = macos.check(rel, m, experimental_xe_gfx=True).note
+        assert "WhateverXe" in note
+
+
+def test_experimental_xe_gfx_leaves_xe_lpg_and_xe2_a_dead_end():
+    # Meteor Lake (14) / Arrow Lake (15) are a different project's territory
+    # (WTLIntelGfx) -- the flag must not claim to fix these too.
+    for gen in (14, 15):
+        m = _intel_laptop(gen)
+        assert macos.recommended(m, experimental_xe_gfx=True) is None
+        notes = [c.note for c in macos.evaluate(m, experimental_xe_gfx=True) if not c.supported]
+        assert any("WTLIntelGfx" in n for n in notes)
+
+
+def test_experimental_xe_gfx_does_nothing_when_a_display_path_already_exists():
+    # An AMD dGPU already makes gen>=11 fine on its own merits -- the flag
+    # shouldn't change that note or double up on it.
+    m = Machine(
+        chassis=Chassis.LAPTOP,
+        cpu=Cpu(brand="i7-1165G7", vendor=Vendor.INTEL, intel_gen=11, flags=frozenset({"avx2"})),
+        igpu=Gpu(name="Iris Xe", vendor=Vendor.INTEL),
+        dgpu=Gpu(name="RX 6600M", vendor=Vendor.AMD, discrete=True),
+    )
+    rel = macos.recommended(m)
+    note_without = macos.check(rel, m).note
+    note_with = macos.check(rel, m, experimental_xe_gfx=True).note
+    assert note_without == note_with

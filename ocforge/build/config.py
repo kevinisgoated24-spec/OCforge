@@ -249,6 +249,17 @@ def _device_properties(plan: BuildPlan) -> dict[str, Any]:
                 if 8 <= gen and not is_ice_lake and dev and dev not in _CFL_OK_IGPU:
                     props["device-id"] = _b("9b3e0000")  # -> 0x3E9B (UHD 630)
             add["PciRoot(0x0)/Pci(0x2,0x0)"] = props
+    elif ig and ig.vendor is Vendor.INTEL and plan.experimental_xe_gfx:
+        # Xe-LP (gen 11-13) has no AAPL,ig-platform-id entry at all -- GPU
+        # selection and tiling are automatic under WhateverXe (its own
+        # README: a device-id override is normally unnecessary). This is
+        # purely the DVMT-stuck-at-60MB fallback; per that same README it's
+        # harmless to apply even when the firmware already gives 96MB, so
+        # there's no need to also read the actual BIOS DVMT setting.
+        add["PciRoot(0x0)/Pci(0x2,0x0)"] = {
+            "framebuffer-patch-enable": _b("01000000"),
+            "framebuffer-stolenmem": _b("0000C003"),
+        }
     # onboard audio: AppleALC layout-id 1 is the safest generic starting point
     add["PciRoot(0x0)/Pci(0x1f,0x3)"] = {"layout-id": _b("01000000")}
 
@@ -398,7 +409,9 @@ def _nvram(plan: BuildPlan) -> dict[str, Any]:
             },
             _NV_BOOT: {
                 "boot-args": " ".join(plan.boot_args),
-                "csr-active-config": _b("00000000"),
+                # WhateverXe needs AMFIPass to actually pass under a relaxed
+                # SIP (03080000); otherwise fully enabled (00000000).
+                "csr-active-config": _b("03080000" if plan.experimental_xe_gfx else "00000000"),
                 "prev-lang:kbd": b"en-US:0",
                 "run-efi-updater": "No",
             },
