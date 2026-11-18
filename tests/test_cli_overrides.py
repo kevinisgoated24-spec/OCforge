@@ -42,6 +42,13 @@ def test_quirk_flag_only_on_build_commands(cmd):
     assert ns.quirk == ["DevirtualiseMmio=false"]
 
 
+@pytest.mark.parametrize("cmd", ["plan", "explain", "build", "offline-installer"])
+def test_experimental_xe_gfx_flag_on_every_plan_producing_command(cmd):
+    p = build_parser()
+    assert p.parse_args([cmd]).experimental_xe_gfx is False  # default off
+    assert p.parse_args([cmd, "--experimental-xe-gfx"]).experimental_xe_gfx is True
+
+
 @pytest.mark.parametrize("cmd", ["plan", "explain"])
 def test_quirk_flag_absent_from_plan_and_explain(cmd):
     p = build_parser()

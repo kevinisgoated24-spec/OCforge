@@ -25,8 +25,8 @@ def _amd_dgpu():
     return Gpu(name="RX 580M", vendor=Vendor.AMD, discrete=True)
 
 
-def _config_for(m, target_major=None):
-    plan = make(m, target_major=target_major)
+def _config_for(m, target_major=None, **kw):
+    plan = make(m, target_major=target_major, **kw)
     cfg = cfgmod.assemble(plan, generate(plan.smbios_model, None))
     return plan, cfg
 
@@ -195,3 +195,57 @@ def test_raptor_lake_laptop_smbios_is_the_newest_real_intel_mac_not_sandy_bridge
     # the test above -- see that test's note on why.
     plan_dgpu, _ = _config_for(_laptop(13, family="Raptor Lake", dgpu=_amd_dgpu()))
     assert plan_dgpu.smbios_model == "MacBookPro16,1"
+
+
+# --- --experimental-xe-gfx (WhateverXe): opts an otherwise-dead-end Xe-LP ---
+# --- iGPU-only laptop (gen 11-13, no AMD dGPU) back into a real build. -----
+
+
+def test_experimental_xe_gfx_turns_the_dead_end_into_a_real_build():
+    # No dGPU at all -- the true dead end _config_for's own docstring-less
+    # helper above sidesteps with an AMD dGPU; here that's the whole point.
+    m = _laptop(13, family="Raptor Lake")
+    m.igpu.pci = PciId("8086", "a7ad")
+    plan, cfg = _config_for(m, experimental_xe_gfx=True)
+    assert plan.experimental_xe_gfx is True
+
+    names = {s.kext.name for s in plan.kexts}
+    assert "WhateverGreen" not in names
+    assert {"WhateverXe", "AMFIPass"} <= names
+
+    assert "-allow3d" in plan.boot_args and "-disablegfxfirmware" in plan.boot_args
+
+    nvram = cfg["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]
+    assert nvram["csr-active-config"] == bytes.fromhex("03080000")
+
+    props = cfg["DeviceProperties"]["Add"].get("PciRoot(0x0)/Pci(0x2,0x0)", {})
+    assert props.get("framebuffer-patch-enable") == bytes.fromhex("01000000")
+    assert props.get("framebuffer-stolenmem") == bytes.fromhex("0000C003")
+    assert "AAPL,ig-platform-id" not in props and "device-id" not in props
+
+    assert any("WhateverXe" in w for w in plan.warnings)
+
+
+def test_experimental_xe_gfx_without_the_flag_is_unchanged():
+    # Same dead-end machine, flag off (the default) -- still a dead end,
+    # same as before this feature existed.
+    m = _laptop(13, family="Raptor Lake")
+    m.igpu.pci = PciId("8086", "a7ad")
+    try:
+        _config_for(m)
+    except ValueError as exc:
+        assert "Xe graphics has no macOS driver" in str(exc)
+    else:
+        raise AssertionError("expected a dead-end ValueError with the flag off")
+
+
+def test_experimental_xe_gfx_does_not_cover_meteor_lake():
+    # Xe-LPG/Xe2 (gen 14+, Meteor/Arrow Lake) is WTLIntelGfx's territory, not
+    # WhateverXe's -- the flag must not silently pretend it works there.
+    m = _laptop(14, family="Meteor Lake")
+    try:
+        _config_for(m, experimental_xe_gfx=True)
+    except ValueError as exc:
+        assert "WTLIntelGfx" in str(exc) and "Xe-LPG/Xe2" in str(exc)
+    else:
+        raise AssertionError("expected gen 14 to still be a dead end under --experimental-xe-gfx")

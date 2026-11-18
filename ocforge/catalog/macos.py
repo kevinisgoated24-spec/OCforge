@@ -79,7 +79,13 @@ def has_display_path(m: Machine) -> bool:
     return m.dgpu is not None and m.dgpu.vendor is Vendor.AMD
 
 
-def _release_ok(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False) -> tuple[bool, str]:
+_XE_LP_GENS = (11, 12, 13)  # Tiger/Rocket, Alder, Raptor Lake -- WhateverXe's scope.
+# Meteor Lake (14) and Arrow Lake (15) are Xe-LPG/Xe2 -- a different, much
+# earlier-stage project (WTLIntelGfx), not supported by --experimental-xe-gfx.
+
+
+def _release_ok(rel: MacOSRelease, m: Machine, *,
+                 ignore_gpu: bool = False, experimental_xe_gfx: bool = False) -> tuple[bool, str]:
     cpu = m.cpu
     if rel.needs_avx2 and cpu.vendor is Vendor.INTEL:
         brand = (cpu.brand or "").lower()
@@ -110,6 +116,14 @@ def _release_ok(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False) -> t
             # laptop is usually a dead end.
             if m.dgpu is not None and m.dgpu.vendor is Vendor.AMD:
                 return True, "iGPU unsupported — driving display from the AMD dGPU"
+            if experimental_xe_gfx and gen in _XE_LP_GENS:
+                return True, (f"Intel gen-{gen} Xe-LP iGPU, no native macOS driver -- "
+                              "using WhateverXe (experimental, opted in)")
+            if experimental_xe_gfx:
+                return False, (f"Intel gen-{gen} Xe-LPG/Xe2 iGPU -- WhateverXe only covers "
+                               "Xe-LP (Tiger/Alder/Raptor Lake, gen 11-13); WTLIntelGfx is "
+                               "the only project targeting this generation, and ocforge "
+                               "doesn't bundle or configure it")
             if ignore_gpu:
                 return True, "iGPU unsupported and forced through anyway — expect no display"
             return False, "11th gen+ Intel Xe graphics has no macOS driver"
@@ -133,30 +147,36 @@ class Compatibility:
     note: str
 
 
-def check(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False) -> Compatibility:
+def check(rel: MacOSRelease, m: Machine, *, ignore_gpu: bool = False,
+          experimental_xe_gfx: bool = False) -> Compatibility:
     """The verdict for one specific release — same rule ``evaluate()`` and
     ``recommended()`` apply to every release, exposed for a caller that
     already has one in hand (an explicit ``--macos N``) instead of picking
     the newest clean one itself."""
-    return Compatibility(rel, *_release_ok(rel, m, ignore_gpu=ignore_gpu))
+    return Compatibility(rel, *_release_ok(rel, m, ignore_gpu=ignore_gpu,
+                                           experimental_xe_gfx=experimental_xe_gfx))
 
 
-def evaluate(m: Machine, *, ignore_gpu: bool = False) -> list[Compatibility]:
+def evaluate(m: Machine, *, ignore_gpu: bool = False,
+             experimental_xe_gfx: bool = False) -> list[Compatibility]:
     """Every known release with a verdict, newest first.
 
     ``ignore_gpu`` skips the display-path gate — for a caller that already
     asked "this build is unsupported, continue anyway?" and got a yes; every
     *other* constraint (AVX2, Intel generation, AMD support) still applies.
     """
-    return [Compatibility(r, *_release_ok(r, m, ignore_gpu=ignore_gpu)) for r in RELEASES]
+    return [Compatibility(r, *_release_ok(r, m, ignore_gpu=ignore_gpu,
+                                          experimental_xe_gfx=experimental_xe_gfx))
+            for r in RELEASES]
 
 
-def recommended(m: Machine, *, ignore_gpu: bool = False) -> MacOSRelease | None:
+def recommended(m: Machine, *, ignore_gpu: bool = False,
+                experimental_xe_gfx: bool = False) -> MacOSRelease | None:
     """Newest release that comes out clean (no note)."""
-    for c in evaluate(m, ignore_gpu=ignore_gpu):
+    for c in evaluate(m, ignore_gpu=ignore_gpu, experimental_xe_gfx=experimental_xe_gfx):
         if c.supported and not c.note:
             return c.release
-    for c in evaluate(m, ignore_gpu=ignore_gpu):
+    for c in evaluate(m, ignore_gpu=ignore_gpu, experimental_xe_gfx=experimental_xe_gfx):
         if c.supported:
             return c.release
     return None

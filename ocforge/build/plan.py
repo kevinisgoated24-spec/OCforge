@@ -117,6 +117,7 @@ class BuildPlan:
     bios: list[str] = field(default_factory=list)
     quirk_overrides: dict[str, bool] = field(default_factory=dict)
     spoof_devices: dict[str, dict[str, int]] = field(default_factory=dict)
+    experimental_xe_gfx: bool = False
 
     @property
     def is_amd(self) -> bool:
@@ -144,6 +145,8 @@ class BuildPlan:
             args.append("igfxonln=1")
         if self.target.darwin >= 24:  # Sequoia+
             args.append("-lilubetaall")
+        if self.experimental_xe_gfx:
+            args += ["-allow3d", "-disablegfxfirmware"]
         return args
 
 
@@ -158,7 +161,8 @@ def make(m: Machine, *, target_major: int | None = None,
         exclude_ssdts: frozenset[str] = frozenset(),
         smbios_override: str | None = None,
         quirk_overrides: dict[str, bool] | None = None,
-        spoof_devices: dict[str, dict[str, int]] | None = None) -> BuildPlan:
+        spoof_devices: dict[str, dict[str, int]] | None = None,
+        experimental_xe_gfx: bool = False) -> BuildPlan:
     if smbios_override and not _SMBIOS_FORMAT.match(smbios_override):
         raise ValueError(
             f"'{smbios_override}' doesn't look like a real SMBIOS model (expected "
@@ -204,7 +208,8 @@ def make(m: Machine, *, target_major: int | None = None,
         # Same "raise unless explicitly forced through" shape as the
         # GPU check above, so a caller (the CLI, the GUI) can offer the
         # same "continue anyway?" prompt instead of a silent bad build.
-        compat = macos.check(target, m, ignore_gpu=gpu_unsupported)
+        compat = macos.check(target, m, ignore_gpu=gpu_unsupported,
+                            experimental_xe_gfx=experimental_xe_gfx)
         if not compat.supported and not allow_unsupported_os:
             raise macos.UnsupportedReleaseError(
                 f"{target.name} (macOS {target.major}) isn't supported on this hardware "
@@ -213,7 +218,8 @@ def make(m: Machine, *, target_major: int | None = None,
             )
         forced_note = compat.note if not compat.supported else ""
     else:
-        target = macos.recommended(m, ignore_gpu=gpu_unsupported)
+        target = macos.recommended(m, ignore_gpu=gpu_unsupported,
+                                   experimental_xe_gfx=experimental_xe_gfx)
         if target is None:
             why = "no supported macOS release for this machine"
             if m.cpu.vendor is Vendor.INTEL and 0 < m.cpu.intel_gen < 3:
@@ -227,14 +233,26 @@ def make(m: Machine, *, target_major: int | None = None,
                 # AMD dGPU just gets the bare generic message above, with no
                 # hint that it's a known, named dead end rather than
                 # something ocforge simply doesn't recognize.
-                why += (
-                    f" (Intel gen-{m.cpu.intel_gen} Xe graphics has no macOS driver, "
-                    "and there's no AMD dGPU here to drive the display instead — pick "
-                    "an explicit --macos release with --force-unsupported-os to build "
-                    "anyway with no display acceleration, or look into a third-party "
-                    "Xe driver project such as WhateverXe or WTLIntelGfx, neither of "
-                    "which ocforge bundles or configures)"
-                )
+                if experimental_xe_gfx:
+                    # Already opted in and still nothing -- must be Meteor/
+                    # Arrow Lake (Xe-LPG/Xe2), which --experimental-xe-gfx
+                    # doesn't cover at all (see _XE_LP_GENS in catalog/macos.py).
+                    why += (
+                        f" (Intel gen-{m.cpu.intel_gen} Xe-LPG/Xe2 iGPU -- "
+                        "--experimental-xe-gfx only covers Xe-LP, Tiger/Alder/Raptor "
+                        "Lake gen 11-13; WTLIntelGfx is the only project targeting "
+                        "this generation, and ocforge doesn't bundle or configure it)"
+                    )
+                else:
+                    why += (
+                        f" (Intel gen-{m.cpu.intel_gen} Xe graphics has no macOS driver, "
+                        "and there's no AMD dGPU here to drive the display instead — pick "
+                        "an explicit --macos release with --force-unsupported-os to build "
+                        "anyway with no display acceleration, or pass --experimental-xe-gfx "
+                        "if this is Tiger/Alder/Raptor Lake (gen 11-13) to use WhateverXe "
+                        "instead, or look into WTLIntelGfx for Meteor/Arrow Lake, which "
+                        "ocforge doesn't bundle or configure)"
+                    )
             raise ValueError(why)
 
     warnings: list[str] = []
@@ -328,16 +346,39 @@ def make(m: Machine, *, target_major: int | None = None,
             "automatically so it's easier to tell whether the spoof actually took."
         )
 
+    kext_exclude, kext_include = exclude_kexts, include_kexts
+    if experimental_xe_gfx:
+        # WhateverGreen and WhateverXe must never both be enabled -- not just
+        # the GPU parts, per WhateverXe's own README.
+        kext_exclude = exclude_kexts | {"WhateverGreen"}
+        kext_include = include_kexts | {"WhateverXe", "AMFIPass"}
+        floor = {11: "11.7.11", 12: "12.7.6", 13: "13.7.8", 14: "14.8.9",
+                15: "15.8.x", 26: "26.7+"}.get(target.major, "see WhateverXe's README")
+        warnings.append(
+            "WhateverXe (experimental, opted in via --experimental-xe-gfx): "
+            "WhateverGreen is disabled and WhateverXe + a pinned AMFIPass mod build "
+            "are used instead -- the two must never coexist. Needs macOS "
+            f"{target.name} {floor} or newer (a fresh installer below that floor won't "
+            "work until updated). After first boot into macOS, you must also "
+            "manually install \"WhateverXe-Graphics.pkg\" from "
+            "https://github.com/b00t0x/WhateverXe-Graphics/releases/latest -- ocforge "
+            "builds EFIs, it has no way to run a post-boot macOS installer for you. "
+            "Known limitations per WhateverXe's own docs: MIPI DSI panel and sleep/"
+            "wake are experimental, DisplayPort/USB-C reconnect can black-screen, no "
+            "Thunderbolt/MST, no DRM video playback, max 3 displays."
+        )
+
     return BuildPlan(
         machine=m,
         target=target,
         smbios_model=smbios_override or pick_smbios(m, target),
-        kexts=kexts.resolve(m, target, exclude=exclude_kexts, include=include_kexts),
+        kexts=kexts.resolve(m, target, exclude=kext_exclude, include=kext_include),
         ssdts=acpi.select(m, exclude=exclude_ssdts),
         acpi_patches=acpi.patches(m, exclude=exclude_ssdts),
         manual_acpi=acpi.needs_generation(m),
         bios=bios.checklist(m),
         warnings=warnings,
+        experimental_xe_gfx=experimental_xe_gfx,
         quirk_overrides=dict(quirk_overrides or {}),
         spoof_devices={k: dict(v) for k, v in (spoof_devices or {}).items()},
     )
