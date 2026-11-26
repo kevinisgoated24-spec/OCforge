@@ -75,14 +75,35 @@ def is_pentium_or_celeron(m) -> bool:
     )
 
 
+def _spoof_bytes(eax_hex: str) -> tuple[bytes, bytes]:
+    """Cpuid1Data/Cpuid1Mask for a given EAX (CPU signature) hex string -- the
+    mask covers only that first DWORD, so every actual feature flag (AVX2,
+    etc.) still reports from the real CPU, just the signature macOS checks
+    for a known generation is faked."""
+    return bytes.fromhex(eax_hex) + b"\x00" * 12, bytes.fromhex("ffffffff") + b"\x00" * 12
+
+
+# Gen 11-13 (Tiger/Rocket Lake, Alder Lake, Raptor Lake) Xe-architecture CPUs
+# predate any macOS-recognized CPUID signature at all -- unlike the Pentium/
+# Celeron case below (a real, just-blocklisted signature), these need a
+# *different* generation's signature entirely so XCPM has power-management
+# tables to initialize from. Matches lzhoang2801/OpCore-Simplify's own
+# spoof_cpuid() mapping; independently cross-checked against community
+# reports for this exact range before adopting it here.
+_XE_GEN_CPUID_EAX = {"Tiger Lake": "e5060700"}     # -> Ice Lake (0x000700E5)
+_XE_GEN_CPUID_EAX_DEFAULT = "55060a00"             # -> Comet Lake (0x000A0655)
+
+
 def _cpu_spoof(m) -> tuple[bytes, bytes]:
-    """Cpuid1Data / Cpuid1Mask for a Pentium/Celeron, else empty bytes."""
-    if not is_pentium_or_celeron(m):
-        return b"", b""
-    eax = _I3_CPUID_EAX.get(m.cpu.intel_gen)
-    if eax is None:
-        return b"", b""
-    return bytes.fromhex(eax) + b"\x00" * 12, bytes.fromhex("ffffffff") + b"\x00" * 12
+    """Cpuid1Data / Cpuid1Mask: Pentium/Celeron (gen 8-10, a disjoint range)
+    first, else the gen 11-13 Xe-generation spoof, else empty bytes."""
+    if is_pentium_or_celeron(m):
+        eax = _I3_CPUID_EAX.get(m.cpu.intel_gen)
+        return _spoof_bytes(eax) if eax else (b"", b"")
+    if m.cpu.vendor is Vendor.INTEL and m.cpu.intel_gen in (11, 12, 13):
+        eax = _XE_GEN_CPUID_EAX.get(m.cpu.family or "", _XE_GEN_CPUID_EAX_DEFAULT)
+        return _spoof_bytes(eax)
+    return b"", b""
 
 
 # Sandy/Ivy Bridge: Apple's XCPM doesn't support these well and can panic on
@@ -319,7 +340,13 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None = None, *,
         "LegacyCommpage": False,
         "PanicNoKextDump": True,
         "PowerTimeoutKernelPanic": True,
-        "ProvideCurrentCpuInfo": plan.is_amd,
+        # AMD always; Intel hybrid P+E-core CPUs (Alder Lake/gen-12 and
+        # newer) need it too or the kernel can panic on core-count mismatch
+        # -- confirmed by hand on a real gen-13 Raptor Lake-U before
+        # automating it here.
+        "ProvideCurrentCpuInfo": plan.is_amd or (
+            plan.machine.cpu.vendor is Vendor.INTEL and plan.machine.cpu.intel_gen >= 12
+        ),
         "SetApfsTrimTimeout": -1,
         "ThirdPartyDrives": False,
         "XhciPortLimit": False,

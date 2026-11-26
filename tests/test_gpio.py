@@ -261,6 +261,72 @@ def test_find_controller_gate_returns_none_when_else_branch_is_not_fully_enabled
     assert gpio.find_controller_gate(not_a_gate, r"\_SB.GPI0") is None
 
 
+# --- find_sta_shape: the general _STA->XSTA rename fallback -----------------
+# Used when find_controller_gate() can't find a single named gating variable
+# -- works regardless of *how* the original _STA computes its result.
+
+_STA_METHOD_NOT_A_GATE = r'''
+        Device (GPI0)
+        {
+            Method (_STA, 0, NotSerialized)
+            {
+                If ((FOOB == One))
+                {
+                    Return (Zero)
+                }
+                Return (Zero)
+            }
+        }
+'''
+
+_STA_AS_NAME = r'''
+        Device (GPI0)
+        {
+            Name (_STA, 0x0F)
+        }
+'''
+
+_STA_ALREADY_RENAMED = r'''
+        Device (GPI0)
+        {
+            Method (XSTA, 0, NotSerialized)
+            {
+                Return (0x0F)
+            }
+        }
+'''
+
+
+def test_find_sta_shape_detects_a_method():
+    # Same fixture find_controller_gate correctly declines (the condition
+    # doesn't resolve to 0x0F) -- the general fallback doesn't care *why* the
+    # original gates, so it should pick this up where the narrow one can't.
+    assert gpio.find_sta_shape(_STA_METHOD_NOT_A_GATE, r"\_SB.GPI0") == "Method"
+
+
+def test_find_sta_shape_detects_a_name():
+    assert gpio.find_sta_shape(_STA_AS_NAME, r"\_SB.GPI0") == "Name"
+
+
+def test_find_sta_shape_returns_none_when_already_renamed():
+    # A hand-patched dump (or a second ocforge run against an already-patched
+    # DSDT) -- nothing to rename again.
+    assert gpio.find_sta_shape(_STA_ALREADY_RENAMED, r"\_SB.GPI0") is None
+
+
+def test_find_sta_shape_returns_none_without_any_sta():
+    assert gpio.find_sta_shape(_DSL, r"\_SB.PCI0.GPI0") is None
+
+
+def test_sta_rename_patch_shape():
+    patch = gpio.sta_rename_patch(r"\_SB.PCI0.GPI0")
+    assert patch["Base"] == r"\_SB.PCI0.GPI0"
+    assert patch["Find"] == b"_STA" and patch["Replace"] == b"XSTA"
+    assert patch["Count"] == 1
+    assert patch["Enabled"] is True
+    assert "GPI0" in patch["Comment"] and "XSTA" in patch["Comment"]
+
+
 def test_generate_populates_controller_gate_on_the_success_path(monkeypatch, tmp_path):
     monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
     monkeypatch.setattr(gpio, "_decompile", lambda dsdt_dir, iasl: _DSL + _GPHD_GATE)
@@ -288,6 +354,25 @@ def test_generate_populates_controller_gate_on_the_success_path(monkeypatch, tmp
     assert r"External (\_SB.PCI0.GPI0, DeviceObj)" in gate_dsl
     assert r"Scope (\_SB.PCI0.GPI0)" in gate_dsl
     assert "\\\\_SB.PCI0.GPI0" not in gate_dsl
+
+
+def test_generate_falls_back_to_sta_rename_when_no_gate_variable_found(monkeypatch, tmp_path):
+    monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
+    monkeypatch.setattr(gpio, "_decompile",
+                        lambda dsdt_dir, iasl: _DSL + _STA_METHOD_NOT_A_GATE)
+    monkeypatch.setattr(gpio, "_iasl", lambda *a, **k: None)
+
+    finding = gpio.generate(tmp_path, tmp_path, tmp_path / "out")
+
+    assert finding.controller_gate is None
+    assert finding.controller_sta_rename == "Method"
+    assert "renamed to XSTA" in finding.todo()
+
+    gate_dsl = (tmp_path / "out" / "SSDT-GPIOEN.dsl").read_text()
+    assert gate_dsl.count("DefinitionBlock") == 1
+    assert r"External (\_SB.PCI0.GPI0, DeviceObj)" in gate_dsl
+    assert r"External (\_SB.PCI0.GPI0.XSTA, MethodObj)" in gate_dsl
+    assert r"Return (\_SB.PCI0.GPI0.XSTA ())" in gate_dsl
 
 
 def test_generate_populates_controller_gate_on_the_dynamic_path(monkeypatch, tmp_path):
