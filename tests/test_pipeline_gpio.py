@@ -77,6 +77,43 @@ def _stub_ssdttime(monkeypatch, *, dumped: list, fetched: list, acpidump_fetched
     )
 
 
+def test_gpio_controller_gate_output_actually_reaches_the_build(tmp_path, monkeypatch):
+    # Regression test: gate_generated/acpi_patch existed on GpioFinding since
+    # the controller-gate feature was first added, but nothing in pipeline.py
+    # ever picked them up -- an auto-detected GPIO controller fix was
+    # silently dropped from every real build. Caught independently while
+    # adding the _STA->XSTA rename fallback, which has the exact same shape.
+    from ocforge.build import gpio
+
+    dumped, fetched = [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="linux")
+
+    def fake_generate(acpi_dir, st_dir, out_dir):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        gpio_aml = out_dir / "SSDT-GPIO.aml"
+        gpio_aml.write_bytes(b"SSDT-fake-touchpad")
+        gate_aml = out_dir / "SSDT-GPIOEN.aml"
+        gate_aml.write_bytes(b"SSDT-fake-gate")
+        return gpio.GpioFinding(
+            path=r"\_SB.PCI0.I2C1.TPD0", pin=0x49, controller=r"\_SB.PCI0.GPI0",
+            hid="ELAN1200", generated=gpio_aml, gate_generated=gate_aml,
+            controller_sta_rename="Method",
+            acpi_patch=gpio.sta_rename_patch(r"\_SB.PCI0.GPI0"),
+        )
+    monkeypatch.setattr("ocforge.build.gpio.generate", fake_generate)
+
+    plan = make(_laptop_i2c_hid())
+    res = pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=lambda _: None)
+
+    assert res is not None
+    aml_names = {p.name for p in res.aml}
+    assert {"SSDT-GPIO.aml", "SSDT-GPIOEN.aml"} <= aml_names
+    add_paths = {e["Path"] for e in res.acpi_add}
+    assert {"SSDT-GPIO.aml", "SSDT-GPIOEN.aml"} <= add_paths
+    assert any(p.get("Base") == r"\_SB.PCI0.GPI0" and p.get("Find") == b"_STA"
+              for p in res.acpi_patch)
+
+
 def test_laptop_with_i2c_hid_trackpad_auto_dumps_on_linux(tmp_path, monkeypatch):
     dumped, fetched = [], []
     _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="linux")

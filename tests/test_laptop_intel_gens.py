@@ -249,3 +249,61 @@ def test_experimental_xe_gfx_does_not_cover_meteor_lake():
         assert "WTLIntelGfx" in str(exc) and "Xe-LPG/Xe2" in str(exc)
     else:
         raise AssertionError("expected gen 14 to still be a dead end under --experimental-xe-gfx")
+
+
+# --- Gen 11-13 CPUID spoof + ProvideCurrentCpuInfo ---------------------------
+# Unlike WhateverXe (graphics, opt-in), this fixes XCPM/kernel panics from a
+# CPUID signature macOS has never heard of at all -- applies unconditionally
+# to any gen 11-13 build, with or without --experimental-xe-gfx, with or
+# without a dGPU driving the display. Values cross-checked against
+# lzhoang2801/OpCore-Simplify's own spoof_cpuid() mapping.
+
+
+def test_raptor_lake_gets_comet_lake_cpuid_spoof():
+    _, cfg = _config_for(_laptop(13, family="Raptor Lake", dgpu=_amd_dgpu()))
+    emulate = cfg["Kernel"]["Emulate"]
+    assert emulate["Cpuid1Data"] == bytes.fromhex("55060a00") + b"\x00" * 12
+    assert emulate["Cpuid1Mask"] == bytes.fromhex("ffffffff") + b"\x00" * 12
+
+
+def test_alder_lake_gets_comet_lake_cpuid_spoof_and_current_cpu_info():
+    _, cfg = _config_for(_laptop(12, family="Alder Lake", dgpu=_amd_dgpu()))
+    emulate = cfg["Kernel"]["Emulate"]
+    assert emulate["Cpuid1Data"] == bytes.fromhex("55060a00") + b"\x00" * 12
+    assert cfg["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] is True
+
+
+def test_tiger_lake_gets_ice_lake_cpuid_spoof_not_comet_lake():
+    # The one exception in the gen 11-13 range: OpCore-Simplify's own mapping
+    # special-cases Tiger Lake specifically to Ice Lake, not Comet Lake.
+    _, cfg = _config_for(_laptop(11, family="Tiger Lake", dgpu=_amd_dgpu()))
+    emulate = cfg["Kernel"]["Emulate"]
+    assert emulate["Cpuid1Data"] == bytes.fromhex("e5060700") + b"\x00" * 12
+
+
+def test_tiger_lake_does_not_get_provide_current_cpu_info():
+    # No E-cores on Tiger Lake (that starts at Alder Lake, gen 12) -- the
+    # hybrid-topology quirk shouldn't apply here.
+    _, cfg = _config_for(_laptop(11, family="Tiger Lake", dgpu=_amd_dgpu()))
+    assert cfg["Kernel"]["Quirks"]["ProvideCurrentCpuInfo"] is False
+
+
+def test_rocket_tiger_ambiguous_family_still_gets_a_spoof():
+    # Brand-only gen-11 detection can't always tell Rocket Lake (desktop,
+    # Comet-Lake-style spoof target) from Tiger Lake (laptop, Ice-Lake-style
+    # target) apart -- family comes back as the combined "Rocket/Tiger Lake"
+    # string in that case. Falling through to the Comet Lake default (rather
+    # than erroring or spoofing nothing) is the defensible choice given that
+    # ambiguity, not a bug.
+    _, cfg = _config_for(_laptop(11, family="Rocket/Tiger Lake", dgpu=_amd_dgpu()))
+    emulate = cfg["Kernel"]["Emulate"]
+    assert emulate["Cpuid1Data"] == bytes.fromhex("55060a00") + b"\x00" * 12
+
+
+def test_no_xe_gen_cpuid_spoof_outside_gen_11_13():
+    # Comet Lake itself (gen 10) keeps its existing Pentium/Celeron-only
+    # spoof path -- a real quad-core i3/i5/i7 here gets no spoof at all.
+    m = _laptop(10, family="Comet Lake")
+    _, cfg = _config_for(m)
+    emulate = cfg["Kernel"]["Emulate"]
+    assert emulate["Cpuid1Data"] == b"" and emulate["Cpuid1Mask"] == b""

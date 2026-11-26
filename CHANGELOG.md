@@ -3,7 +3,36 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
-## gui-beta-v1.4.1
+## gui-v1.5.0
+
+# 🔩 OCforge 1.5.0 "Titanium"
+
+Studied [lzhoang2801/OpCore-Simplify](https://github.com/lzhoang2801/OpCore-Simplify) (a mature,
+similarly-scoped project) for techniques worth cross-checking and porting:
+
+- **Automatic CPUID spoofing for gen 11-13 Intel** (Tiger/Alder/Raptor Lake).
+  These predate any macOS-recognized CPUID signature at all, unlike the
+  existing Pentium/Celeron case (a real, just-blocklisted signature) — XCPM
+  has no power-management tables to initialize from without this. Previously
+  had to be applied by hand every time; now automatic, independent of
+  `--experimental-xe-gfx` (a kernel-panic-avoidance fix, not a graphics one).
+  Tiger Lake spoofs as Ice Lake; Rocket Lake, Alder Lake, and Raptor Lake
+  spoof as Comet Lake — cross-checked against OpCore-Simplify's own mapping,
+  which independently corroborated what we'd already applied by hand on a
+  real Raptor Lake-U machine before this release. `ProvideCurrentCpuInfo`
+  also now auto-enables for gen 12+ (hybrid P+E-core CPUs), not just AMD.
+- **A more general `_STA`→`XSTA` rename fallback for the GPIO controller
+  gate.** v1.4.0's detection only catches one shape: a single named variable
+  gating the controller's `_STA`. This adds the classic ACPI
+  rename-and-override as a fallback, which works no matter how the original
+  `_STA` computes its result. Also fixes a real bug found while wiring this
+  in: the v1.4.0 controller-gate fix (`SSDT-GPIOEN.aml`) was being correctly
+  detected and compiled, but never actually added to the build output —
+  silently dropped from every real build since it was added.
+- GUI brought back in sync with the CLI (it had drifted two releases behind,
+  still reporting itself as v1.3.3).
+
+## gui-v1.4.1
 
 # ⚗️ OCforge 1.4.1 "Germanium"
 
@@ -13,7 +42,7 @@ force-unsupported-* toggles), threaded into the Plan/Explain preview
 pages too so they reflect it without needing a duplicate control on
 every page.
 
-## gui-beta-v1.4.0
+## gui-v1.4.0
 
 # ⚗️ OCforge 1.4.0 "Gallium"
 
