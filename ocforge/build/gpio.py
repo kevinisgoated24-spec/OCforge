@@ -122,6 +122,24 @@ class GpioFinding:
     acpi_patch: dict | None = None
 
     def todo(self) -> str:
+        if not self.path:
+            # Controller-only fix -- no touchpad device was resolvable at all
+            # (statically or via the HID hint), but the controller itself was
+            # still found by name (see find_controller_device) and fixed;
+            # VoodooI2C's own live ACPI CRS parser can discover the
+            # touchpad's actual pin/address at runtime once the controller
+            # reports enabled, the same way a live kernel debugger would --
+            # no static per-board SSDT needed for the touchpad itself.
+            how = (f"gates its own _STA/_HID on {self.controller_gate[0]}; forcing "
+                  f"{self.controller_gate[0]} = {self.controller_gate[1]} under Darwin"
+                  if self.controller_gate else
+                  "had its _STA renamed to XSTA and overridden (no single gating "
+                  "variable found)")
+            made = f"; wrote {self.gate_generated.name}" if self.gate_generated else ""
+            return (f"SSDT-GPIOEN: no touchpad device resolvable in the DSDT, but the "
+                    f"GPIO controller {self.controller} was found by name -- it {how}{made}; "
+                    "VoodooI2C should find the touchpad live now that the controller "
+                    "reports enabled -- VERIFY the trackpad works")
         gate = ""
         if self.controller_gate:
             var, value = self.controller_gate
@@ -412,6 +430,60 @@ def sta_rename_patch(controller_path: str) -> dict:
     return patch
 
 
+# The two names Dortania's own guide (and independently, OpCore-Simplify's
+# enable_gpio_device()) document GPIO controllers showing up under.
+_CONTROLLER_NAMES = ("GPI0", "GPIO")
+
+
+def find_controller_device(dsl: str) -> str | None:
+    """Find a GPIO controller device directly by name, independent of
+    whether a touchpad wired to it was resolvable at all. The controller is
+    almost always still a plain, static ``Device (GPI0) { ... }`` block even
+    on boards where the *touchpad's* own _CRS is computed at runtime (see
+    GpioFinding.dynamic) -- deriving the controller from the touchpad's own
+    GpioInt descriptor, the way _scan() does, is strictly more fragile than
+    just looking the controller up by its own name first."""
+    for name in _CONTROLLER_NAMES:
+        for dm in re.finditer(r'Device\s*\(\s*' + name + r'\s*\)\s*\{', dsl):
+            path = _resolve_device_path(dsl, dm.start())
+            if path:
+                return path
+    return None
+
+
+def _apply_controller_fix(f: GpioFinding, dsl: str, iasl: Path, out_dir: Path) -> None:
+    """Shared by every generate() branch that has a resolved f.controller:
+    detect whichever of the two controller-enable shapes applies and compile
+    SSDT-GPIOEN, setting f.controller_gate/controller_sta_rename/
+    gate_generated/acpi_patch. No-op if neither shape is found."""
+    f.controller_gate = find_controller_gate(dsl, f.controller)
+    if not f.controller_gate:
+        f.controller_sta_rename = find_sta_shape(dsl, f.controller)
+    if f.controller_gate:
+        var, value = f.controller_gate
+        # Its own file/compile: two DefinitionBlocks concatenated into one
+        # .dsl source fail every External resolution (hard error, no .aml),
+        # even though each compiles cleanly on its own -- see _GATE_TEMPLATE.
+        (out_dir / "SSDT-GPIOEN.dsl").write_text(_GATE_TEMPLATE % {
+            "ctrl": f.controller, "var": var, "value": value,
+        })
+    elif f.controller_sta_rename:
+        (out_dir / "SSDT-GPIOEN.dsl").write_text(_STA_OVERRIDE_TEMPLATE % {
+            "ctrl": f.controller,
+            "xsta_type": "MethodObj" if f.controller_sta_rename == "Method" else "IntObj",
+            "xsta_ref": (f"{f.controller}.XSTA ()" if f.controller_sta_rename == "Method"
+                        else f"{f.controller}.XSTA"),
+        })
+    else:
+        return
+    _iasl(iasl, out_dir, ["SSDT-GPIOEN.dsl"], timeout=60)
+    gate_aml = out_dir / "SSDT-GPIOEN.aml"
+    if gate_aml.is_file() and gate_aml.read_bytes()[:4] == b"SSDT":
+        f.gate_generated = gate_aml
+        if f.controller_sta_rename:
+            f.acpi_patch = sta_rename_patch(f.controller)
+
+
 def generate(dsdt_dir: Path, ssdttime_dir: Path, out_dir: Path) -> GpioFinding | None:
     """Inspect the DSDT and, if one clear I2C-HID trackpad is found, compile
     SSDT-GPIO into ``out_dir``. Returns the finding (with ``generated`` set on
@@ -422,26 +494,33 @@ def generate(dsdt_dir: Path, ssdttime_dir: Path, out_dir: Path) -> GpioFinding |
     dsl = _decompile(dsdt_dir, iasl)
     if not dsl:
         return None
+    out_dir = out_dir.resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     found = _scan(dsl)
     if len(found) != 1:   # 0 = nothing; >1 = ambiguous, leave it manual
         if found:
             f = found[0]
-            f.controller_gate = find_controller_gate(dsl, f.controller)
-            if not f.controller_gate:
-                f.controller_sta_rename = find_sta_shape(dsl, f.controller)
+            _apply_controller_fix(f, dsl, iasl, out_dir)
             return f
         hinted = _find_hid_hint_devices(dsl)
-        if hinted:
-            path, hid = hinted[0]
-            return GpioFinding(path=path, hid=hid, dynamic=True)
-        return None
+        f = GpioFinding(path=hinted[0][0], hid=hinted[0][1], dynamic=True) if hinted else None
+        # Independent of whether a touchpad device resolved at all: the
+        # controller is usually still findable by name (find_controller_device),
+        # and fixing its _STA is enough on its own -- VoodooI2C can live-resolve
+        # the touchpad's actual pin/address once the controller reports
+        # enabled. See GpioFinding.todo()'s "no touchpad device resolvable"
+        # case and the module docstring.
+        ctrl = find_controller_device(dsl)
+        if ctrl:
+            if f is None:
+                f = GpioFinding(path="")
+            f.controller = ctrl
+            _apply_controller_fix(f, dsl, iasl, out_dir)
+        return f
     f = found[0]
-    f.controller_gate = find_controller_gate(dsl, f.controller)
-    if not f.controller_gate:
-        f.controller_sta_rename = find_sta_shape(dsl, f.controller)
+    _apply_controller_fix(f, dsl, iasl, out_dir)
 
-    out_dir = out_dir.resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
     # ACPI resource strings want a doubled leading backslash for a root path
     (out_dir / "SSDT-GPIO.dsl").write_text(_TEMPLATE % {
         "path": f.path,
@@ -453,39 +532,6 @@ def generate(dsdt_dir: Path, ssdttime_dir: Path, out_dir: Path) -> GpioFinding |
     # iasl can exit non-zero on benign warnings; trust a well-formed .aml
     if aml.is_file() and aml.read_bytes()[:4] == b"SSDT":
         f.generated = aml
-
-    if f.controller_gate:
-        var, value = f.controller_gate
-        # Its own file/compile: two DefinitionBlocks concatenated into one
-        # .dsl source fail every External resolution (hard error, no .aml),
-        # even though each compiles cleanly on its own -- see _GATE_TEMPLATE.
-        # Unlike _TEMPLATE's %(ctrl)s (inside a quoted GpioInt string, where
-        # a doubled backslash is the escaped form), this one is a bare,
-        # unquoted ACPI namestring in External(...)/Scope(...) -- a single
-        # leading backslash, same as f.controller already is.
-        (out_dir / "SSDT-GPIOEN.dsl").write_text(_GATE_TEMPLATE % {
-            "ctrl": f.controller,
-            "var": var,
-            "value": value,
-        })
-        _iasl(iasl, out_dir, ["SSDT-GPIOEN.dsl"], timeout=60)
-        gate_aml = out_dir / "SSDT-GPIOEN.aml"
-        if gate_aml.is_file() and gate_aml.read_bytes()[:4] == b"SSDT":
-            f.gate_generated = gate_aml
-    elif f.controller_sta_rename:
-        # Same file/compile split as the controller_gate branch above, same
-        # reason (two DefinitionBlocks in one .dsl fail every External).
-        (out_dir / "SSDT-GPIOEN.dsl").write_text(_STA_OVERRIDE_TEMPLATE % {
-            "ctrl": f.controller,
-            "xsta_type": "MethodObj" if f.controller_sta_rename == "Method" else "IntObj",
-            "xsta_ref": (f"{f.controller}.XSTA ()" if f.controller_sta_rename == "Method"
-                        else f"{f.controller}.XSTA"),
-        })
-        _iasl(iasl, out_dir, ["SSDT-GPIOEN.dsl"], timeout=60)
-        gate_aml = out_dir / "SSDT-GPIOEN.aml"
-        if gate_aml.is_file() and gate_aml.read_bytes()[:4] == b"SSDT":
-            f.gate_generated = gate_aml
-            f.acpi_patch = sta_rename_patch(f.controller)
     return f
 
 
