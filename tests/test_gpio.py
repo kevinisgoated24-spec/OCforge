@@ -318,6 +318,83 @@ def test_find_sta_shape_returns_none_without_any_sta():
     assert gpio.find_sta_shape(_DSL, r"\_SB.PCI0.GPI0") is None
 
 
+# --- find_controller_device: decoupled from touchpad detection -------------
+# The controller is almost always a plain, static Device(...) block even on
+# boards where the *touchpad's* own _CRS is dynamic -- found by name,
+# independent of whether a touchpad was resolvable at all.
+
+_DYNAMIC_CRS_WITH_GPI0 = _DYNAMIC_CRS.replace(
+    "            Device (I2C0)",
+    "            Device (GPI0)\n"
+    "            {\n"
+    "                Method (_STA, 0, NotSerialized)\n"
+    "                {\n"
+    "                    Return (0x0F)\n"
+    "                }\n"
+    "            }\n\n"
+    "            Device (I2C0)",
+)
+
+
+def test_find_controller_device_finds_gpi0_by_name():
+    assert gpio.find_controller_device(_DSL) == r"\_SB.PCI0.GPI0"
+
+
+def test_find_controller_device_finds_gpio_spelling_too():
+    alt = _DSL.replace("GPI0", "GPIO")
+    assert gpio.find_controller_device(alt) == r"\_SB.PCI0.GPIO"
+
+
+def test_find_controller_device_returns_none_without_a_controller():
+    assert gpio.find_controller_device(_NO_TOUCHPAD) is None
+
+
+def test_generate_fixes_the_controller_even_with_no_touchpad_resolvable(monkeypatch, tmp_path):
+    # No touchpad device anywhere in this DSL at all (static or HID-hint) --
+    # but GPI0 is still found by name and its _STA still gets renamed, since
+    # VoodooI2C can live-resolve the touchpad itself once the controller
+    # reports enabled.
+    monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
+    monkeypatch.setattr(gpio, "_decompile", lambda dsdt_dir, iasl: _NO_TOUCHPAD.replace(
+        "Device (LAN0)",
+        "Device (GPI0)\n"
+        "            {\n"
+        "                Method (_STA, 0, NotSerialized)\n"
+        "                {\n"
+        "                    Return (0x0F)\n"
+        "                }\n"
+        "            }\n\n"
+        "            Device (LAN0)",
+    ))
+    monkeypatch.setattr(gpio, "_iasl", lambda *a, **k: None)
+
+    finding = gpio.generate(tmp_path, tmp_path, tmp_path / "out")
+
+    assert finding is not None
+    assert finding.path == ""
+    assert finding.generated is None
+    assert finding.controller == r"\_SB.PCI0.GPI0"
+    assert finding.controller_sta_rename == "Method"
+    assert "no touchpad device resolvable" in finding.todo()
+    assert "VoodooI2C" in finding.todo()
+
+
+def test_generate_combines_dynamic_touchpad_hint_with_controller_fix(monkeypatch, tmp_path):
+    # Both halves found independently: the touchpad via the HID hint
+    # (dynamic _CRS, same as the existing dynamic-path test), *and* the
+    # controller fixed by name -- this board has both pieces, just not in
+    # the shape _scan() can see for the touchpad itself.
+    monkeypatch.setattr(gpio, "_find_iasl", lambda ssdttime_dir: tmp_path / "iasl")
+    monkeypatch.setattr(gpio, "_decompile", lambda dsdt_dir, iasl: _DYNAMIC_CRS_WITH_GPI0)
+    monkeypatch.setattr(gpio, "_iasl", lambda *a, **k: None)
+
+    finding = gpio.generate(tmp_path, tmp_path, tmp_path / "out")
+
+    assert finding.dynamic and finding.path == r"\_SB.PC00.I2C0.TPD0"
+    assert finding.controller == r"\_SB.PC00.GPI0"
+    assert finding.controller_sta_rename == "Method"
+
+
 def test_sta_rename_patch_shape():
     patch = gpio.sta_rename_patch(r"\_SB.PCI0.GPI0")
     assert patch["Base"] == r"\_SB.PCI0.GPI0"
