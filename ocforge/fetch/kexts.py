@@ -17,6 +17,7 @@ class KextResult:
     name: str
     bundle_dir: Path | None      # the extracted <name>.kext, or None if it failed
     error: str = ""
+    nested: bool = False         # lives inside its parent's bundle; don't place separately
 
 
 def _extract_bundle(zip_path: Path, wanted: str, into: Path) -> Path | None:
@@ -58,9 +59,13 @@ def fetch_all(selected: list[Selected], work: Path, kexts_out: Path) -> list[Kex
 
     zip_cache: dict[tuple[str, str, str], Path] = {}
     results: list[KextResult] = []
+    plugins = []
 
     for s in selected:
         k = s.kext
+        if k.parent:  # sorts ahead of its parent, so resolve it once the parent is extracted
+            plugins.append(k)
+            continue
         if not k.repo and not k.url:  # e.g. UTBMap, generated later
             results.append(KextResult(k.name, None, "generated locally, not downloaded"))
             continue
@@ -84,4 +89,13 @@ def fetch_all(selected: list[Selected], work: Path, kexts_out: Path) -> list[Kex
                 results.append(KextResult(k.name, bundle))
         except (LookupError, DownloadError, OSError) as exc:
             results.append(KextResult(k.name, None, str(exc)))
+
+    parents = {r.name: r.bundle_dir for r in results}
+    for k in plugins:
+        parent_dir = parents.get(k.parent)
+        plugin_dir = parent_dir / "Contents" / "PlugIns" / f"{k.name}.kext" if parent_dir else None
+        if plugin_dir is not None and plugin_dir.is_dir():
+            results.append(KextResult(k.name, plugin_dir, nested=True))
+        else:
+            results.append(KextResult(k.name, None, f"{k.name}.kext not found inside {k.parent}.kext"))
     return results

@@ -18,8 +18,9 @@ from pathlib import Path
 from ocforge.fetch import macrecovery as fetch_macrecovery
 
 # board-id understood by macrecovery's `-b`. Zeros for `-m` (MLB).
+# Tahoe's entry matches OpenCorePkg's own Utilities/macrecovery/recovery_urls.txt.
 _BOARD = {
-    26: "Mac-937A206F2EE63C01",   # Sequoia board also serves Tahoe recovery
+    26: "Mac-CFF7D910A743CAAF",   # iMac20,1 -- only serves Tahoe with -os latest, see below
     15: "Mac-937A206F2EE63C01",
     14: "Mac-827FAC58A8FDFA22",
     13: "Mac-4B682C642B45593E",
@@ -27,6 +28,9 @@ _BOARD = {
     11: "Mac-2BD1B31983FE1663",
 }
 _MLB = "00000000000000000"
+# Releases whose board-id hands back its *original* shipping OS by default
+# (Catalina, for iMac20,1) and only the newest one with -os latest.
+_LATEST_ONLY = {26}
 
 
 class RecoveryError(RuntimeError):
@@ -62,7 +66,7 @@ def download(major: int, opencore_dir: Path, dest: Path, *, latest: bool = False
     boot.mkdir(parents=True, exist_ok=True)
 
     argv = [sys.executable, str(script), "-b", board, "-m", _MLB]
-    argv += ["-os", "latest"] if latest else []
+    argv += ["-os", "latest"] if latest or major in _LATEST_ONLY else []
     argv += ["download", "-o", str(boot)]
 
     # Force a sane terminal width and unbuffered UTF-8 so the script's progress
