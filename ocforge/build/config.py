@@ -303,7 +303,7 @@ def _kernel(plan: BuildPlan, amd_patches: list[dict[str, Any]] | None = None, *,
     for s in plan.kexts:
         entry = {
             "Arch": "x86_64",
-            "BundlePath": s.kext.bundle_path().split("/")[-1],
+            "BundlePath": s.kext.config_path(),
             "Comment": s.comment or s.kext.name,
             "Enabled": True,
             # a plist-only kext has no binary; pointing ExecutablePath at a

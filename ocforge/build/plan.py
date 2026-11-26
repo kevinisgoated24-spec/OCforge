@@ -84,7 +84,9 @@ def _intel_laptop_smbios(gen: int, target_major: int, *, ice_lake: bool) -> tupl
     # newest real board-id/SMBIOS there is to spoof as, whatever CPU
     # generation is actually in the laptop. See rationale.py for the matching
     # "no ig-platform-id for this generation" DeviceProperties note.
-    return "MacBookPro16,3", "MacBookPro16,1"
+    # Tahoe dropped MacBookPro16,3 (two-port 2020 13"); 16,2 (four-port) is
+    # the only iGPU-only MacBook Pro it still supports.
+    return ("MacBookPro16,2" if target_major >= 26 else "MacBookPro16,3"), "MacBookPro16,1"
 
 
 def pick_smbios(m: Machine, target: macos.MacOSRelease) -> str:
@@ -126,7 +128,7 @@ class BuildPlan:
     @property
     def boot_args(self) -> list[str]:
         args = ["-v", "debug=0x100", "keepsyms=1"]
-        if self.smbios_model not in ("iMac20,1", "iMac19,1", "MacBookPro16,1"):
+        if self.smbios_model not in ("iMac20,1", "iMac19,1", "MacBookPro16,1", "MacBookPro16,2"):
             args.append("-no_compat_check")
         if self.is_amd:
             # Dortania Ryzen/Threadripper: alternative to enabling Above 4G

@@ -231,7 +231,7 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
     log(f"fetching {len(plan.kexts)} kexts…")
     kres = fetch_kexts.fetch_all(plan.kexts, work, work / "kexts")
     good_kexts = {r.name for r in kres if r.bundle_dir is not None}
-    layout.place_kexts(oc, [r.bundle_dir for r in kres if r.bundle_dir is not None])
+    layout.place_kexts(oc, [r.bundle_dir for r in kres if r.bundle_dir is not None and not r.nested])
     kext_failures = [f"{r.name}: {r.error}" for r in kres if r.bundle_dir is None and r.error and "generated" not in r.error]
 
     gen = _run_ssdttime(plan, work, dsdt=dsdt, dump_dsdt=dump_dsdt, log=log)
@@ -271,7 +271,8 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
 
     # reconcile config against what actually made it onto disk
     cfg["Kernel"]["Add"] = [
-        e for e in cfg["Kernel"]["Add"] if e["BundlePath"].removesuffix(".kext") in good_kexts
+        e for e in cfg["Kernel"]["Add"]
+        if e["BundlePath"].split("/")[-1].removesuffix(".kext") in good_kexts
     ]
     dropped_acpi = layout.prune_dead_acpi(cfg, oc)
     if dropped_acpi:

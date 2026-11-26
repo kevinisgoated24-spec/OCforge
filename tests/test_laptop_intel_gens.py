@@ -80,10 +80,20 @@ def test_smbios_coffee_lake_laptop_was_wrong_now_fixed():
 
 
 def test_smbios_comet_lake_laptop():
-    no_dgpu, _ = _config_for(_laptop(10, family="Comet Lake"))
+    no_dgpu, _ = _config_for(_laptop(10, family="Comet Lake"), target_major=15)
     dgpu, _ = _config_for(_laptop(10, family="Comet Lake", dgpu=_amd_dgpu()))
     assert no_dgpu.smbios_model == "MacBookPro16,3"
     assert dgpu.smbios_model == "MacBookPro16,1"
+
+
+def test_smbios_tahoe_uses_the_one_igpu_macbook_pro_tahoe_still_supports():
+    # Tahoe dropped MacBookPro16,3 (two-port 2020 13"); on a real machine that
+    # meant -no_compat_check and a board Apple's servers won't treat as Tahoe.
+    tahoe, _ = _config_for(_laptop(13), target_major=26, experimental_xe_gfx=True)
+    sequoia, _ = _config_for(_laptop(13), target_major=15, experimental_xe_gfx=True)
+    assert tahoe.smbios_model == "MacBookPro16,2"
+    assert "-no_compat_check" not in tahoe.boot_args
+    assert sequoia.smbios_model == "MacBookPro16,3"
 
 
 def test_smbios_ice_lake_is_not_comet_lakes_model():
@@ -307,3 +317,32 @@ def test_no_xe_gen_cpuid_spoof_outside_gen_11_13():
     _, cfg = _config_for(m)
     emulate = cfg["Kernel"]["Emulate"]
     assert emulate["Cpuid1Data"] == b"" and emulate["Cpuid1Mask"] == b""
+
+
+# --- VoodooI2C plugins ---------------------------------------------------------
+
+
+def _i2c_laptop():
+    from ocforge.model import Input
+    m = _laptop(13)
+    m.inputs = Input(has_touchpad=True, touchpad_bus="i2c-hid")
+    return m
+
+
+def test_i2c_hid_laptop_loads_voodooi2c_plugins_before_voodooi2c():
+    # Without these, OpenCore links VoodooI2C against empty stubs (seen on a
+    # real boot log: "VoodooGPIO not in Boot KC, using kernel stub").
+    _, cfg = _config_for(_i2c_laptop(), experimental_xe_gfx=True)
+    paths = [e["BundlePath"] for e in cfg["Kernel"]["Add"]]
+    services = paths.index("VoodooI2C.kext/Contents/PlugIns/VoodooI2CServices.kext")
+    gpio = paths.index("VoodooI2C.kext/Contents/PlugIns/VoodooGPIO.kext")
+    assert services < gpio < paths.index("VoodooI2C.kext") < paths.index("VoodooI2CHID.kext")
+    # VoodooI2C's bundled VoodooInput would conflict with the standalone one
+    assert not any("PlugIns/VoodooInput" in p for p in paths)
+
+
+def test_voodooi2c_plugins_drop_out_when_voodooi2c_is_excluded():
+    from ocforge.catalog import kexts
+    names = {s.kext.name for s in kexts.resolve(
+        _i2c_laptop(), macos.by_major(26), exclude=frozenset({"VoodooI2C"}))}
+    assert not names & {"VoodooI2C", "VoodooI2CServices", "VoodooGPIO"}

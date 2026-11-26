@@ -50,3 +50,57 @@ def test_ocbinary_tarball_shape():
     assert ocbinary.TARBALL.endswith("refs/heads/master")
     assert "OcBinaryData" in ocbinary.TARBALL
     _ = io  # keep import used
+
+
+def test_fetch_all_resolves_plugins_from_the_parent_bundle(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from ocforge.catalog import kexts as catalog
+    from ocforge.fetch import kexts as fetch_kexts
+
+    zp = _make_zip(tmp_path, {
+        "VoodooI2C.kext/Contents/Info.plist": b"<plist/>",
+        "VoodooI2C.kext/Contents/PlugIns/VoodooGPIO.kext/Contents/Info.plist": b"<plist/>",
+        "VoodooI2CHID.kext/Contents/Info.plist": b"<plist/>",
+    })
+    monkeypatch.setattr(fetch_kexts, "latest_asset",
+                        lambda repo, asset: SimpleNamespace(name="rel.zip", url="u", sha256=None, size=0))
+    monkeypatch.setattr(fetch_kexts, "download",
+                        lambda url, dest, **kw: dest.write_bytes(zp.read_bytes()))
+
+    selected = [catalog.Selected(catalog.get(n), 0, 0) for n in
+                ("VoodooI2CServices", "VoodooGPIO", "VoodooI2C", "VoodooI2CHID")]
+    res = {r.name: r for r in fetch_kexts.fetch_all(selected, tmp_path / "w", tmp_path / "out")}
+
+    gpio = res["VoodooGPIO"]
+    assert gpio.nested and gpio.bundle_dir == tmp_path / "out" / "VoodooI2C.kext" / "Contents" / "PlugIns" / "VoodooGPIO.kext"
+    # not in this (fake) release's VoodooI2C.kext -> reported, not silently dropped
+    assert res["VoodooI2CServices"].bundle_dir is None
+    assert "not found inside VoodooI2C.kext" in res["VoodooI2CServices"].error
+    assert not res["VoodooI2C"].nested
+
+
+def test_tahoe_recovery_uses_opencores_board_and_latest(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from ocforge.fetch import recovery
+
+    seen = {}
+
+    def fake_run(argv, **kw):
+        seen["argv"] = argv
+        boot = Path(argv[argv.index("-o") + 1])
+        (boot / "BaseSystem.dmg").write_bytes(b"")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(recovery, "_resolve_script", lambda oc, work: tmp_path / "macrecovery.py")
+    monkeypatch.setattr(recovery.subprocess, "run", fake_run)
+
+    recovery.download(26, tmp_path, tmp_path / "dest")
+    argv = seen["argv"]
+    # OpenCorePkg's recovery_urls.txt; without -os latest this board serves Catalina
+    assert argv[argv.index("-b") + 1] == "Mac-CFF7D910A743CAAF"
+    assert argv[argv.index("-os") + 1] == "latest"
+
+    recovery.download(15, tmp_path, tmp_path / "dest15")
+    assert "-os" not in seen["argv"]
