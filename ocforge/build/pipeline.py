@@ -170,6 +170,14 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
                 "Comment": "SSDT-GPIO (ocforge, from DSDT)",
                 "Enabled": True, "Path": finding.generated.name,
             })
+            if finding.gate_generated:
+                res.aml.append(finding.gate_generated)
+                res.acpi_add.append({
+                    "Comment": "SSDT-GPIOEN (ocforge, GPIO controller enable)",
+                    "Enabled": True, "Path": finding.gate_generated.name,
+                })
+                if finding.acpi_patch:
+                    res.acpi_patch.append(finding.acpi_patch)
             res.extra_todo.append(finding.todo() + " — VERIFY the trackpad works")
             log(f"  {finding.todo()}")
         elif finding:
