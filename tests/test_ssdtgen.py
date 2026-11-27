@@ -45,7 +45,8 @@ def test_plan_ops_amd_is_just_ec_and_usbx():
 
 def test_plan_ops_intel_laptop():
     keys = [k for k, _ in ssdtgen.plan_ops(_intel_laptop())]
-    assert keys == ["2", "4", "5", "7", "0"]   # PLUG + RTCAWAC + PNLF, no PMC (laptop)
+    # FakeEC Laptop (keeps the real EC on) + PLUG + RTCAWAC + PNLF, no PMC
+    assert keys == ["3", "4", "5", "7", "0"]
 
 
 def test_plan_ops_intel_desktop_300_series():

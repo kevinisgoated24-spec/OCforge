@@ -9,7 +9,8 @@ assembler.
 Only the non-interactive ops are automated — the ones Dortania's "Getting
 Started with ACPI" walkthrough runs by just pressing a number:
 
-    2  FakeEC     OS-aware fake EC
+    2  FakeEC     OS-aware fake EC (desktops: also disables the real EC for macOS)
+    3  FakeEC Laptop  fake EC only, real EC left untouched (laptops)
     4  USBX       USB power properties for SKL+ SMBIOS
     5  PluginType SSDT-PLUG (X86PlatformPlugin) — Intel only
     6  PMC        native NVRAM on 300-series boards
@@ -41,7 +42,10 @@ def plan_ops(m: Machine) -> list[tuple[str, str]]:
     """The SSDTTime menu keys this machine needs, in run order."""
     intel = m.cpu.vendor is Vendor.INTEL
     gen = m.cpu.intel_gen or 0
-    ops: list[tuple[str, str]] = [("2", "FakeEC"), ("4", "USBX")]
+    # A laptop's real EC runs battery, lid, thermals and hotkeys; plain FakeEC
+    # renames its _STA to XSTA and returns 0 under Darwin, switching it off.
+    ec = ("3", "FakeEC Laptop") if m.is_laptop else ("2", "FakeEC")
+    ops: list[tuple[str, str]] = [ec, ("4", "USBX")]
     if intel and gen >= 4:
         ops.append(("5", "PluginType"))
     if intel and not m.is_laptop and gen in (8, 9):
