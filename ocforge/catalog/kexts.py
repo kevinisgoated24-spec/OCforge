@@ -25,9 +25,19 @@ class Kext:
     order: int = 50               # OpenCore load order; lower loads first
     url: str = ""                 # direct zip URL (for kexts not on a GitHub release)
     codeless: bool = False        # plist-only kext -> ExecutablePath must be empty
+    # Name of the kext whose bundle ships this one under Contents/PlugIns. It
+    # arrives inside the parent's copy (never downloaded or placed on its own)
+    # but still needs its own Kernel -> Add entry, loaded before the parent.
+    parent: str = ""
 
     def bundle_path(self) -> str:
         return self.bundle or f"{self.name}.kext"
+
+    def config_path(self) -> str:
+        """BundlePath relative to EFI/OC/Kexts."""
+        if self.parent:
+            return f"{self.parent}.kext/Contents/PlugIns/{self.name}.kext"
+        return self.bundle_path().split("/")[-1]
 
 
 # --- the table ------------------------------------------------------------
@@ -113,13 +123,22 @@ MANIFEST: tuple[Kext, ...] = (
     # laptop input
     Kext("VoodooPS2Controller", "acidanthera/VoodooPS2",
          r"^VoodooPS2Controller-[\d.]+-RELEASE\.zip$", order=70),
-    Kext("VoodooI2C", "VoodooI2C/VoodooI2C", r"^VoodooI2C-[\d.]+-RELEASE\.zip$", order=71),
+    # VoodooI2C's own install docs require these two plugins as separate
+    # entries ahead of it; without them OpenCore links VoodooI2C against empty
+    # stubs (VoodooGPIO::metaClass bound to 0). Its bundled VoodooInput is
+    # deliberately not listed: the standalone VoodooInput below covers it, and
+    # two copies conflict.
+    Kext("VoodooI2CServices", "VoodooI2C/VoodooI2C", r"^VoodooI2C-[\d.]+-RELEASE\.zip$",
+         parent="VoodooI2C", order=71),
+    Kext("VoodooGPIO", "VoodooI2C/VoodooI2C", r"^VoodooI2C-[\d.]+-RELEASE\.zip$",
+         parent="VoodooI2C", order=72),
+    Kext("VoodooI2C", "VoodooI2C/VoodooI2C", r"^VoodooI2C-[\d.]+-RELEASE\.zip$", order=73),
     Kext("VoodooI2CHID", "VoodooI2C/VoodooI2C", r"^VoodooI2C-[\d.]+-RELEASE\.zip$",
-         bundle="VoodooI2CHID.kext", order=72),
+         bundle="VoodooI2CHID.kext", order=74),
     _ac("VoodooInput", order=69),
     Kext("BrightnessKeys", "acidanthera/BrightnessKeys",
-         r"^BrightnessKeys-[\d.]+-RELEASE\.zip$", order=73),
-    Kext("ECEnabler", "averycblack/ECEnabler", r"ECEnabler.*\.zip", order=74),
+         r"^BrightnessKeys-[\d.]+-RELEASE\.zip$", order=75),
+    Kext("ECEnabler", "averycblack/ECEnabler", r"ECEnabler.*\.zip", order=76),
 )
 
 _BY_NAME = {k.name: k for k in MANIFEST}
@@ -191,6 +210,8 @@ def resolve(
         picks["BrightnessKeys"] = ""
         picks["ECEnabler"] = ""
         if m.inputs.touchpad_bus == "i2c-hid":
+            picks["VoodooI2CServices"] = "VoodooI2C dependency"
+            picks["VoodooGPIO"] = "VoodooI2C dependency"
             picks["VoodooI2C"] = ""
             picks["VoodooI2CHID"] = ""
     else:
@@ -235,8 +256,11 @@ def resolve(
         picks.pop(name, None)
     for name in include:
         picks.setdefault(name, "manually added")
+    # a plugin is only present inside its parent's bundle
+    for name in [n for n in picks if _BY_NAME[n].parent and _BY_NAME[n].parent not in picks]:
+        del picks[name]
 
-    out = [Selected(_BY_NAME[n], _BY_NAME[n].min_darwin, _BY_NAME[n].max_darwin, c)
+    out =[Selected(_BY_NAME[n], _BY_NAME[n].min_darwin, _BY_NAME[n].max_darwin, c)
            for n, c in picks.items()]
     out.sort(key=lambda s: s.kext.order)
     return out

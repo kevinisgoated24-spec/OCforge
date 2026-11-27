@@ -114,6 +114,38 @@ def test_gpio_controller_gate_output_actually_reaches_the_build(tmp_path, monkey
               for p in res.acpi_patch)
 
 
+def test_gpio_controller_only_fix_reaches_the_build_with_no_touchpad_ssdt(tmp_path, monkeypatch):
+    # The decoupled controller-only path (find_controller_device): no
+    # touchpad SSDT at all (finding.generated is None), but the controller
+    # fix still needs to land in res.aml/res.acpi_add/res.acpi_patch exactly
+    # like the full-touchpad case -- and the "build SSDT-GPIO by hand" TODO
+    # must NOT appear, since there's no touchpad SSDT to build by hand here.
+    from ocforge.build import gpio
+
+    dumped, fetched = [], []
+    _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="linux")
+
+    def fake_generate(acpi_dir, st_dir, out_dir):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        gate_aml = out_dir / "SSDT-GPIOEN.aml"
+        gate_aml.write_bytes(b"SSDT-fake-gate")
+        return gpio.GpioFinding(
+            path="", controller=r"\_SB.PCI0.GPI0", gate_generated=gate_aml,
+            controller_sta_rename="Method",
+            acpi_patch=gpio.sta_rename_patch(r"\_SB.PCI0.GPI0"),
+        )
+    monkeypatch.setattr("ocforge.build.gpio.generate", fake_generate)
+
+    plan = make(_laptop_i2c_hid())
+    res = pipeline._run_ssdttime(plan, tmp_path, dsdt=None, dump_dsdt=False, log=lambda _: None)
+
+    assert res is not None
+    assert "SSDT-GPIOEN.aml" in {p.name for p in res.aml}
+    assert "SSDT-GPIOEN.aml" in {e["Path"] for e in res.acpi_add}
+    assert any(p.get("Base") == r"\_SB.PCI0.GPI0" for p in res.acpi_patch)
+    assert not any("by hand" in t for t in res.extra_todo)
+
+
 def test_laptop_with_i2c_hid_trackpad_auto_dumps_on_linux(tmp_path, monkeypatch):
     dumped, fetched = [], []
     _stub_ssdttime(monkeypatch, dumped=dumped, fetched=fetched, platform="linux")

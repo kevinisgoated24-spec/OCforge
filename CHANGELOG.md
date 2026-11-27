@@ -3,6 +3,31 @@
 Notable changes per release. Releases are tagged `gui-vX.Y.Z` and carry the
 desktop GUI bundles; each entry also covers the CLI changes that shipped with it.
 
+## gui-v1.5.1
+
+# ⚗️ OCforge 1.5.1 "Vanadium"
+
+Fixes found by reading a real Raptor Lake-U laptop's full OpenCore boot log:
+
+- **Tahoe recovery was actually Sequoia.** Builds that said "downloading
+  macOS 26 recovery" booted kernel 24.4.0 (macOS 15.4): the Tahoe entry
+  reused a Sequoia board-id without `-os latest`. It now uses OpenCorePkg's
+  own Tahoe entry (`Mac-CFF7D910A743CAAF -os latest`). This matters most
+  with `--experimental-xe-gfx`, since WhateverXe needs Tahoe 26.7+.
+- **Tahoe SMBIOS.** iGPU-only gen 10+ laptops got `MacBookPro16,3`, which
+  Tahoe dropped, so builds needed `-no_compat_check`. Tahoe builds now get
+  `MacBookPro16,2`, which Tahoe still supports. Older targets are unchanged.
+- **Laptops no longer switch off their embedded controller.** ocforge ran
+  SSDTTime's desktop FakeEC option on every machine, which disables the
+  real EC under macOS (battery, lid, thermals, hotkeys). Laptops now get
+  "FakeEC Laptop", which leaves the real EC alone, as Dortania requires.
+- **VoodooI2C helpers.** `VoodooI2CServices` and `VoodooGPIO` are now added
+  as their own kext entries ahead of VoodooI2C, as its install docs require.
+  Without them OpenCore linked VoodooI2C against empty stubs.
+- **GPIO controller found by name.** The controller-enable fix (`SSDT-GPIOEN`)
+  no longer depends on first finding the touchpad's static resources, so it
+  also works on boards whose touchpad resources are computed at runtime.
+
 ## gui-v1.5.0
 
 # 🔩 OCforge 1.5.0 "Titanium"

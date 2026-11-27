@@ -164,12 +164,18 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
         except Exception as exc:  # noqa: BLE001 - GPIO gen is best-effort
             log(f"  SSDT-GPIO probe failed: {exc}")
             finding = None
-        if finding and finding.generated:
-            res.aml.append(finding.generated)
-            res.acpi_add.append({
-                "Comment": "SSDT-GPIO (ocforge, from DSDT)",
-                "Enabled": True, "Path": finding.generated.name,
-            })
+        if finding:
+            # These two are independent: finding.generated (the touchpad's
+            # own SSDT-GPIO) needs a single clean static candidate, while
+            # finding.gate_generated (the controller's own enable fix) only
+            # needs the controller device findable by name -- see
+            # find_controller_device(). Either, both, or neither can be set.
+            if finding.generated:
+                res.aml.append(finding.generated)
+                res.acpi_add.append({
+                    "Comment": "SSDT-GPIO (ocforge, from DSDT)",
+                    "Enabled": True, "Path": finding.generated.name,
+                })
             if finding.gate_generated:
                 res.aml.append(finding.gate_generated)
                 res.acpi_add.append({
@@ -178,11 +184,10 @@ def _run_ssdttime(plan: BuildPlan, work: Path, *, dsdt: Path | None, dump_dsdt: 
                 })
                 if finding.acpi_patch:
                     res.acpi_patch.append(finding.acpi_patch)
-            res.extra_todo.append(finding.todo() + " — VERIFY the trackpad works")
-            log(f"  {finding.todo()}")
-        elif finding:
-            res.extra_todo.append(finding.todo() + " — build SSDT-GPIO by hand")
-            log(f"  {finding.todo()} (not auto-generated)")
+            suffix = " — VERIFY the trackpad works" if finding.generated else \
+                     "" if finding.gate_generated else " — build SSDT-GPIO by hand"
+            res.extra_todo.append(finding.todo() + suffix)
+            log(f"  {finding.todo()}" + ("" if finding.generated else " (not auto-generated)"))
 
     # Prebuilt SSDTs SSDTTime can't make headless (XOSI, IMEI, CPUR, RHUB, UNC,
     # RTC0-RANGE-HEDT) still come from Dortania, plus any ACPI rename they need.
@@ -226,7 +231,7 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
     log(f"fetching {len(plan.kexts)} kexts…")
     kres = fetch_kexts.fetch_all(plan.kexts, work, work / "kexts")
     good_kexts = {r.name for r in kres if r.bundle_dir is not None}
-    layout.place_kexts(oc, [r.bundle_dir for r in kres if r.bundle_dir is not None])
+    layout.place_kexts(oc, [r.bundle_dir for r in kres if r.bundle_dir is not None and not r.nested])
     kext_failures = [f"{r.name}: {r.error}" for r in kres if r.bundle_dir is None and r.error and "generated" not in r.error]
 
     gen = _run_ssdttime(plan, work, dsdt=dsdt, dump_dsdt=dump_dsdt, log=log)
@@ -266,7 +271,8 @@ def build_efi(plan: BuildPlan, work: Path, out: Path, *, log: Log = lambda _: No
 
     # reconcile config against what actually made it onto disk
     cfg["Kernel"]["Add"] = [
-        e for e in cfg["Kernel"]["Add"] if e["BundlePath"].removesuffix(".kext") in good_kexts
+        e for e in cfg["Kernel"]["Add"]
+        if e["BundlePath"].split("/")[-1].removesuffix(".kext") in good_kexts
     ]
     dropped_acpi = layout.prune_dead_acpi(cfg, oc)
     if dropped_acpi:
