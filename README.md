@@ -4,7 +4,7 @@
 
 **Build a bootable OpenCore EFI for any laptop or PC you own.**
 
-⚗️ **v1.5.0 "Titanium" is out: opt-in WhateverXe support for Xe-LP iGPUs, automatic CPUID spoofing for gen 11-13 Intel, and a more general GPIO controller-enable fix.**
+⚗️ **v1.5.1 "Vanadium" is out: real Tahoe recovery downloads, laptops keep their embedded controller on, and VoodooI2C loads with its required helpers.**
 See [CHANGELOG.md](CHANGELOG.md) for what's new. Want to help test what's next? Join the beta channel (toggle in the GUI) or hop into the Discord.
 
 > [!WARNING]
