@@ -1,15 +1,18 @@
 # Contributing
 
-## CLI (`ocforge/`)
+## Testing
+
+Set up once, then run both checks from the repo root:
 
 ```bash
-pip install -e ".[dev]"
-ruff check ocforge tests
-pytest -q
+pip install -e ".[dev]"   # installs pytest and ruff
+python -m pytest -q       # runs tests/
+python -m ruff check ocforge tests
 ```
 
-Both run in CI on every push and PR (`.github/workflows/ci.yml`) — a red
-check there means something's actually broken, not just style nitpicking.
+Both run in CI on every push and PR (`.github/workflows/ci.yml`, Python 3.11)
+— a red check there means something's actually broken, not just style
+nitpicking. Ruff settings (line length 100) live in `pyproject.toml`.
 
 `pytest` mocks the network out entirely, so it proves the *decision logic*
 is right but can't catch a third-party kext renaming its release asset or
@@ -21,6 +24,8 @@ a few representative machines and validates the result with the real
 push to master and a daily schedule. Run it locally with
 `python scripts/e2e_smoke.py` if you're touching anything that changes what
 gets fetched or how `config.plist` gets assembled.
+
+## CLI (`ocforge/`)
 
 A few conventions the existing code follows, worth matching:
 
